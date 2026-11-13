@@ -3,6 +3,8 @@ import { notFound } from "next/navigation";
 import { Container, PageHeader } from "@/components/ui";
 import { createClient } from "@/lib/supabase/server";
 
+export const instant = false;
+
 const DAYS = [
   "monday",
   "tuesday",

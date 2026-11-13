@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useState, type ReactNode } from "react";
+import { Suspense, useEffect, useState, type ReactNode } from "react";
 import { CampusLogo } from "@/components/campus-logo";
 import { NavIcon } from "@/components/nav-icons";
 import { NotificationsMenu } from "@/components/notifications-menu";
@@ -17,6 +17,90 @@ type ShellUser = {
   avatarUrl: string | null;
 };
 
+function navClass(active: boolean, collapsed: boolean) {
+  return `flex items-center gap-3 rounded-md px-2.5 py-2 text-sm transition ${
+    active ? "bg-surface font-medium text-fg" : "text-muted hover:bg-surface hover:text-fg"
+  } ${collapsed ? "justify-center" : ""}`;
+}
+
+function StudentNavLinks({
+  collapsed,
+  forceExpanded = false,
+}: {
+  collapsed: boolean;
+  forceExpanded?: boolean;
+}) {
+  const pathname = usePathname();
+  const showLabels = forceExpanded || !collapsed;
+  const compact = forceExpanded ? false : collapsed;
+
+  const isActive = (href: string) =>
+    pathname === href || (href !== "/dashboard" && pathname.startsWith(href));
+
+  return (
+    <>
+      <Link
+        href="/dashboard"
+        className={navClass(pathname === "/dashboard", compact)}
+        title="Home"
+      >
+        <NavIcon name="home" />
+        {showLabels ? <span>Home</span> : null}
+      </Link>
+      {STUDENT_NAV.map((item) => (
+        <Link
+          key={item.href}
+          href={item.href}
+          title={item.label}
+          className={navClass(isActive(item.href), compact)}
+        >
+          <NavIcon name={item.icon} />
+          {showLabels ? <span className="truncate">{item.label}</span> : null}
+        </Link>
+      ))}
+    </>
+  );
+}
+
+function StudentNavLinksFallback({
+  collapsed,
+  forceExpanded = false,
+}: {
+  collapsed: boolean;
+  forceExpanded?: boolean;
+}) {
+  const showLabels = forceExpanded || !collapsed;
+  const compact = forceExpanded ? false : collapsed;
+
+  return (
+    <>
+      <Link href="/dashboard" className={navClass(false, compact)} title="Home">
+        <NavIcon name="home" />
+        {showLabels ? <span>Home</span> : null}
+      </Link>
+      {STUDENT_NAV.map((item) => (
+        <Link
+          key={item.href}
+          href={item.href}
+          title={item.label}
+          className={navClass(false, compact)}
+        >
+          <NavIcon name={item.icon} />
+          {showLabels ? <span className="truncate">{item.label}</span> : null}
+        </Link>
+      ))}
+    </>
+  );
+}
+
+function CloseMobileOnNavigate({ onNavigate }: { onNavigate: () => void }) {
+  const pathname = usePathname();
+  useEffect(() => {
+    onNavigate();
+  }, [pathname, onNavigate]);
+  return null;
+}
+
 export function StudentShell({
   user,
   children,
@@ -24,7 +108,6 @@ export function StudentShell({
   user: ShellUser | null;
   children: ReactNode;
 }) {
-  const pathname = usePathname();
   const { theme, toggleTheme } = useTheme();
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -33,10 +116,6 @@ export function StudentShell({
     const stored = window.localStorage.getItem("campusos-sidebar");
     if (stored === "collapsed") setCollapsed(true);
   }, []);
-
-  useEffect(() => {
-    setMobileOpen(false);
-  }, [pathname]);
 
   function toggleCollapsed() {
     setCollapsed((prev) => {
@@ -78,14 +157,6 @@ export function StudentShell({
     );
   }
 
-  const isActive = (href: string) =>
-    pathname === href || (href !== "/dashboard" && pathname.startsWith(href));
-
-  const navClass = (active: boolean) =>
-    `flex items-center gap-3 rounded-md px-2.5 py-2 text-sm transition ${
-      active ? "bg-surface font-medium text-fg" : "text-muted hover:bg-surface hover:text-fg"
-    } ${collapsed ? "justify-center" : ""}`;
-
   const sidebarInner = (
     <>
       <div
@@ -112,21 +183,9 @@ export function StudentShell({
       </div>
 
       <nav className="sidebar-scroll min-h-0 flex-1 space-y-1 overflow-y-auto p-2">
-        <Link href="/dashboard" className={navClass(pathname === "/dashboard")} title="Home">
-          <NavIcon name="home" />
-          {!collapsed ? <span>Home</span> : null}
-        </Link>
-        {STUDENT_NAV.map((item) => (
-          <Link
-            key={item.href}
-            href={item.href}
-            title={item.label}
-            className={navClass(isActive(item.href))}
-          >
-            <NavIcon name={item.icon} />
-            {!collapsed ? <span className="truncate">{item.label}</span> : null}
-          </Link>
-        ))}
+        <Suspense fallback={<StudentNavLinksFallback collapsed={collapsed} />}>
+          <StudentNavLinks collapsed={collapsed} />
+        </Suspense>
       </nav>
 
       <div className={`shrink-0 border-t border-border p-3 ${collapsed ? "flex justify-center" : ""}`}>
@@ -145,6 +204,10 @@ export function StudentShell({
 
   return (
     <div className="flex min-h-dvh bg-bg text-fg">
+      <Suspense fallback={null}>
+        <CloseMobileOnNavigate onNavigate={() => setMobileOpen(false)} />
+      </Suspense>
+
       {/* Fixed desktop sidebar — does not scroll with page */}
       <aside
         className={`fixed inset-y-0 left-0 z-40 hidden flex-col border-r border-border bg-bg lg:flex ${
@@ -182,19 +245,9 @@ export function StudentShell({
               </button>
             </div>
             <nav className="flex-1 space-y-1 overflow-y-auto p-2">
-              <Link
-                href="/dashboard"
-                className={navClass(pathname === "/dashboard").replace("justify-center", "")}
-              >
-                <NavIcon name="home" />
-                <span>Home</span>
-              </Link>
-              {STUDENT_NAV.map((item) => (
-                <Link key={item.href} href={item.href} className={navClass(isActive(item.href)).replace("justify-center", "")}>
-                  <NavIcon name={item.icon} />
-                  <span>{item.label}</span>
-                </Link>
-              ))}
+              <Suspense fallback={<StudentNavLinksFallback collapsed={false} forceExpanded />}>
+                <StudentNavLinks collapsed={false} forceExpanded />
+              </Suspense>
             </nav>
           </div>
         </div>

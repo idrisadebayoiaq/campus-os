@@ -43,10 +43,13 @@ export async function StudentShellServer({ children }: { children: React.ReactNo
   );
 }
 
-export function StudentShellFallback({ children }: { children: React.ReactNode }) {
+/** Static chrome only — do not pass page children into Suspense fallbacks. */
+export function StudentShellFallback() {
   return (
     <ThemeProvider>
-      <StudentShell user={null}>{children}</StudentShell>
+      <StudentShell user={null}>
+        <div className="mx-auto max-w-5xl px-4 py-10 text-sm text-muted">Loading…</div>
+      </StudentShell>
     </ThemeProvider>
   );
 }

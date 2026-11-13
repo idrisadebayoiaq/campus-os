@@ -45,7 +45,7 @@ export default function RootLayout({
         />
       </head>
       <body className="min-h-full bg-bg text-fg">
-        <Suspense fallback={<StudentShellFallback>{children}</StudentShellFallback>}>
+        <Suspense fallback={<StudentShellFallback />}>
           <StudentShellServer>{children}</StudentShellServer>
         </Suspense>
       </body>
