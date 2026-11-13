@@ -1,0 +1,18 @@
+export const STUDY_TOOLS = [
+  { href: "/study/courses", title: "Courses", body: "Register and open course workspaces" },
+  { href: "/study/timetable", title: "Timetable", body: "Lectures, venues, overlap warnings" },
+  { href: "/study/assignments", title: "Assignments", body: "Deadlines and pending work" },
+  { href: "/study/exams", title: "Exams", body: "Exam dates and countdowns" },
+  { href: "/study/calendar", title: "Calendar", body: "Semester dates and events" },
+  { href: "/study/planner", title: "Planner", body: "Personal study blocks" },
+  { href: "/study/cgpa", title: "CGPA", body: "GPA, targets, and projections" },
+  { href: "/study/library", title: "Notes", body: "Personal study library" },
+  { href: "/study/past-questions", title: "Past Questions", body: "Revision library" },
+  { href: "/study/flashcards", title: "Flashcards", body: "Spaced repetition decks" },
+  { href: "/study/cbt", title: "Mock CBT", body: "Timed practice tests" },
+  { href: "/study/focus", title: "Focus Timer", body: "Pomodoro study sessions" },
+  { href: "/study/ai", title: "AI Tutor", body: "Explain, practice, teach step-by-step" },
+  { href: "/study/groups", title: "Study Groups", body: "Course communities" },
+  { href: "/study/tutors", title: "Peer Tutors", body: "Find mentors for courses" },
+  { href: "/study/insights", title: "Insights", body: "Focus time, CBT, and AI usage" },
+] as const;

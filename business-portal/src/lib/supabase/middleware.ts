@@ -1,0 +1,68 @@
+import { createServerClient } from "@supabase/ssr";
+import { NextResponse, type NextRequest } from "next/server";
+
+const AUTH_PATHS = ["/login", "/signup", "/business-rules"];
+
+function isAuthPath(pathname: string) {
+  return AUTH_PATHS.some(
+    (path) => pathname === path || pathname.startsWith(`${path}/`),
+  );
+}
+
+export async function updateSession(request: NextRequest) {
+  let supabaseResponse = NextResponse.next({ request });
+
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        getAll() {
+          return request.cookies.getAll();
+        },
+        setAll(cookiesToSet) {
+          cookiesToSet.forEach(({ name, value }) =>
+            request.cookies.set(name, value),
+          );
+          supabaseResponse = NextResponse.next({ request });
+          cookiesToSet.forEach(({ name, value, options }) =>
+            supabaseResponse.cookies.set(name, value, options),
+          );
+        },
+      },
+    },
+  );
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  const { pathname } = request.nextUrl;
+
+  function redirectTo(path: string) {
+    const url = request.nextUrl.clone();
+    url.pathname = path;
+    url.search = "";
+    if (path === "/login" && pathname !== "/" && !isAuthPath(pathname)) {
+      url.searchParams.set("next", pathname);
+    }
+    const response = NextResponse.redirect(url);
+    supabaseResponse.cookies.getAll().forEach((cookie) => {
+      response.cookies.set(cookie.name, cookie.value);
+    });
+    return response;
+  }
+
+  if (!user) {
+    if (pathname === "/" || !isAuthPath(pathname)) {
+      return redirectTo("/login");
+    }
+    return supabaseResponse;
+  }
+
+  if (pathname === "/" || pathname === "/login" || pathname === "/signup") {
+    return redirectTo("/dashboard");
+  }
+
+  return supabaseResponse;
+}

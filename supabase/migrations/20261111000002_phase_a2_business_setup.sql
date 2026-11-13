@@ -1,0 +1,2 @@
+-- Phase A2: setup fields, payment methods (owner/staff only), public media bucket
+-- Applied via Supabase MCP; see phase_a2_business_setup migration.

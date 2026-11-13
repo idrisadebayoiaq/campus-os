@@ -1,0 +1,108 @@
+@import "tailwindcss";
+
+:root {
+  --bg: #ffffff;
+  --fg: #0a0a0a;
+  --muted: #737373;
+  --border: #e5e5e5;
+  --surface: #f7f7f7;
+  --inverse-bg: #0a0a0a;
+  --inverse-fg: #ffffff;
+  --danger: #b91c1c;
+  --success: #15803d;
+  --warn: #a16207;
+  --chat-mine: #0a0a0a;
+  --chat-mine-fg: #ffffff;
+  --chat-theirs: #f0f0f0;
+  --chat-theirs-fg: #0a0a0a;
+  --sidebar-w: 16.5rem;
+  --sidebar-w-collapsed: 4.5rem;
+  --topbar-h: 3.5rem;
+}
+
+:root[data-theme="dark"] {
+  --bg: #0a0a0a;
+  --fg: #fafafa;
+  --muted: #a3a3a3;
+  --border: #262626;
+  --surface: #141414;
+  --inverse-bg: #fafafa;
+  --inverse-fg: #0a0a0a;
+  --chat-mine: #fafafa;
+  --chat-mine-fg: #0a0a0a;
+  --chat-theirs: #1f1f1f;
+  --chat-theirs-fg: #fafafa;
+}
+
+:root[data-theme="light"] {
+  --bg: #ffffff;
+  --fg: #0a0a0a;
+  --muted: #737373;
+  --border: #e5e5e5;
+  --surface: #f7f7f7;
+  --inverse-bg: #0a0a0a;
+  --inverse-fg: #ffffff;
+  --chat-mine: #0a0a0a;
+  --chat-mine-fg: #ffffff;
+  --chat-theirs: #f0f0f0;
+  --chat-theirs-fg: #0a0a0a;
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-fg: var(--fg);
+  --color-muted: var(--muted);
+  --color-border: var(--border);
+  --color-surface: var(--surface);
+  --color-inverse-bg: var(--inverse-bg);
+  --color-inverse-fg: var(--inverse-fg);
+  --color-danger: var(--danger);
+  --color-success: var(--success);
+  --color-warn: var(--warn);
+  --color-chat-mine: var(--chat-mine);
+  --color-chat-mine-fg: var(--chat-mine-fg);
+  --color-chat-theirs: var(--chat-theirs);
+  --color-chat-theirs-fg: var(--chat-theirs-fg);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--font-sans), system-ui, sans-serif;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+input,
+select,
+textarea,
+button {
+  font: inherit;
+}
+
+/* Logo PNGs ship with solid squircle fills — blend them out on matching surfaces */
+.campus-logo-light {
+  mix-blend-mode: multiply;
+}
+
+.campus-logo-dark {
+  mix-blend-mode: screen;
+}
+
+.sidebar-scroll::-webkit-scrollbar {
+  width: 6px;
+}
+.sidebar-scroll::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 999px;
+}
