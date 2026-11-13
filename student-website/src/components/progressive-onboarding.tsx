@@ -29,7 +29,7 @@ type Props = {
   studentStatus?: string | null;
 };
 
-function normalizeCampuses(raw: Institution["campuses"]): Campus[] {
+function normalizeCampuses(raw: Institution["campuses"] | undefined): Campus[] {
   if (!raw) return [];
   return Array.isArray(raw) ? raw : [raw];
 }

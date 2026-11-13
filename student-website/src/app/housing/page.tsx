@@ -105,9 +105,14 @@ async function HousingResults({
         <div className="grid gap-4 sm:grid-cols-2">
           {filtered.map((unit) => {
             const property = Array.isArray(unit.properties) ? unit.properties[0] : unit.properties;
-            const areaName = Array.isArray(property?.campus_areas)
-              ? property?.campus_areas?.[0]?.name
-              : property?.campus_areas?.name;
+            const campusAreas = property?.campus_areas as
+              | { name?: string | null }
+              | { name?: string | null }[]
+              | null
+              | undefined;
+            const areaName = Array.isArray(campusAreas)
+              ? campusAreas[0]?.name
+              : campusAreas?.name;
             const total = unitTotal(unit);
             return (
               <Link
