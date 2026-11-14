@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { formatNaira } from "@/lib/campus";
-import { Button } from "@/components/ui";
+import { Button, Field } from "@/components/ui";
 
 type MenuItem = {
   id: string;
@@ -100,17 +100,23 @@ export function FoodOrderForm({
       <h2 className="font-medium">Pickup order</h2>
       <div className="space-y-2">
         {menu.map((item) => (
-          <div key={item.id} className="flex items-center justify-between gap-3 text-sm">
-            <span>{item.name}</span>
-            <input
-              type="number"
-              min={0}
-              className="h-10 w-20 rounded-md border border-border bg-bg px-2"
-              value={qty[item.id] || 0}
-              onChange={(e) =>
-                setQty((prev) => ({ ...prev, [item.id]: Number(e.target.value) }))
-              }
-            />
+          <div key={item.id} className="flex items-end justify-between gap-3 text-sm">
+            <span className="py-2">{item.name}</span>
+            <div className="w-20 shrink-0">
+              <Field label="Qty">
+                <input
+                  type="number"
+                  min={0}
+                  id={`qty-${item.id}`}
+                  aria-label={`Quantity for ${item.name}`}
+                  className="h-10 w-full rounded-md border border-border bg-bg px-2"
+                  value={qty[item.id] || 0}
+                  onChange={(e) =>
+                    setQty((prev) => ({ ...prev, [item.id]: Number(e.target.value) }))
+                  }
+                />
+              </Field>
+            </div>
           </div>
         ))}
       </div>

@@ -1,5 +1,5 @@
 import { LibraryPanel } from "@/components/study/library-panel";
-import { ButtonLink, Container, PageHeader } from "@/components/ui";
+import { Container, PageHeader } from "@/components/ui";
 import { createClient } from "@/lib/supabase/server";
 
 export const metadata = { title: "Study library" };
@@ -26,10 +26,7 @@ export default async function LibraryPage() {
   return (
     <Container>
       <div className="space-y-8 py-12">
-        <PageHeader title="Notes library" description="Your notes." />
-        <ButtonLink href="/study" variant="secondary">
-          Study Hub
-        </ButtonLink>
+        <PageHeader title="Notes library" description="Save notes, links, and snippets by course." />
         <LibraryPanel items={items ?? []} courses={courses ?? []} />
       </div>
     </Container>

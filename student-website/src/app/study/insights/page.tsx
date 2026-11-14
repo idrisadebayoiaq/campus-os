@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { Container, EmptyState, PageHeader } from "@/components/ui";
 import { createClient } from "@/lib/supabase/server";
 
@@ -54,7 +53,7 @@ export default async function StudyInsightsPage() {
       <div className="mx-auto max-w-2xl space-y-8 py-12">
         <PageHeader
           title="Study insights"
-          description="Study habits overview."
+          description="Focus time, mock CBT scores, and AI usage at a glance."
         />
 
         <div className="grid gap-4 sm:grid-cols-3">
@@ -81,9 +80,6 @@ export default async function StudyInsightsPage() {
           )}
         </section>
 
-        <Link href="/study" className="text-sm underline underline-offset-2">
-          Back to Study Hub
-        </Link>
       </div>
     </Container>
   );

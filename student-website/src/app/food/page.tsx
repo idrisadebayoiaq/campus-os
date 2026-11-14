@@ -22,7 +22,7 @@ async function FoodDirectory() {
 
   const { data: vendors } = await supabase
     .from("business_profiles")
-    .select("id, display_name, slug, bio, setup_complete")
+    .select("id, display_name, slug, bio, setup_complete, logo_url, cover_url")
     .eq("business_type", "food_vendor")
     .eq("campus_id", campus.campusId)
     .eq("is_active", true)
@@ -40,16 +40,28 @@ async function FoodDirectory() {
         />
       ) : (
         <div className="grid gap-4 sm:grid-cols-2">
-          {vendors.map((v) => (
-            <Link
-              key={v.id}
-              href={`/food/${v.id}`}
-              className="rounded-md border border-border p-4 hover:bg-surface"
-            >
-              <p className="font-medium">{v.display_name}</p>
-              <p className="mt-1 text-sm text-muted">{v.bio || "Campus food vendor"}</p>
-            </Link>
-          ))}
+          {vendors.map((v) => {
+            const imageUrl = v.cover_url || v.logo_url;
+            return (
+              <Link
+                key={v.id}
+                href={`/food/${v.id}`}
+                className="overflow-hidden rounded-md border border-border transition hover:bg-surface"
+              >
+                <div className="aspect-[16/10] w-full border-b border-border bg-surface">
+                  {imageUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={imageUrl} alt="" className="h-full w-full object-cover" />
+                  ) : null}
+                </div>
+                <div className="space-y-2 p-4">
+                  <p className="font-medium leading-snug">{v.display_name}</p>
+                  <p className="line-clamp-2 text-sm text-muted">{v.bio || "Campus food vendor"}</p>
+                  <p className="text-xs text-muted">Pickup on campus</p>
+                </div>
+              </Link>
+            );
+          })}
         </div>
       )}
     </div>

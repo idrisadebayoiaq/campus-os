@@ -21,7 +21,7 @@ export function Button({
 
   return (
     <button
-      className={`inline-flex h-11 items-center justify-center rounded-md px-4 text-sm font-medium transition disabled:opacity-50 ${styles} ${className}`}
+      className={`inline-flex h-11 items-center justify-center gap-2 whitespace-nowrap rounded-md px-4 text-sm font-medium transition disabled:opacity-50 ${styles} ${className}`}
       {...props}
     />
   );
@@ -48,7 +48,7 @@ export function ButtonLink({
   return (
     <Link
       href={href}
-      className={`inline-flex h-11 items-center justify-center rounded-md px-4 text-sm font-medium transition ${styles} ${className}`}
+      className={`inline-flex h-11 items-center justify-center gap-2 whitespace-nowrap rounded-md px-4 text-sm font-medium transition ${styles} ${className}`}
     >
       {children}
     </Link>

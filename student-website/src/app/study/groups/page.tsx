@@ -1,5 +1,5 @@
 import { GroupsPanel } from "@/components/study/groups-panel";
-import { ButtonLink, Container, PageHeader } from "@/components/ui";
+import { Container, PageHeader } from "@/components/ui";
 import { getStudentCampus } from "@/lib/campus";
 import { createClient } from "@/lib/supabase/server";
 
@@ -39,10 +39,7 @@ export default async function GroupsPage() {
   return (
     <Container>
       <div className="space-y-8 py-12">
-        <PageHeader title="Study groups" description="Course communities." />
-        <ButtonLink href="/study" variant="secondary">
-          Study Hub
-        </ButtonLink>
+        <PageHeader title="Study groups" description="Join course groups and share tips with peers." />
         <GroupsPanel
           groups={groups}
           memberships={memberships}

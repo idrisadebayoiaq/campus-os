@@ -1,5 +1,5 @@
 import { TimetableForm } from "@/components/study/timetable-form";
-import { ButtonLink, Container, PageHeader } from "@/components/ui";
+import { Container, PageHeader } from "@/components/ui";
 import { DAYS, type TimetableRow } from "@/lib/study/utils";
 import { createClient } from "@/lib/supabase/server";
 
@@ -28,10 +28,7 @@ export default async function TimetablePage() {
   return (
     <Container>
       <div className="space-y-8 py-12">
-        <PageHeader title="Timetable" description="Weekly lectures." />
-        <ButtonLink href="/study" variant="secondary">
-          Study Hub
-        </ButtonLink>
+        <PageHeader title="Timetable" description="Weekly lectures with times and venues." />
 
         <div className="divide-y divide-border rounded-md border border-border">
           {(rows as TimetableRow[])?.length ? (

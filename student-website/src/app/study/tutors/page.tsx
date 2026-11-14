@@ -1,5 +1,5 @@
 import { TutorsPanel } from "@/components/study/tutors-panel";
-import { ButtonLink, Container, PageHeader } from "@/components/ui";
+import { Container, PageHeader } from "@/components/ui";
 import { getStudentCampus } from "@/lib/campus";
 import { createClient } from "@/lib/supabase/server";
 
@@ -51,10 +51,7 @@ export default async function TutorsPage() {
   return (
     <Container>
       <div className="space-y-8 py-12">
-        <PageHeader title="Peer tutors" description="Find or offer tutoring." />
-        <ButtonLink href="/study" variant="secondary">
-          Study Hub
-        </ButtonLink>
+        <PageHeader title="Peer tutors" description="Find tutors on your campus or list yourself." />
         <TutorsPanel
           profiles={profiles}
           ownProfile={ownProfile}

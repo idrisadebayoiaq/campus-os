@@ -70,3 +70,11 @@ textarea,
 button {
   font: inherit;
 }
+
+.campus-logo-light {
+  mix-blend-mode: multiply;
+}
+
+.campus-logo-dark {
+  mix-blend-mode: screen;
+}

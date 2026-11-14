@@ -24,6 +24,10 @@ export const metadata: Metadata = {
   },
   description:
     "Business portal for CampusOS landlords, vendors, and campus service providers.",
+  applicationName: "CampusOS Portal",
+  icons: {
+    icon: [{ url: "/brand/mark.svg", type: "image/svg+xml" }],
+  },
 };
 
 export default function RootLayout({

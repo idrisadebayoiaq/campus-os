@@ -1,5 +1,5 @@
 import { FocusTimer } from "@/components/study/focus-timer";
-import { ButtonLink, Container, PageHeader } from "@/components/ui";
+import { Container, PageHeader } from "@/components/ui";
 import { createClient } from "@/lib/supabase/server";
 
 export const metadata = { title: "Focus timer" };
@@ -23,10 +23,7 @@ export default async function FocusPage() {
   return (
     <Container>
       <div className="space-y-8 py-12">
-        <PageHeader title="Focus timer" description="Pomodoro focus sessions." />
-        <ButtonLink href="/study" variant="secondary">
-          Study Hub
-        </ButtonLink>
+        <PageHeader title="Focus timer" description="25-minute Pomodoro blocks with automatic logging." />
         <FocusTimer />
         <div className="divide-y divide-border rounded-md border border-border">
           {(sessions ?? []).length ? (

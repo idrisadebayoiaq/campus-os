@@ -12,8 +12,39 @@ async function destinationAfterAuth() {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) return "/login";
-  // Onboarding is optional — complete anytime from Profile & settings.
   return "/dashboard";
+}
+
+function PasswordField({
+  name,
+  autoComplete,
+  placeholder,
+}: {
+  name: string;
+  autoComplete: string;
+  placeholder?: string;
+}) {
+  const [show, setShow] = useState(false);
+  return (
+    <div className="relative">
+      <Input
+        name={name}
+        type={show ? "text" : "password"}
+        required
+        autoComplete={autoComplete}
+        minLength={6}
+        placeholder={placeholder}
+        className="pr-16"
+      />
+      <button
+        type="button"
+        onClick={() => setShow((v) => !v)}
+        className="absolute inset-y-0 right-0 px-3 text-xs font-medium text-muted hover:text-fg"
+      >
+        {show ? "Hide" : "Show"}
+      </button>
+    </div>
+  );
 }
 
 export function LoginForm() {
@@ -55,18 +86,22 @@ export function LoginForm() {
   return (
     <form onSubmit={onSubmit} className="space-y-4">
       <Field label="Email">
-        <Input name="email" type="email" required autoComplete="email" />
-      </Field>
-      <Field label="Password">
         <Input
-          name="password"
-          type="password"
+          name="email"
+          type="email"
           required
-          autoComplete="current-password"
-          minLength={6}
+          autoComplete="email"
+          placeholder="you@school.edu.ng"
         />
       </Field>
-      {error ? <p className="text-sm text-danger">{error}</p> : null}
+      <Field label="Password">
+        <PasswordField name="password" autoComplete="current-password" />
+      </Field>
+      {error ? (
+        <p className="rounded-md border border-danger/30 bg-surface px-3 py-2 text-sm text-danger">
+          {error}
+        </p>
+      ) : null}
       <Button type="submit" disabled={loading} className="w-full">
         {loading ? "Signing in…" : "Log in"}
       </Button>
@@ -173,55 +208,73 @@ export function SignupForm() {
     <form onSubmit={onSubmit} className="space-y-4">
       <div className="grid gap-3 sm:grid-cols-2">
         <Field label="First name">
-          <Input name="first_name" required autoComplete="given-name" />
+          <Input name="first_name" required autoComplete="given-name" placeholder="Ada" />
         </Field>
         <Field label="Last name">
-          <Input name="last_name" required autoComplete="family-name" />
+          <Input name="last_name" required autoComplete="family-name" placeholder="Okonkwo" />
         </Field>
       </div>
       <Field label="Preferred name (optional)">
-        <Input name="preferred_name" autoComplete="nickname" placeholder="What should CampusOS call you?" />
+        <Input
+          name="preferred_name"
+          autoComplete="nickname"
+          placeholder="What should CampusOS call you?"
+        />
       </Field>
       <Field label="Email">
-        <Input name="email" type="email" required autoComplete="email" />
+        <Input
+          name="email"
+          type="email"
+          required
+          autoComplete="email"
+          placeholder="you@school.edu.ng"
+        />
       </Field>
       <Field label="Password">
-        <Input
+        <PasswordField
           name="password"
-          type="password"
-          required
           autoComplete="new-password"
-          minLength={6}
+          placeholder="At least 6 characters"
         />
       </Field>
 
-      <label className="flex items-start gap-2 text-sm text-muted">
-        <input name="terms" type="checkbox" className="mt-1" required />
-        <span>
-          I agree to the CampusOS{" "}
-          <Link href="/terms" className="underline underline-offset-2">
-            Terms of Service
-          </Link>
-          .
-        </span>
-      </label>
-      <label className="flex items-start gap-2 text-sm text-muted">
-        <input name="privacy" type="checkbox" className="mt-1" required />
-        <span>
-          I acknowledge the CampusOS{" "}
-          <Link href="/privacy" className="underline underline-offset-2">
-            Privacy notice
-          </Link>
-          .
-        </span>
-      </label>
-      <label className="flex items-start gap-2 text-sm text-muted">
-        <input name="marketing" type="checkbox" className="mt-1" />
-        <span>Send me optional CampusOS tips and offers (not required for the app).</span>
-      </label>
+      <div className="space-y-3 rounded-xl border border-border bg-surface/60 p-3">
+        <label className="flex items-start gap-2.5 text-sm text-muted">
+          <input name="terms" type="checkbox" className="mt-1" required />
+          <span>
+            I agree to the CampusOS{" "}
+            <Link href="/terms" className="text-fg underline underline-offset-2">
+              Terms of Service
+            </Link>
+            .
+          </span>
+        </label>
+        <label className="flex items-start gap-2.5 text-sm text-muted">
+          <input name="privacy" type="checkbox" className="mt-1" required />
+          <span>
+            I acknowledge the CampusOS{" "}
+            <Link href="/privacy" className="text-fg underline underline-offset-2">
+              Privacy notice
+            </Link>
+            .
+          </span>
+        </label>
+        <label className="flex items-start gap-2.5 text-sm text-muted">
+          <input name="marketing" type="checkbox" className="mt-1" />
+          <span>Send me optional CampusOS tips and offers (not required).</span>
+        </label>
+      </div>
 
-      {error ? <p className="text-sm text-danger">{error}</p> : null}
-      {message ? <p className="text-sm text-success">{message}</p> : null}
+      {error ? (
+        <p className="rounded-md border border-danger/30 bg-surface px-3 py-2 text-sm text-danger">
+          {error}
+        </p>
+      ) : null}
+      {message ? (
+        <p className="rounded-md border border-success/30 bg-surface px-3 py-2 text-sm text-success">
+          {message}
+        </p>
+      ) : null}
       <Button type="submit" disabled={loading} className="w-full">
         {loading ? "Creating account…" : "Create account"}
       </Button>

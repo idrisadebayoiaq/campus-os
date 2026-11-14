@@ -1,5 +1,5 @@
 import { CgpaPanel } from "@/components/study/cgpa-panel";
-import { ButtonLink, Container, PageHeader } from "@/components/ui";
+import { Container, PageHeader } from "@/components/ui";
 import { createClient } from "@/lib/supabase/server";
 
 export const metadata = { title: "CGPA" };
@@ -22,10 +22,7 @@ export default async function CgpaPage() {
   return (
     <Container>
       <div className="space-y-8 py-12">
-        <PageHeader title="CGPA" description="Grades and targets." />
-        <ButtonLink href="/study" variant="secondary">
-          Study Hub
-        </ButtonLink>
+        <PageHeader title="CGPA" description="Log grades and watch your semester CGPA." />
         <CgpaPanel grades={grades ?? []} courses={courses ?? []} />
       </div>
     </Container>

@@ -11,6 +11,27 @@ import { createClient } from "@/lib/supabase/server";
 
 export const instant = false;
 
+function WhatsAppShare({
+  unitId,
+  title,
+  campusName,
+}: {
+  unitId: string;
+  title: string;
+  campusName: string;
+}) {
+  const base = process.env.NEXT_PUBLIC_STUDENT_URL?.replace(/\/$/, "");
+  const listingUrl = base ? `${base}/housing/${unitId}` : `/housing/${unitId}`;
+  const text = `CampusOS housing: ${title} near ${campusName}\n${listingUrl}`;
+  const href = `https://wa.me/?text=${encodeURIComponent(text)}`;
+
+  return (
+    <a href={href} target="_blank" rel="noreferrer" className="text-sm underline underline-offset-2">
+      Share on WhatsApp
+    </a>
+  );
+}
+
 async function HousingDetail({ id }: { id: string }) {
   const supabase = await createClient();
   const campus = await getStudentCampus(supabase);
@@ -125,14 +146,11 @@ async function HousingDetail({ id }: { id: string }) {
         Rent payment may happen off CampusOS for now. Always inspect in person before paying.
       </p>
 
-      <a
-        href={`https://wa.me/?text=${encodeURIComponent(`CampusOS housing: ${unit.title} — check this listing near ${campus?.campusName || "campus"}`)}`}
-        target="_blank"
-        rel="noreferrer"
-        className="text-sm underline underline-offset-2"
-      >
-        Share on WhatsApp
-      </a>
+      <WhatsAppShare
+        unitId={unit.id}
+        title={unit.title}
+        campusName={campus?.campusName || "campus"}
+      />
 
       <HousingActions unitId={unit.id} businessId={property.business_id} loggedIn={!!user} />
     </div>

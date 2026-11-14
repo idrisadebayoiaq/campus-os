@@ -411,10 +411,11 @@ export function InboxChat({
                   <button
                     type="submit"
                     disabled={sending || !draft.trim()}
-                    className="inline-flex h-11 w-11 items-center justify-center rounded-full bg-inverse-bg text-inverse-fg disabled:opacity-40"
-                    aria-label="Send"
+                    className="inline-flex h-11 shrink-0 items-center justify-center gap-2 rounded-md bg-inverse-bg px-4 text-sm font-medium text-inverse-fg disabled:opacity-40"
+                    aria-label="Send message"
                   >
                     <NavIcon name="send" className="h-4 w-4" />
+                    <span>Send</span>
                   </button>
                 </div>
               </form>

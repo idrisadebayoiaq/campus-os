@@ -1,5 +1,5 @@
 import { CbtPanel } from "@/components/study/cbt-panel";
-import { ButtonLink, Container, PageHeader } from "@/components/ui";
+import { Container, PageHeader } from "@/components/ui";
 import { createClient } from "@/lib/supabase/server";
 
 export const metadata = { title: "Mock CBT" };
@@ -37,10 +37,7 @@ export default async function CbtPage() {
   return (
     <Container>
       <div className="space-y-8 py-12">
-        <PageHeader title="Mock CBT" description="Timed practice." />
-        <ButtonLink href="/study" variant="secondary">
-          Study Hub
-        </ButtonLink>
+        <PageHeader title="Mock CBT" description="Timed MCQs from saved or AI-generated questions." />
         <CbtPanel savedQuestions={normalized} attempts={attempts ?? []} />
       </div>
     </Container>

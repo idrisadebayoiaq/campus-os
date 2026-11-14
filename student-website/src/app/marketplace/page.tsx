@@ -43,15 +43,30 @@ async function MarketplaceList() {
             <Link
               key={item.id}
               href={`/marketplace/${item.id}`}
-              className="rounded-md border border-border p-4 hover:bg-surface"
+              className="overflow-hidden rounded-md border border-border transition hover:bg-surface"
             >
-              <p className="font-medium">{item.title}</p>
-              <p className="mt-1 text-sm capitalize text-muted">
-                {item.kind} · {item.category}
-                {item.is_commercial ? " · commercial" : ""}
-              </p>
-              <p className="mt-3 text-sm">{item.price != null ? formatNaira(item.price) : "Ask"}</p>
-              <p className="mt-2 line-clamp-2 text-sm text-muted">{item.description}</p>
+              <div className="aspect-[16/10] w-full border-b border-border bg-surface">
+                {item.image_url ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={item.image_url} alt="" className="h-full w-full object-cover" />
+                ) : null}
+              </div>
+              <div className="space-y-2 p-4">
+                <p className="font-medium leading-snug">{item.title}</p>
+                <p className="text-sm capitalize text-muted">
+                  {item.kind} · {item.category}
+                  {item.is_commercial ? " · commercial" : ""}
+                </p>
+                <p className="text-sm">
+                  Price{" "}
+                  <span className="font-semibold tabular-nums">
+                    {item.price != null ? formatNaira(item.price) : "Ask"}
+                  </span>
+                </p>
+                {item.description ? (
+                  <p className="line-clamp-2 text-sm text-muted">{item.description}</p>
+                ) : null}
+              </div>
             </Link>
           ))}
         </div>

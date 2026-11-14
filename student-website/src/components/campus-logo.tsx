@@ -29,7 +29,9 @@ export function CampusLogo({
           alt="CampusOS"
           width={size * 2}
           height={size * 2}
-          className="h-full w-full object-cover"
+          className={`h-full w-full object-cover ${
+            theme === "dark" ? "campus-logo-dark" : "campus-logo-light"
+          }`}
           priority
         />
       </span>

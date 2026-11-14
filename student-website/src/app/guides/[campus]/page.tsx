@@ -1,7 +1,6 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { CampusScene } from "@/components/campus-3d/campus-scene";
-import { Container, PageHeader } from "@/components/ui";
+import { ButtonLink, Container, PageHeader } from "@/components/ui";
 import { createClient } from "@/lib/supabase/server";
 
 export const instant = false;
@@ -17,6 +16,21 @@ export async function generateMetadata({
     description: "Honest CampusOS housing and campus life ranges for this school.",
   };
 }
+
+const TIPS = [
+  {
+    title: "Inspect before paying",
+    body: "Visit the room in person. Photos and agent promises are not enough — check water, power, locks, and neighbors.",
+  },
+  {
+    title: "Ask about total move-in",
+    body: "Rent is only part of the cost. Confirm agent fee, agreement, caution, and service charges upfront on CampusOS listings.",
+  },
+  {
+    title: "Prefer verified listings",
+    body: "Look for verification labels and known providers. Unverified listings can still help discovery, but verify identity yourself.",
+  },
+] as const;
 
 export default async function CampusGuidePage({
   params,
@@ -51,6 +65,8 @@ export default async function CampusGuidePage({
     .eq("campus_id", match.id)
     .order("name");
 
+  const areaNames = (areas ?? []).map((a) => a.name);
+
   return (
     <Container>
       <div className="mx-auto max-w-2xl space-y-8 py-12">
@@ -65,39 +81,66 @@ export default async function CampusGuidePage({
           heightClass="h-56 sm:h-72"
         />
 
-        <div className="space-y-4 text-sm leading-6 text-muted">
-          <p>
-            Location: {match.city || "—"}
-            {match.state ? `, ${match.state}` : ""}.
+        <p className="text-sm text-muted">
+          Location: {match.city || "—"}
+          {match.state ? `, ${match.state}` : ""}.
+        </p>
+
+        {areaNames.length > 0 ? (
+          <section className="space-y-3">
+            <h2 className="text-sm font-medium text-fg">Areas near campus</h2>
+            <div className="flex flex-wrap gap-2">
+              {areaNames.map((name) => (
+                <span
+                  key={name}
+                  className="rounded-full border border-border bg-surface px-3 py-1 text-xs font-medium text-fg"
+                >
+                  {name}
+                </span>
+              ))}
+            </div>
+          </section>
+        ) : (
+          <p className="text-sm text-muted">
+            Campus areas are being indexed for this school. Housing search still respects your
+            selected campus.
           </p>
-          <p>
-            Neighborhoods CampusOS indexes near this campus:{" "}
-            {(areas ?? []).map((a) => a.name).join(", ") || "Coming soon"}.
-          </p>
-          <div className="rounded-md border border-border p-5">
-            <p className="font-medium text-fg">Example move-in ranges (pilot)</p>
-            <ul className="mt-3 list-disc space-y-1 pl-5">
-              <li>Shared room: ₦120,000 – ₦250,000 / year + fees</li>
-              <li>Self-contained: ₦350,000 – ₦700,000 / year + fees</li>
-              <li>Expect agent + agreement + caution on many off-campus listings</li>
-            </ul>
-          </div>
-          <p>
-            CampusOS keeps search scoped to the school you pick in onboarding. Results
-            from other campuses stay hidden.
-          </p>
+        )}
+
+        <section className="space-y-4">
+          <h2 className="text-sm font-medium text-fg">Practical tips</h2>
+          <ul className="space-y-4 text-sm leading-6">
+            {TIPS.map((tip) => (
+              <li key={tip.title}>
+                <p className="font-medium text-fg">{tip.title}</p>
+                <p className="mt-1 text-muted">{tip.body}</p>
+              </li>
+            ))}
+          </ul>
+        </section>
+
+        <div className="rounded-md border border-border p-5 text-sm">
+          <p className="font-medium text-fg">Example move-in ranges (pilot)</p>
+          <ul className="mt-3 list-disc space-y-1 pl-5 text-muted">
+            <li>Shared room: ₦120,000 – ₦250,000 / year + fees</li>
+            <li>Self-contained: ₦350,000 – ₦700,000 / year + fees</li>
+            <li>Expect agent + agreement + caution on many off-campus listings</li>
+          </ul>
         </div>
 
-        <div className="flex flex-wrap gap-3 text-sm">
-          <Link href="/housing" className="underline underline-offset-2">
-            Browse housing
-          </Link>
-          <Link href="/food" className="underline underline-offset-2">
+        <p className="text-sm leading-6 text-muted">
+          CampusOS keeps search scoped to the school you pick in onboarding. Results from other
+          campuses stay hidden.
+        </p>
+
+        <div className="flex flex-wrap gap-3">
+          <ButtonLink href="/housing">Browse housing</ButtonLink>
+          <ButtonLink href="/food" variant="secondary">
             Food nearby
-          </Link>
-          <Link href="/marketplace" className="underline underline-offset-2">
+          </ButtonLink>
+          <ButtonLink href="/marketplace" variant="secondary">
             Marketplace
-          </Link>
+          </ButtonLink>
         </div>
       </div>
     </Container>

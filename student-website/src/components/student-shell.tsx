@@ -45,7 +45,11 @@ function StudentNavLinks({
         title="Home"
       >
         <NavIcon name="home" />
-        {showLabels ? <span>Home</span> : null}
+        {showLabels ? (
+          <span>Home</span>
+        ) : (
+          <span className="sr-only">Home</span>
+        )}
       </Link>
       {STUDENT_NAV.map((item) => (
         <Link
@@ -55,7 +59,11 @@ function StudentNavLinks({
           className={navClass(isActive(item.href), compact)}
         >
           <NavIcon name={item.icon} />
-          {showLabels ? <span className="truncate">{item.label}</span> : null}
+          {showLabels ? (
+            <span className="truncate">{item.label}</span>
+          ) : (
+            <span className="sr-only">{item.label}</span>
+          )}
         </Link>
       ))}
     </>
@@ -76,7 +84,11 @@ function StudentNavLinksFallback({
     <>
       <Link href="/dashboard" className={navClass(false, compact)} title="Home">
         <NavIcon name="home" />
-        {showLabels ? <span>Home</span> : null}
+        {showLabels ? (
+          <span>Home</span>
+        ) : (
+          <span className="sr-only">Home</span>
+        )}
       </Link>
       {STUDENT_NAV.map((item) => (
         <Link
@@ -86,7 +98,11 @@ function StudentNavLinksFallback({
           className={navClass(false, compact)}
         >
           <NavIcon name={item.icon} />
-          {showLabels ? <span className="truncate">{item.label}</span> : null}
+          {showLabels ? (
+            <span className="truncate">{item.label}</span>
+          ) : (
+            <span className="sr-only">{item.label}</span>
+          )}
         </Link>
       ))}
     </>
@@ -130,22 +146,23 @@ export function StudentShell({
       <div className="flex min-h-full flex-col">
         <header className="border-b border-border bg-bg">
           <div className="mx-auto flex h-14 max-w-5xl items-center justify-between px-4">
-            <CampusLogo href="/login" />
+            <CampusLogo href="/" />
             <nav className="flex items-center gap-3 text-sm">
               <button
                 type="button"
                 onClick={toggleTheme}
-                className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-border"
+                className="inline-flex h-9 items-center gap-2 rounded-md border border-border px-2.5 text-xs font-medium"
                 aria-label="Toggle theme"
               >
                 <NavIcon name={theme === "dark" ? "sun" : "moon"} />
+                <span>{theme === "dark" ? "Light" : "Dark"}</span>
               </button>
               <Link href="/login" className="text-muted hover:text-fg">
                 Log in
               </Link>
               <Link
                 href="/signup"
-                className="rounded-md bg-inverse-bg px-3 py-2 text-inverse-fg"
+                className="rounded-md bg-inverse-bg px-3 py-2 font-medium text-inverse-fg"
               >
                 Sign up
               </Link>
@@ -258,11 +275,12 @@ export function StudentShell({
           <div className="flex min-w-0 items-center gap-2">
             <button
               type="button"
-              className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-border lg:hidden"
+              className="inline-flex h-9 items-center gap-2 rounded-md border border-border px-2.5 text-xs font-medium lg:hidden"
               onClick={() => setMobileOpen(true)}
               aria-label="Open menu"
             >
               <NavIcon name="menu" />
+              <span>Menu</span>
             </button>
             {collapsed ? (
               <button
@@ -286,17 +304,21 @@ export function StudentShell({
             <button
               type="button"
               onClick={toggleTheme}
-              className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-border hover:bg-surface"
+              className="inline-flex h-9 items-center gap-2 rounded-md border border-border px-2.5 text-xs font-medium hover:bg-surface"
               aria-label="Toggle theme"
             >
               <NavIcon name={theme === "dark" ? "sun" : "moon"} />
+              <span className="hidden sm:inline">
+                {theme === "dark" ? "Light" : "Dark"}
+              </span>
             </button>
             <NotificationsMenu userId={user.id} />
             <Link
               href="/inbox"
-              className="inline-flex h-9 items-center rounded-md border border-border px-3 text-xs font-medium hover:bg-surface"
+              className="inline-flex h-9 items-center gap-2 rounded-md border border-border px-3 text-xs font-medium hover:bg-surface"
             >
-              Inbox
+              <NavIcon name="inbox" className="h-3.5 w-3.5" />
+              <span>Inbox</span>
             </Link>
           </div>
         </header>

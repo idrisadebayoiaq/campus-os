@@ -1,5 +1,5 @@
 import { PlannerPanel } from "@/components/study/planner-panel";
-import { ButtonLink, Container, PageHeader } from "@/components/ui";
+import { Container, PageHeader } from "@/components/ui";
 import { createClient } from "@/lib/supabase/server";
 
 export const metadata = { title: "Study planner" };
@@ -26,10 +26,7 @@ export default async function PlannerPage() {
   return (
     <Container>
       <div className="space-y-8 py-12">
-        <PageHeader title="Planner" description="Study blocks." />
-        <ButtonLink href="/study" variant="secondary">
-          Study Hub
-        </ButtonLink>
+        <PageHeader title="Planner" description="Schedule revision and prep blocks on your calendar." />
         <PlannerPanel blocks={blocks ?? []} courses={courses ?? []} />
       </div>
     </Container>

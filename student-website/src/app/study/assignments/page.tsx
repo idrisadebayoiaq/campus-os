@@ -1,5 +1,5 @@
 import { TasksPanel } from "@/components/study/tasks-panel";
-import { ButtonLink, Container, PageHeader } from "@/components/ui";
+import { Container, PageHeader } from "@/components/ui";
 import { createClient } from "@/lib/supabase/server";
 
 export const metadata = { title: "Assignments" };
@@ -26,10 +26,7 @@ export default async function AssignmentsPage() {
   return (
     <Container>
       <div className="space-y-8 py-12">
-        <PageHeader title="Assignments" description="Deadlines." />
-        <ButtonLink href="/study" variant="secondary">
-          Study Hub
-        </ButtonLink>
+        <PageHeader title="Assignments" description="Track due dates and coursework by course." />
         <TasksPanel tasks={tasks ?? []} courses={courses ?? []} />
       </div>
     </Container>

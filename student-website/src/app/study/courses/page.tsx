@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { CourseForm } from "@/components/study/course-form";
-import { ButtonLink, Container, EmptyState, PageHeader } from "@/components/ui";
+import { Container, EmptyState, PageHeader } from "@/components/ui";
 import { getStudentCampus } from "@/lib/campus";
 import { createClient } from "@/lib/supabase/server";
 
@@ -32,13 +32,7 @@ export default async function CoursesPage() {
   return (
     <Container>
       <div className="space-y-8 py-12">
-        <PageHeader
-          title="Courses"
-          description="Your registered courses."
-        />
-        <ButtonLink href="/study" variant="secondary">
-          Back to Study Hub
-        </ButtonLink>
+        <PageHeader title="Courses" description="Add courses and open each course workspace." />
 
         <CourseForm campusId={campus?.campusId} />
 

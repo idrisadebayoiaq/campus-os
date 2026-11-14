@@ -1,29 +1,30 @@
 import Link from "next/link";
+import { AuthFrame } from "@/components/auth-frame";
 import { SignupForm } from "@/components/auth-forms";
-import { Container, PageHeader } from "@/components/ui";
 
 export const metadata = { title: "Sign up" };
 
 export default function SignupPage() {
   return (
-    <Container>
-      <div className="mx-auto max-w-md space-y-8 py-12">
-        <PageHeader
-          title="Create student account"
-          description="Create your student account."
-        />
-        <SignupForm />
-        <p className="text-sm text-muted">
+    <AuthFrame
+      eyebrow="Get started"
+      title="Create your student account"
+      description="Takes a minute. You can pick your school and finish setup anytime after."
+      panelTitle="One account for campus life"
+      panelBody="Save housing searches, track classes, message providers, and study with CampusOS AI."
+    >
+      <SignupForm />
+      <div className="mt-6 space-y-3 border-t border-border pt-5 text-sm text-muted">
+        <p>
           Already have an account?{" "}
-          <Link href="/login" className="text-fg underline underline-offset-2">
+          <Link href="/login" className="font-medium text-fg underline underline-offset-2">
             Log in
           </Link>
         </p>
-        <p className="text-sm text-muted">
-          Are you a landlord or vendor? Use the business portal to apply — this
-          website is for students.
+        <p className="text-xs">
+          Are you a landlord or vendor? Apply through the business portal — this website is for students.
         </p>
       </div>
-    </Container>
+    </AuthFrame>
   );
 }

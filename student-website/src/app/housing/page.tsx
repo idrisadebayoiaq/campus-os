@@ -60,6 +60,23 @@ async function HousingResults({
     return true;
   });
 
+  const coverByUnit: Record<string, string> = {};
+  if (filtered.length) {
+    const { data: mediaRows } = await supabase
+      .from("listing_media")
+      .select("unit_id, url")
+      .in(
+        "unit_id",
+        filtered.map((u) => u.id),
+      )
+      .order("sort_order");
+    for (const row of mediaRows ?? []) {
+      if (row.unit_id && !coverByUnit[row.unit_id]) {
+        coverByUnit[row.unit_id] = row.url;
+      }
+    }
+  }
+
   return (
     <div className="space-y-6">
       <div className="rounded-md border border-border bg-surface px-4 py-3 text-sm">
@@ -114,27 +131,41 @@ async function HousingResults({
               ? campusAreas[0]?.name
               : campusAreas?.name;
             const total = unitTotal(unit);
+            const unitType = unit.unit_type.replaceAll("_", " ");
+            const photoUrl = coverByUnit[unit.id];
             return (
               <Link
                 key={unit.id}
                 href={`/housing/${unit.id}`}
-                className="rounded-md border border-border p-4 hover:bg-surface"
+                className="overflow-hidden rounded-md border border-border transition hover:bg-surface"
               >
-                <p className="font-medium">{unit.title}</p>
-                <p className="mt-1 text-sm text-muted">
-                  {property?.title} · {areaName || "Nearby"} · {unit.unit_type.replaceAll("_", " ")}
-                </p>
-                <p className="mt-3 text-sm">
-                  Total move-in <span className="font-medium">{formatNaira(total)}</span>
-                </p>
-                <p className="mt-1 text-xs capitalize text-muted">
-                  {(property?.verification_label || "unverified").replaceAll("_", " ")}
-                  {property?.availability_checked_at &&
-                  Date.now() - new Date(property.availability_checked_at).getTime() >
-                    14 * 24 * 60 * 60 * 1000
-                    ? " · needs reconfirm"
-                    : ""}
-                </p>
+                <div className="aspect-[16/10] w-full border-b border-border bg-surface">
+                  {photoUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={photoUrl} alt="" className="h-full w-full object-cover" />
+                  ) : null}
+                </div>
+                <div className="space-y-2 p-4">
+                  <p className="font-medium leading-snug">{unit.title}</p>
+                  <p className="text-sm text-muted">
+                    {areaName || "Nearby"} · <span className="capitalize">{unitType}</span>
+                  </p>
+                  {property?.title ? (
+                    <p className="text-xs text-muted">{property.title}</p>
+                  ) : null}
+                  <p className="text-sm">
+                    Total move-in{" "}
+                    <span className="font-semibold tabular-nums">{formatNaira(total)}</span>
+                  </p>
+                  <p className="text-xs capitalize text-muted">
+                    {(property?.verification_label || "unverified").replaceAll("_", " ")}
+                    {property?.availability_checked_at &&
+                    Date.now() - new Date(property.availability_checked_at).getTime() >
+                      14 * 24 * 60 * 60 * 1000
+                      ? " · needs reconfirm"
+                      : ""}
+                  </p>
+                </div>
               </Link>
             );
           })}

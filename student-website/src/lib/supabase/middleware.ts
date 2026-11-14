@@ -1,7 +1,7 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
-const AUTH_PATHS = ["/login", "/signup", "/privacy", "/terms"];
+const AUTH_PATHS = ["/", "/login", "/signup", "/privacy", "/terms", "/download"];
 
 function isAuthPath(pathname: string) {
   return AUTH_PATHS.some(
@@ -54,13 +54,13 @@ export async function updateSession(request: NextRequest) {
   }
 
   if (!user) {
-    if (pathname === "/" || !isAuthPath(pathname)) {
+    if (!isAuthPath(pathname)) {
       return redirectTo("/login");
     }
     return supabaseResponse;
   }
 
-  if (pathname === "/" || pathname === "/login" || pathname === "/signup") {
+  if (pathname === "/login" || pathname === "/signup") {
     return redirectTo("/dashboard");
   }
 

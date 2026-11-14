@@ -47,7 +47,7 @@ export default async function CourseWorkspacePage({
       <div className="space-y-8 py-12">
         <PageHeader
           title={`${course.code} — ${course.title}`}
-          description="Course workspace."
+          description="Timetable, tasks, and materials for this course."
         />
         <ButtonLink href="/study/courses" variant="secondary">
           All courses

@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { NavIcon } from "@/components/nav-icons";
 import { Container } from "@/components/ui";
 import { getStudentCampus } from "@/lib/campus";
+import { SETUP_CARDS } from "@/lib/onboarding";
 import { calcCgpa } from "@/lib/study/ai";
 import { DAYS, getNextClass, type TimetableRow } from "@/lib/study/utils";
 import { createClient } from "@/lib/supabase/server";
@@ -70,6 +71,7 @@ export default async function StudentDashboardPage() {
     { data: grades },
     { data: timetable },
     { data: progress },
+    { count: courseCount },
   ] = await Promise.all([
     supabase
       .from("student_profiles")
@@ -96,6 +98,10 @@ export default async function StudentDashboardPage() {
       .select("is_complete")
       .eq("user_id", user.id)
       .maybeSingle(),
+    supabase
+      .from("student_courses")
+      .select("id", { count: "exact", head: true })
+      .eq("user_id", user.id),
   ]);
 
   const campus = await getStudentCampus(supabase, user.id);
@@ -120,6 +126,7 @@ export default async function StudentDashboardPage() {
     : null;
 
   const shortcuts = [...STUDY_SHORTCUTS, ...midShortcuts, AI_SHORTCUT, ...SOCIAL_SHORTCUTS];
+  const showSetupList = !progress?.is_complete || (courseCount ?? 0) === 0;
 
   return (
     <Container>
@@ -175,6 +182,25 @@ export default async function StudentDashboardPage() {
             <Link href="/profile" className="underline underline-offset-2">
               Settings
             </Link>
+          </section>
+        ) : null}
+
+        {showSetupList ? (
+          <section className="space-y-3 border-t border-border pt-6">
+            <h2 className="text-sm font-medium">Finish setup</h2>
+            <ul className="divide-y divide-border border-y border-border text-sm">
+              {SETUP_CARDS.map((card) => (
+                <li key={card.id}>
+                  <Link
+                    href={card.href}
+                    className="flex flex-col gap-0.5 py-3 transition hover:bg-surface sm:flex-row sm:items-baseline sm:justify-between sm:gap-4"
+                  >
+                    <span className="font-medium text-fg">{card.title}</span>
+                    <span className="text-muted sm:max-w-md sm:text-right">{card.body}</span>
+                  </Link>
+                </li>
+              ))}
+            </ul>
           </section>
         ) : null}
 

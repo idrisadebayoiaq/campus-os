@@ -24,6 +24,11 @@ export const metadata: Metadata = {
   },
   description:
     "Housing-first Nigerian student platform for campus life, study tools, and everyday needs.",
+  applicationName: "CampusOS",
+  icons: {
+    icon: [{ url: "/brand/mark.svg", type: "image/svg+xml" }],
+    apple: [{ url: "/brand/mark.svg", type: "image/svg+xml" }],
+  },
 };
 
 export default function RootLayout({

@@ -5,6 +5,38 @@ import { FormEvent, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { Button, Field, Input } from "@/components/ui";
 
+function PasswordField({
+  name,
+  autoComplete,
+  placeholder,
+}: {
+  name: string;
+  autoComplete: string;
+  placeholder?: string;
+}) {
+  const [show, setShow] = useState(false);
+  return (
+    <div className="relative">
+      <Input
+        name={name}
+        type={show ? "text" : "password"}
+        required
+        autoComplete={autoComplete}
+        minLength={6}
+        placeholder={placeholder}
+        className="pr-16"
+      />
+      <button
+        type="button"
+        onClick={() => setShow((v) => !v)}
+        className="absolute inset-y-0 right-0 px-3 text-xs font-medium text-muted hover:text-fg"
+      >
+        {show ? "Hide" : "Show"}
+      </button>
+    </div>
+  );
+}
+
 export function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -39,19 +71,23 @@ export function LoginForm() {
 
   return (
     <form onSubmit={onSubmit} className="space-y-4">
-      <Field label="Email">
-        <Input name="email" type="email" required autoComplete="email" />
-      </Field>
-      <Field label="Password">
+      <Field label="Work email">
         <Input
-          name="password"
-          type="password"
+          name="email"
+          type="email"
           required
-          autoComplete="current-password"
-          minLength={6}
+          autoComplete="email"
+          placeholder="you@business.com"
         />
       </Field>
-      {error ? <p className="text-sm text-danger">{error}</p> : null}
+      <Field label="Password">
+        <PasswordField name="password" autoComplete="current-password" />
+      </Field>
+      {error ? (
+        <p className="rounded-md border border-danger/30 bg-surface px-3 py-2 text-sm text-danger">
+          {error}
+        </p>
+      ) : null}
       <Button type="submit" disabled={loading} className="w-full">
         {loading ? "Signing in…" : "Log in"}
       </Button>
@@ -104,22 +140,39 @@ export function SignupForm() {
   return (
     <form onSubmit={onSubmit} className="space-y-4">
       <Field label="Full name">
-        <Input name="full_name" required autoComplete="name" />
-      </Field>
-      <Field label="Email">
-        <Input name="email" type="email" required autoComplete="email" />
-      </Field>
-      <Field label="Password">
         <Input
-          name="password"
-          type="password"
+          name="full_name"
           required
-          autoComplete="new-password"
-          minLength={6}
+          autoComplete="name"
+          placeholder="Business owner name"
         />
       </Field>
-      {error ? <p className="text-sm text-danger">{error}</p> : null}
-      {message ? <p className="text-sm text-success">{message}</p> : null}
+      <Field label="Work email">
+        <Input
+          name="email"
+          type="email"
+          required
+          autoComplete="email"
+          placeholder="you@business.com"
+        />
+      </Field>
+      <Field label="Password">
+        <PasswordField
+          name="password"
+          autoComplete="new-password"
+          placeholder="At least 6 characters"
+        />
+      </Field>
+      {error ? (
+        <p className="rounded-md border border-danger/30 bg-surface px-3 py-2 text-sm text-danger">
+          {error}
+        </p>
+      ) : null}
+      {message ? (
+        <p className="rounded-md border border-success/30 bg-surface px-3 py-2 text-sm text-success">
+          {message}
+        </p>
+      ) : null}
       <Button type="submit" disabled={loading} className="w-full">
         {loading ? "Creating account…" : "Create account"}
       </Button>

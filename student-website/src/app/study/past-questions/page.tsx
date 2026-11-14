@@ -1,5 +1,5 @@
 import { PastQuestionsPanel } from "@/components/study/past-questions-panel";
-import { ButtonLink, Container, PageHeader } from "@/components/ui";
+import { Container, PageHeader } from "@/components/ui";
 import { getStudentCampus } from "@/lib/campus";
 import { createClient } from "@/lib/supabase/server";
 
@@ -50,10 +50,7 @@ export default async function PastQuestionsPage() {
   return (
     <Container>
       <div className="space-y-8 py-12">
-        <PageHeader title="Past questions" description="Revision library." />
-        <ButtonLink href="/study" variant="secondary">
-          Study Hub
-        </ButtonLink>
+        <PageHeader title="Past questions" description="Store and browse past papers by course." />
         <PastQuestionsPanel docs={docs} campusId={campus?.campusId} />
       </div>
     </Container>

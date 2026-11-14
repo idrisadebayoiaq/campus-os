@@ -1,5 +1,5 @@
 import { CalendarPanel } from "@/components/study/calendar-panel";
-import { ButtonLink, Container, PageHeader } from "@/components/ui";
+import { Container, PageHeader } from "@/components/ui";
 import { getStudentCampus } from "@/lib/campus";
 import { createClient } from "@/lib/supabase/server";
 
@@ -43,10 +43,7 @@ export default async function CalendarPage() {
   return (
     <Container>
       <div className="space-y-8 py-12">
-        <PageHeader title="Calendar" description="Semester dates." />
-        <ButtonLink href="/study" variant="secondary">
-          Study Hub
-        </ButtonLink>
+        <PageHeader title="Calendar" description="Registration, breaks, and other key dates." />
         <CalendarPanel events={events} campusId={campus?.campusId} />
       </div>
     </Container>
