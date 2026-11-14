@@ -472,8 +472,8 @@ Use this as the day-to-day checklist. Check off as you go.
 35. [~] Ledger + webhook stub idempotency.
 
 ### Block 10 — Mobile (later)
-36. [ ] Expo shell + auth.
-37. [ ] Housing parity.
+36. [x] Expo shell + auth (`student-app/`).
+37. [~] Housing parity (list + detail started; enquire/inspect next).
 38. [ ] APK on `/download`.
 
 ---
@@ -587,7 +587,7 @@ After campus research, add:
 | Admin reports/listings | Done | |
 | Monetization | Stub | Tables + webhook stub |
 | School tools (thin) | Done | Full suite → Study plan |
-| Student APK | Not started | Track B |
+| Student APK | B0 shell + housing list/detail started (`student-app/`) | Track B continue |
 | Cron reminders / email | Deferred | Notifications table ready |
 
 ---

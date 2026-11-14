@@ -24,7 +24,7 @@ export default function DownloadPage() {
       <div className="mx-auto max-w-2xl space-y-10 py-12">
         <PageHeader
           title="CampusOS for Android"
-          description="The student APK is in development. Join the waitlist or check back here for the official build."
+          description="Track B Expo app is in progress (auth + housing shell). Use Expo Go for previews; the signed APK lands here after B2."
         />
 
         <section className="space-y-4">
@@ -50,8 +50,9 @@ export default function DownloadPage() {
         <section className="space-y-3 border-t border-border pt-8">
           <h2 className="text-sm font-medium text-fg">Install APK</h2>
           <p className="text-sm text-muted">
-            When we publish, this page will host the signed Android package. Until then, use the
-            student website on mobile.
+            Developers: run <code className="text-fg">npm start</code> in{" "}
+            <code className="text-fg">student-app/</code> with Expo Go. When we publish, this page
+            will host the signed Android package. Until then, use the student website on mobile.
           </p>
           <Button type="button" disabled>
             Download APK — Coming soon
