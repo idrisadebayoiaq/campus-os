@@ -1,0 +1,3 @@
+-- Applied remotely via MCP: whatsapp_chat_system_extensions
+-- See apply_migration whatsapp_chat_system_extensions for full DDL.
+-- conversations.kind includes 'ai'; messages have message_type/media; ai_companion_profiles; fixed RLS.

@@ -1,28 +1,42 @@
 import { Redirect, Tabs } from "expo-router";
-import { ActivityIndicator, Text, View } from "react-native";
+import { useEffect, useState } from "react";
+import { ActivityIndicator, View } from "react-native";
+import { FloatingTabBar } from "@/src/components/floating-tab-bar";
 import { useAuth } from "@/src/lib/auth";
+import { supabase } from "@/src/lib/supabase";
 import { useTheme } from "@/src/theme/ThemeProvider";
 
-function TabLabel({ title, focused }: { title: string; focused: boolean }) {
-  const colors = useTheme();
-  return (
-    <Text
-      style={{
-        fontSize: 11,
-        fontWeight: focused ? "600" : "500",
-        color: focused ? colors.fg : colors.muted,
-      }}
-    >
-      {title}
-    </Text>
-  );
-}
-
 export default function TabsLayout() {
-  const { session, loading } = useAuth();
+  const { session, user, loading } = useAuth();
   const colors = useTheme();
+  const [needsCampus, setNeedsCampus] = useState<boolean | null>(null);
 
-  if (loading) {
+  useEffect(() => {
+    if (!user) {
+      setNeedsCampus(null);
+      return;
+    }
+    let cancelled = false;
+    async function check() {
+      try {
+        const { data, error } = await supabase
+          .from("campus_memberships")
+          .select("id")
+          .eq("user_id", user!.id)
+          .limit(1);
+        if (cancelled) return;
+        setNeedsCampus(!error && (data?.length ?? 0) === 0);
+      } catch {
+        if (!cancelled) setNeedsCampus(false);
+      }
+    }
+    void check();
+    return () => {
+      cancelled = true;
+    };
+  }, [user]);
+
+  if (loading || (session && needsCampus === null)) {
     return (
       <View
         style={{
@@ -41,65 +55,28 @@ export default function TabsLayout() {
     return <Redirect href="/(auth)/login" />;
   }
 
+  if (needsCampus) {
+    return <Redirect href="/onboarding" />;
+  }
+
   return (
     <Tabs
+      tabBar={(props) => <FloatingTabBar {...props} />}
       screenOptions={{
-        headerStyle: { backgroundColor: colors.bg },
-        headerTintColor: colors.fg,
-        headerShadowVisible: false,
-        tabBarStyle: {
-          backgroundColor: colors.bg,
-          borderTopColor: colors.border,
-        },
-        tabBarActiveTintColor: colors.fg,
-        tabBarInactiveTintColor: colors.muted,
+        headerShown: false,
+        tabBarStyle: { position: "absolute" },
       }}
     >
-      <Tabs.Screen
-        name="index"
-        options={{
-          title: "Home",
-          tabBarLabel: ({ focused }) => (
-            <TabLabel title="Home" focused={focused} />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="housing"
-        options={{
-          title: "Housing",
-          tabBarLabel: ({ focused }) => (
-            <TabLabel title="Housing" focused={focused} />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="study"
-        options={{
-          title: "Study",
-          tabBarLabel: ({ focused }) => (
-            <TabLabel title="Study" focused={focused} />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="inbox"
-        options={{
-          title: "Inbox",
-          tabBarLabel: ({ focused }) => (
-            <TabLabel title="Inbox" focused={focused} />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="profile"
-        options={{
-          title: "Profile",
-          tabBarLabel: ({ focused }) => (
-            <TabLabel title="Profile" focused={focused} />
-          ),
-        }}
-      />
+      <Tabs.Screen name="index" options={{ title: "Home" }} />
+      <Tabs.Screen name="housing" options={{ title: "Housing" }} />
+      <Tabs.Screen name="marketplace" options={{ title: "Market" }} />
+      <Tabs.Screen name="ai" options={{ title: "AI Study" }} />
+      {/* Keep study/inbox/profile as real tabs (no href:null). Expo Router 58
+          redirects hidden tabs back to Home when focused. FloatingTabBar still
+          only highlights the four primary icons. */}
+      <Tabs.Screen name="study" options={{ title: "Study" }} />
+      <Tabs.Screen name="inbox" options={{ title: "Chat" }} />
+      <Tabs.Screen name="profile" options={{ title: "Profile" }} />
     </Tabs>
   );
 }

@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useTheme } from "@/components/theme-provider";
 
 export function CampusLogo({
-  href = "/dashboard",
+  href = "/",
   size = 36,
   showWordmark = true,
   collapsed = false,

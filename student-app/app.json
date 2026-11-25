@@ -2,26 +2,45 @@
   "expo": {
     "name": "CampusOS",
     "slug": "campusos-student",
-    "version": "1.0.0",
+    "version": "1.0.4",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "scheme": "campusos",
     "userInterfaceStyle": "automatic",
+    "newArchEnabled": false,
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
-      "backgroundColor": "#ffffff"
+      "backgroundColor": "#FFFDF8",
+      "dark": {
+        "image": "./assets/splash-icon-dark.png",
+        "backgroundColor": "#1A1428"
+      }
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.campusos.student"
+      "bundleIdentifier": "com.campusos.app"
     },
     "android": {
-      "package": "com.campusos.student",
+      "package": "com.campusos.app",
+      "googleServicesFile": "./google-services.json",
+      "versionCode": 9,
+      "softwareKeyboardLayoutMode": "resize",
       "adaptiveIcon": {
-        "backgroundColor": "#0A0A0A",
-        "foregroundImage": "./assets/adaptive-icon.png"
-      }
+        "backgroundColor": "#AB9FF2",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "permissions": [
+        "android.permission.READ_MEDIA_IMAGES",
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.CAMERA",
+        "android.permission.POST_NOTIFICATIONS",
+        "android.permission.VIBRATE",
+        "android.permission.RECORD_AUDIO",
+        "android.permission.MODIFY_AUDIO_SETTINGS"
+      ]
     },
     "web": {
       "bundler": "metro",
@@ -29,10 +48,65 @@
     },
     "plugins": [
       "expo-router",
-      "expo-secure-store"
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "minSdkVersion": 24,
+            "enableProguardInReleaseBuilds": false,
+            "enableShrinkResourcesInReleaseBuilds": false,
+            "useLegacyPackaging": true
+          }
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Allow CampusOS to access your photos for your profile picture.",
+          "cameraPermission": "Allow CampusOS to use your camera for your profile picture and ID verification."
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/icon.png",
+          "color": "#5B4B8A",
+          "defaultChannel": "campusos_default"
+        }
+      ],
+      [
+        "expo-audio",
+        {
+          "microphonePermission": "Allow CampusOS to use the microphone for voice and video calls."
+        }
+      ],
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/splash-icon.png",
+          "resizeMode": "contain",
+          "backgroundColor": "#FFFDF8",
+          "dark": {
+            "image": "./assets/splash-icon-dark.png",
+            "backgroundColor": "#1A1428"
+          }
+        }
+      ],
+      "expo-asset"
     ],
     "experiments": {
       "typedRoutes": true
-    }
+    },
+    "extra": {
+      "router": {
+        "asyncRoutes": {
+          "web": true
+        }
+      },
+      "eas": {
+        "projectId": "a94a7f49-cdac-408e-9c6b-d8c4cbacacf6"
+      }
+    },
+    "owner": "epicbda"
   }
 }

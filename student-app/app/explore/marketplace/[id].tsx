@@ -1,0 +1,302 @@
+import { router, useLocalSearchParams } from "expo-router";
+import { useEffect, useState } from "react";
+import {
+  ActivityIndicator,
+  Image,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  View,
+} from "react-native";
+import { Ionicons } from "@expo/vector-icons";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { AppText, EmptyState, Screen } from "@/src/components/ui";
+import { useAuth } from "@/src/lib/auth";
+import { formatNaira } from "@/src/lib/campus";
+import { startBusinessChat, startDirectChat } from "@/src/lib/messaging";
+import { supabase } from "@/src/lib/supabase";
+import {
+  isStudentVerified,
+  verificationGateMessage,
+} from "@/src/lib/verification";
+import { useTheme } from "@/src/theme/ThemeProvider";
+import { radii } from "@/src/theme/tokens";
+
+type Listing = {
+  id: string;
+  title: string;
+  description: string | null;
+  kind: string | null;
+  category: string | null;
+  condition: string | null;
+  price: number | null;
+  image_url: string | null;
+  seller_user_id: string | null;
+  business_id: string | null;
+};
+
+export default function MarketplaceDetailScreen() {
+  const { id } = useLocalSearchParams<{ id: string }>();
+  const { user } = useAuth();
+  const colors = useTheme();
+  const insets = useSafeAreaInsets();
+  const [item, setItem] = useState<Listing | null>(null);
+  const [sellerName, setSellerName] = useState("Seller");
+  const [loading, setLoading] = useState(true);
+  const [busy, setBusy] = useState(false);
+  const [status, setStatus] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!id) return;
+    let cancelled = false;
+    async function load() {
+      const { data, error } = await supabase
+        .from("marketplace_listings")
+        .select(
+          "id, title, description, kind, category, condition, price, image_url, seller_user_id, business_id",
+        )
+        .eq("id", id)
+        .maybeSingle();
+      if (cancelled) return;
+      if (error || !data) {
+        setItem(null);
+        setLoading(false);
+        return;
+      }
+      setItem(data as Listing);
+      if (data.business_id) {
+        const { data: biz } = await supabase
+          .from("business_profiles")
+          .select("display_name")
+          .eq("id", data.business_id)
+          .maybeSingle();
+        if (biz?.display_name) setSellerName(biz.display_name);
+      } else if (data.seller_user_id) {
+        const { data: prof } = await supabase
+          .from("profiles")
+          .select("preferred_name, first_name, full_name")
+          .eq("id", data.seller_user_id)
+          .maybeSingle();
+        setSellerName(
+          prof?.preferred_name ||
+            prof?.first_name ||
+            prof?.full_name ||
+            "Seller",
+        );
+      }
+      setLoading(false);
+    }
+    void load();
+    return () => {
+      cancelled = true;
+    };
+  }, [id]);
+
+  async function onMessage() {
+    if (!user || !item) {
+      router.push("/(auth)/login");
+      return;
+    }
+    setBusy(true);
+    setStatus(null);
+    try {
+      const verified = await isStudentVerified(supabase, user.id);
+      if (!verified) {
+        setStatus(verificationGateMessage());
+        router.push("/verify");
+        return;
+      }
+      // Best-effort enquiry row for marketplace tracking
+      await supabase.from("listing_enquiries").insert({
+        marketplace_listing_id: item.id,
+        business_id: item.business_id,
+        student_id: user.id,
+        subject: item.title,
+        message: `Hi — interested in ${item.title}.`,
+      });
+
+      let conversationId: string;
+      if (item.business_id) {
+        conversationId = await startBusinessChat(supabase, {
+          studentId: user.id,
+          businessId: item.business_id,
+          subject: item.title,
+          message: `Hi — interested in ${item.title}. Is it still available?`,
+        });
+      } else if (item.seller_user_id) {
+        conversationId = await startDirectChat(supabase, {
+          userId: user.id,
+          peerId: item.seller_user_id,
+          firstMessage: `Hi — interested in ${item.title}. Is it still available?`,
+        });
+      } else {
+        throw new Error("No seller to message");
+      }
+      router.push(`/inbox/${conversationId}`);
+    } catch (e) {
+      setStatus(e instanceof Error ? e.message : "Could not message seller");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (loading) {
+    return (
+      <Screen>
+        <View style={styles.center}>
+          <ActivityIndicator color={colors.fg} />
+        </View>
+      </Screen>
+    );
+  }
+
+  if (!item) {
+    return (
+      <Screen>
+        <EmptyState title="Not found" description="Listing unavailable." />
+      </Screen>
+    );
+  }
+
+  return (
+    <View style={[styles.root, { backgroundColor: colors.bg }]}>
+      <ScrollView contentContainerStyle={{ paddingBottom: 120 }}>
+        <View style={styles.hero}>
+          {item.image_url ? (
+            <Image source={{ uri: item.image_url }} style={styles.heroImg} />
+          ) : (
+            <View
+              style={[
+                styles.heroImg,
+                {
+                  backgroundColor: colors.heroBg,
+                  alignItems: "center",
+                  justifyContent: "center",
+                },
+              ]}
+            >
+              <Ionicons name="image-outline" size={40} color={colors.heroMuted} />
+            </View>
+          )}
+          <Pressable
+            onPress={() => router.back()}
+            style={[styles.back, { top: insets.top + 8 }]}
+          >
+            <Ionicons name="arrow-back" size={18} color="#111" />
+          </Pressable>
+        </View>
+
+        <View style={styles.body}>
+          <AppText weight="700" size={22}>
+            {formatNaira(item.price)}
+          </AppText>
+          <AppText size={18} weight="700">
+            {item.title}
+          </AppText>
+          <View style={styles.chips}>
+            {item.condition ? (
+              <View style={[styles.chip, { backgroundColor: colors.surface }]}>
+                <AppText size={12} weight="600">
+                  {item.condition}
+                </AppText>
+              </View>
+            ) : null}
+            {item.category ? (
+              <View style={[styles.chip, { backgroundColor: colors.surface }]}>
+                <AppText size={12} weight="600">
+                  {item.category}
+                </AppText>
+              </View>
+            ) : null}
+            {item.kind ? (
+              <View style={[styles.chip, { backgroundColor: colors.surface }]}>
+                <AppText size={12} weight="600">
+                  {item.kind}
+                </AppText>
+              </View>
+            ) : null}
+          </View>
+          <AppText muted size={13}>
+            {sellerName}
+          </AppText>
+          {item.description ? (
+            <AppText size={14} style={{ marginTop: 4 }}>
+              {item.description}
+            </AppText>
+          ) : null}
+          {status ? (
+            <AppText size={13} style={{ color: colors.danger }}>
+              {status}
+            </AppText>
+          ) : null}
+        </View>
+      </ScrollView>
+
+      <View
+        style={[
+          styles.footer,
+          {
+            paddingBottom: Math.max(insets.bottom, 14),
+            backgroundColor: colors.bg,
+            borderTopColor: colors.border,
+          },
+        ]}
+      >
+        <Pressable
+          onPress={() => void onMessage()}
+          disabled={busy}
+          style={[
+            styles.msgBtn,
+            {
+              backgroundColor: colors.inverseBg,
+              opacity: busy ? 0.6 : 1,
+            },
+          ]}
+        >
+          <AppText weight="700" style={{ color: colors.inverseFg }}>
+            {busy ? "…" : "Message seller"}
+          </AppText>
+        </Pressable>
+      </View>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  root: { flex: 1 },
+  center: { flex: 1, alignItems: "center", justifyContent: "center" },
+  hero: { height: 320 },
+  heroImg: { width: "100%", height: "100%" },
+  back: {
+    position: "absolute",
+    left: 16,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "rgba(255,255,255,0.92)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  body: { padding: 20, gap: 8 },
+  chips: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginTop: 4 },
+  chip: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: radii.pill,
+  },
+  footer: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    bottom: 0,
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    borderTopWidth: StyleSheet.hairlineWidth,
+  },
+  msgBtn: {
+    height: 52,
+    borderRadius: radii.md,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+});

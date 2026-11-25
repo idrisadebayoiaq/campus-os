@@ -12,7 +12,7 @@ async function destinationAfterAuth() {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) return "/login";
-  return "/dashboard";
+  return "/";
 }
 
 function PasswordField({

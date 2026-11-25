@@ -1,0 +1,422 @@
+import { Redirect, router } from "expo-router";
+import { useEffect, useMemo, useState } from "react";
+import {
+  ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  View,
+} from "react-native";
+import {
+  AppText,
+  Button,
+  Chip,
+  EmptyState,
+  Field,
+  Input,
+  Screen,
+  SearchBar,
+} from "@/src/components/ui";
+import { useAuth } from "@/src/lib/auth";
+import { supabase } from "@/src/lib/supabase";
+import { useTheme } from "@/src/theme/ThemeProvider";
+import { radii } from "@/src/theme/tokens";
+
+type Campus = {
+  id: string;
+  name: string;
+  city: string | null;
+  state: string | null;
+};
+
+type Institution = {
+  id: string;
+  name: string;
+  short_name: string | null;
+  institution_type: string;
+  campuses: Campus[] | Campus | null;
+};
+
+const TERTIARY_TYPES = [
+  "university",
+  "polytechnic",
+  "college_of_education",
+  "college",
+  "monotechnic",
+  "other",
+];
+
+const MAX_VISIBLE = 40;
+
+function campusesOf(inst: Institution | null | undefined): Campus[] {
+  if (!inst?.campuses) return [];
+  return Array.isArray(inst.campuses) ? inst.campuses : [inst.campuses];
+}
+
+export default function OnboardingScreen() {
+  const { user, loading: authLoading } = useAuth();
+  const colors = useTheme();
+  const [institutions, setInstitutions] = useState<Institution[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [query, setQuery] = useState("");
+  const [institutionId, setInstitutionId] = useState("");
+  const [campusId, setCampusId] = useState("");
+  const [academicLevel, setAcademicLevel] = useState("");
+  const [department, setDepartment] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function load() {
+      const { data, error: queryError } = await supabase
+        .from("institutions")
+        .select(
+          "id, name, short_name, institution_type, campuses(id, name, city, state)",
+        )
+        .eq("is_active", true)
+        .in("institution_type", TERTIARY_TYPES)
+        .order("name");
+      if (cancelled) return;
+      if (queryError) setError(queryError.message);
+      setInstitutions((data as Institution[]) || []);
+      setLoading(false);
+    }
+    void load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // Prefill from existing profile data when revisiting from Profile.
+  useEffect(() => {
+    if (!user) return;
+    let cancelled = false;
+    async function prefill() {
+      const { data } = await supabase
+        .from("student_profiles")
+        .select("academic_level, department_name")
+        .eq("user_id", user!.id)
+        .maybeSingle();
+      if (cancelled || !data) return;
+      setAcademicLevel((v) => v || String(data.academic_level || ""));
+      setDepartment((v) => v || String(data.department_name || ""));
+    }
+    void prefill();
+    return () => {
+      cancelled = true;
+    };
+  }, [user]);
+
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    const tokens = q.split(/\s+/).filter(Boolean);
+    return institutions
+      .filter((i) => TERTIARY_TYPES.includes(i.institution_type))
+      .filter((i) => {
+        if (!tokens.length) return true;
+        const hay = `${i.name} ${i.short_name || ""}`.toLowerCase();
+        return hay.includes(q) || tokens.every((t) => hay.includes(t));
+      });
+  }, [institutions, query]);
+
+  const selected = institutions.find((i) => i.id === institutionId) || null;
+  const campuses = campusesOf(selected);
+
+  function pickInstitution(inst: Institution) {
+    setInstitutionId(inst.id);
+    setCampusId(campusesOf(inst)[0]?.id || "");
+    setError(null);
+  }
+
+  async function onSave() {
+    if (!user) {
+      setError("Please log in first.");
+      return;
+    }
+    if (!selected || !campusId) {
+      setError("Select your institution and campus.");
+      return;
+    }
+    setSaving(true);
+    setError(null);
+    try {
+      const level = academicLevel.trim() || null;
+      const dept = department.trim() || null;
+
+      await supabase
+        .from("campus_memberships")
+        .update({ is_primary: false })
+        .eq("user_id", user.id);
+
+      const { error: membershipError } = await supabase
+        .from("campus_memberships")
+        .upsert(
+          {
+            user_id: user.id,
+            institution_id: selected.id,
+            campus_id: campusId,
+            department: dept,
+            year_of_study: level,
+            is_primary: true,
+          },
+          { onConflict: "user_id,campus_id" },
+        );
+      if (membershipError) throw new Error(membershipError.message);
+
+      // Best effort: mirror the web enrollment row.
+      await supabase.from("student_enrollments").upsert(
+        {
+          user_id: user.id,
+          institution_id: selected.id,
+          campus_id: campusId,
+          is_primary: true,
+          verification_status: "unverified",
+        },
+        { onConflict: "user_id,institution_id,campus_id" },
+      );
+
+      const { error: studentError } = await supabase
+        .from("student_profiles")
+        .upsert({
+          user_id: user.id,
+          academic_level: level,
+          department_name: dept,
+          updated_at: new Date().toISOString(),
+        });
+      if (studentError) throw new Error(studentError.message);
+
+      // Managed schools only: auto-enroll + pull lecturer timetables
+      await supabase.rpc("auto_enroll_student_for_school", {
+        p_institution_id: selected.id,
+        p_campus_id: campusId,
+        p_department_id: null,
+        p_department_name: dept,
+      });
+
+      const { data: existing } = await supabase
+        .from("onboarding_progress")
+        .select("completed_steps")
+        .eq("user_id", user.id)
+        .maybeSingle();
+      const completed = Array.from(
+        new Set([
+          ...((existing?.completed_steps as string[] | null) || []),
+          "school",
+          "academic",
+        ]),
+      );
+      await supabase.from("onboarding_progress").upsert({
+        user_id: user.id,
+        current_step: "done",
+        completed_steps: completed,
+        is_complete: true,
+        updated_at: new Date().toISOString(),
+      });
+
+      router.replace("/(tabs)");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Could not save your campus.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  if (authLoading) {
+    return (
+      <Screen>
+        <View style={styles.center}>
+          <ActivityIndicator color={colors.fg} />
+        </View>
+      </Screen>
+    );
+  }
+
+  if (!user) {
+    return <Redirect href="/(auth)/login" />;
+  }
+
+  const visible = filtered.slice(0, MAX_VISIBLE);
+
+  return (
+    <Screen padded={false}>
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior="padding"
+        keyboardVerticalOffset={Platform.OS === "ios" ? 8 : 0}
+      >
+        <ScrollView
+          contentContainerStyle={styles.content}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
+          <View style={{ gap: 6 }}>
+            <AppText size={30} weight="700">
+              Pick your campus
+            </AppText>
+            <AppText muted size={15}>
+              Housing, study tools and listings are scoped to the school you
+              attend.
+            </AppText>
+          </View>
+
+          <SearchBar
+            value={query}
+            onChangeText={setQuery}
+            placeholder="Search your school…"
+          />
+
+          {loading ? (
+            <View style={styles.center}>
+              <ActivityIndicator color={colors.fg} />
+            </View>
+          ) : visible.length === 0 ? (
+            <EmptyState
+              title="No schools match"
+              description="Try a shorter name or the school abbreviation."
+            />
+          ) : (
+            <View style={{ gap: 8 }}>
+              {visible.map((inst) => {
+                const active = inst.id === institutionId;
+                return (
+                  <Pressable
+                    key={inst.id}
+                    onPress={() => pickInstitution(inst)}
+                    style={[
+                      styles.instRow,
+                      {
+                        backgroundColor: active
+                          ? colors.inverseBg
+                          : colors.surface,
+                      },
+                    ]}
+                  >
+                    <View style={{ flex: 1, gap: 2 }}>
+                      <AppText
+                        weight="700"
+                        size={15}
+                        style={{
+                          color: active ? colors.inverseFg : colors.fg,
+                        }}
+                      >
+                        {inst.name}
+                      </AppText>
+                      <AppText
+                        size={12}
+                        style={{
+                          color: active ? colors.inverseFg : colors.muted,
+                          opacity: active ? 0.75 : 1,
+                        }}
+                      >
+                        {[
+                          inst.short_name,
+                          inst.institution_type.replaceAll("_", " "),
+                        ]
+                          .filter(Boolean)
+                          .join(" · ")}
+                      </AppText>
+                    </View>
+                  </Pressable>
+                );
+              })}
+              {filtered.length > MAX_VISIBLE ? (
+                <AppText muted size={13} style={{ textAlign: "center" }}>
+                  Showing {MAX_VISIBLE} of {filtered.length}. Refine your
+                  search to see more.
+                </AppText>
+              ) : null}
+            </View>
+          )}
+
+          {selected ? (
+            <View style={[styles.card, { backgroundColor: colors.surface }]}>
+              <AppText weight="700">Campus</AppText>
+              {campuses.length === 0 ? (
+                <AppText muted size={14}>
+                  No campuses listed for this school yet.
+                </AppText>
+              ) : (
+                <View style={styles.chips}>
+                  {campuses.map((c) => (
+                    <Chip
+                      key={c.id}
+                      label={[c.name, c.city].filter(Boolean).join(" · ")}
+                      active={c.id === campusId}
+                      onPress={() => setCampusId(c.id)}
+                    />
+                  ))}
+                </View>
+              )}
+            </View>
+          ) : null}
+
+          <View style={[styles.card, { backgroundColor: colors.surface }]}>
+            <AppText weight="700">Academic details (optional)</AppText>
+            <Field label="Level">
+              <Input
+                placeholder="e.g. 200"
+                value={academicLevel}
+                onChangeText={setAcademicLevel}
+                style={{ backgroundColor: colors.bg }}
+              />
+            </Field>
+            <Field label="Department">
+              <Input
+                placeholder="e.g. Computer Science"
+                value={department}
+                onChangeText={setDepartment}
+                style={{ backgroundColor: colors.bg }}
+              />
+            </Field>
+          </View>
+
+          {error ? (
+            <AppText size={14} style={{ color: colors.danger }}>
+              {error}
+            </AppText>
+          ) : null}
+
+          <Button
+            title={saving ? "Saving…" : "Continue"}
+            onPress={onSave}
+            loading={saving}
+            disabled={!selected || !campusId}
+          />
+          {router.canGoBack() ? (
+            <Button
+              title="Cancel"
+              variant="ghost"
+              onPress={() => router.back()}
+            />
+          ) : null}
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </Screen>
+  );
+}
+
+const styles = StyleSheet.create({
+  content: {
+    paddingHorizontal: 20,
+    paddingTop: 12,
+    paddingBottom: 40,
+    gap: 18,
+  },
+  center: { alignItems: "center", justifyContent: "center", padding: 24 },
+  instRow: {
+    borderRadius: radii.lg,
+    paddingHorizontal: 18,
+    paddingVertical: 14,
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  card: {
+    borderRadius: radii.xl,
+    padding: 20,
+    gap: 14,
+  },
+  chips: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
+});

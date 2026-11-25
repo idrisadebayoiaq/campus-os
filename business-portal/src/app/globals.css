@@ -1,36 +1,64 @@
 @import "tailwindcss";
 
+/**
+ * Phantom wallet–inspired CampusOS palette (matches student app)
+ * Lavender Current #AB9FF2 · Midnight Amethyst #3C315B · Porcelain #FFFDF8 · Soft #E2DFFE
+ */
 :root {
-  --bg: #ffffff;
-  --fg: #0a0a0a;
-  --muted: #737373;
-  --border: #e5e5e5;
-  --surface: #f7f7f7;
-  --inverse-bg: #0a0a0a;
-  --inverse-fg: #ffffff;
+  --bg: #fffdf8;
+  --fg: #3c315b;
+  --muted: #86848d;
+  --border: #e9e8ea;
+  --surface: #f5f2ff;
+  --soft: #e2dffe;
+  --inverse-bg: #3c315b;
+  --inverse-fg: #fffdf8;
   --danger: #b91c1c;
   --success: #15803d;
   --warn: #a16207;
+  --accent: #ab9ff2;
+  --accent-soft: #e2dffe;
+  --on-accent: #3c315b;
+  --hero-bg: #3c315b;
+  --hero-fg: #ffffff;
+  --hero-muted: rgba(255, 255, 255, 0.72);
+  --sidebar-w: 16.5rem;
+  --sidebar-w-collapsed: 4.5rem;
+  --topbar-h: 3.5rem;
 }
 
 :root[data-theme="dark"] {
-  --bg: #0a0a0a;
-  --fg: #fafafa;
-  --muted: #a3a3a3;
-  --border: #262626;
-  --surface: #141414;
-  --inverse-bg: #fafafa;
-  --inverse-fg: #0a0a0a;
+  --bg: #1a1428;
+  --fg: #f5f2ff;
+  --muted: #a39db8;
+  --border: #2f2744;
+  --surface: #241c36;
+  --soft: #2f2744;
+  --inverse-bg: #ab9ff2;
+  --inverse-fg: #3c315b;
+  --accent: #ab9ff2;
+  --accent-soft: #3c315b;
+  --on-accent: #3c315b;
+  --hero-bg: #2a2140;
+  --hero-fg: #ffffff;
+  --hero-muted: rgba(255, 255, 255, 0.72);
 }
 
 :root[data-theme="light"] {
-  --bg: #ffffff;
-  --fg: #0a0a0a;
-  --muted: #737373;
-  --border: #e5e5e5;
-  --surface: #f7f7f7;
-  --inverse-bg: #0a0a0a;
-  --inverse-fg: #ffffff;
+  --bg: #fffdf8;
+  --fg: #3c315b;
+  --muted: #86848d;
+  --border: #e9e8ea;
+  --surface: #f5f2ff;
+  --soft: #e2dffe;
+  --inverse-bg: #3c315b;
+  --inverse-fg: #fffdf8;
+  --accent: #ab9ff2;
+  --accent-soft: #e2dffe;
+  --on-accent: #3c315b;
+  --hero-bg: #3c315b;
+  --hero-fg: #ffffff;
+  --hero-muted: rgba(255, 255, 255, 0.72);
 }
 
 @theme inline {
@@ -39,11 +67,18 @@
   --color-muted: var(--muted);
   --color-border: var(--border);
   --color-surface: var(--surface);
+  --color-soft: var(--soft);
   --color-inverse-bg: var(--inverse-bg);
   --color-inverse-fg: var(--inverse-fg);
   --color-danger: var(--danger);
   --color-success: var(--success);
   --color-warn: var(--warn);
+  --color-accent: var(--accent);
+  --color-accent-soft: var(--accent-soft);
+  --color-on-accent: var(--on-accent);
+  --color-hero-bg: var(--hero-bg);
+  --color-hero-fg: var(--hero-fg);
+  --color-hero-muted: var(--hero-muted);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
@@ -77,4 +112,24 @@ button {
 
 .campus-logo-dark {
   mix-blend-mode: screen;
+}
+
+.sidebar-scroll::-webkit-scrollbar {
+  width: 6px;
+}
+.sidebar-scroll::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 999px;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border-width: 0;
 }

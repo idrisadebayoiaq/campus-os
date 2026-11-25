@@ -1,36 +1,46 @@
+import "react-native-gesture-handler";
 import { Stack } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { useEffect } from "react";
 import { StatusBar } from "expo-status-bar";
-import { useColorScheme } from "react-native";
+import { GestureHandlerRootView } from "react-native-gesture-handler";
+import { SafeAreaProvider } from "react-native-safe-area-context";
 import { AuthProvider } from "@/src/lib/auth";
-import { ThemeProvider, useTheme } from "@/src/theme/ThemeProvider";
+import {
+  ThemeProvider,
+  useTheme,
+  useThemeControls,
+} from "@/src/theme/ThemeProvider";
 
 export { ErrorBoundary } from "expo-router";
 
-SplashScreen.preventAutoHideAsync();
+SplashScreen.preventAutoHideAsync().catch(() => undefined);
 
 export default function RootLayout() {
   useEffect(() => {
-    SplashScreen.hideAsync();
+    SplashScreen.hideAsync().catch(() => undefined);
   }, []);
 
   return (
-    <ThemeProvider>
-      <AuthProvider>
-        <RootNavigator />
-      </AuthProvider>
-    </ThemeProvider>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <SafeAreaProvider>
+        <ThemeProvider>
+          <AuthProvider>
+            <RootNavigator />
+          </AuthProvider>
+        </ThemeProvider>
+      </SafeAreaProvider>
+    </GestureHandlerRootView>
   );
 }
 
 function RootNavigator() {
   const colors = useTheme();
-  const scheme = useColorScheme();
+  const { resolved } = useThemeControls();
 
   return (
     <>
-      <StatusBar style={scheme === "dark" ? "light" : "dark"} />
+      <StatusBar style={resolved === "dark" ? "light" : "dark"} />
       <Stack
         screenOptions={{
           headerStyle: { backgroundColor: colors.bg },
@@ -41,10 +51,24 @@ function RootNavigator() {
       >
         <Stack.Screen name="index" options={{ headerShown: false }} />
         <Stack.Screen name="(auth)" options={{ headerShown: false }} />
+        <Stack.Screen name="onboarding" options={{ headerShown: false }} />
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+        <Stack.Screen name="study" options={{ headerShown: false }} />
+        <Stack.Screen name="explore" options={{ headerShown: false }} />
+        <Stack.Screen name="settings" options={{ headerShown: false }} />
+        <Stack.Screen name="support" options={{ headerShown: false }} />
+        <Stack.Screen name="profile-edit" options={{ headerShown: false }} />
+        <Stack.Screen name="verify" options={{ headerShown: false }} />
+        <Stack.Screen name="meetings" options={{ headerShown: false }} />
+        <Stack.Screen name="live/[room]" options={{ headerShown: false }} />
+        <Stack.Screen name="preferences" options={{ headerShown: false }} />
+        <Stack.Screen name="inbox/[id]" options={{ headerShown: false }} />
+        <Stack.Screen name="inbox/ai-profile" options={{ headerShown: false }} />
+        <Stack.Screen name="inbox/info" options={{ headerShown: false }} />
+        <Stack.Screen name="lecturer" options={{ headerShown: false }} />
         <Stack.Screen
           name="housing/[id]"
-          options={{ title: "Listing", headerBackTitle: "Back" }}
+          options={{ headerShown: false }}
         />
       </Stack>
     </>

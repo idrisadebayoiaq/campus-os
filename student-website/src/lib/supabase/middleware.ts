@@ -1,12 +1,27 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
-const AUTH_PATHS = ["/", "/login", "/signup", "/privacy", "/terms", "/download"];
+/** Public marketing site + auth needed only for live sessions. */
+const PUBLIC_PATHS = [
+  "/",
+  "/login",
+  "/privacy",
+  "/terms",
+  "/download",
+];
 
-function isAuthPath(pathname: string) {
-  return AUTH_PATHS.some(
-    (path) => pathname === path || pathname.startsWith(`${path}/`),
-  );
+function isPublicPath(pathname: string) {
+  if (PUBLIC_PATHS.some((path) => pathname === path || pathname.startsWith(`${path}/`))) {
+    return true;
+  }
+  // Static downloads
+  if (pathname.startsWith("/downloads/")) return true;
+  if (pathname.startsWith("/brand/")) return true;
+  return false;
+}
+
+function isLivePath(pathname: string) {
+  return pathname === "/live" || pathname.startsWith("/live/");
 }
 
 export async function updateSession(request: NextRequest) {
@@ -39,12 +54,13 @@ export async function updateSession(request: NextRequest) {
 
   const { pathname } = request.nextUrl;
 
-  function redirectTo(path: string) {
+  function redirectTo(path: string, withNext = false) {
     const url = request.nextUrl.clone();
-    url.pathname = path;
-    url.search = "";
-    if (path === "/login" && pathname !== "/" && !isAuthPath(pathname)) {
-      url.searchParams.set("next", pathname);
+    const [basePath, baseQuery = ""] = path.split("?");
+    url.pathname = basePath || "/";
+    url.search = baseQuery ? `?${baseQuery}` : "";
+    if (withNext && path === "/login" && pathname !== "/") {
+      url.searchParams.set("next", `${pathname}${request.nextUrl.search}`);
     }
     const response = NextResponse.redirect(url);
     supabaseResponse.cookies.getAll().forEach((cookie) => {
@@ -53,15 +69,48 @@ export async function updateSession(request: NextRequest) {
     return response;
   }
 
+  // Retired student-web app routes → landing
+  const retiredPrefixes = [
+    "/dashboard",
+    "/signup",
+    "/onboarding",
+    "/housing",
+    "/food",
+    "/marketplace",
+    "/businesses",
+    "/guides",
+    "/study",
+    "/inbox",
+    "/profile",
+    "/school",
+    "/settings",
+    "/support",
+  ];
+  if (retiredPrefixes.some((p) => pathname === p || pathname.startsWith(`${p}/`))) {
+    return redirectTo("/");
+  }
+
   if (!user) {
-    if (!isAuthPath(pathname)) {
-      return redirectTo("/login");
+    if (isLivePath(pathname)) {
+      return redirectTo("/login", true);
+    }
+    if (!isPublicPath(pathname) && !pathname.startsWith("/api/")) {
+      return redirectTo("/");
     }
     return supabaseResponse;
   }
 
   if (pathname === "/login" || pathname === "/signup") {
-    return redirectTo("/dashboard");
+    const next = request.nextUrl.searchParams.get("next");
+    if (
+      next &&
+      next.startsWith("/") &&
+      !next.startsWith("//") &&
+      (next.startsWith("/live/") || next === "/live")
+    ) {
+      return redirectTo(next);
+    }
+    return redirectTo("/");
   }
 
   return supabaseResponse;

@@ -1,0 +1,43 @@
+{
+  "cli": {
+    "version": ">= 16.0.0",
+    "appVersionSource": "local"
+  },
+  "build": {
+    "development": {
+      "developmentClient": true,
+      "distribution": "internal",
+      "android": {
+        "buildType": "apk"
+      }
+    },
+    "preview": {
+      "distribution": "internal",
+      "android": {
+        "buildType": "apk",
+        "image": "latest"
+      },
+      "env": {
+        "EXPO_NO_CAPABILITY_SYNC": "1",
+        "EXPO_PUBLIC_SUPABASE_URL": "https://dwdqeapwesrjsvenbwvk.supabase.co",
+        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImR3ZHFlYXB3ZXNyanN2ZW5id3ZrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTQzODQyNjIsImV4cCI6MjEwOTk2MDI2Mn0.wDcBBv1sKD7uscDNtdW_cUuQWCKuVjzIif1uOzki-Bw",
+        "EXPO_PUBLIC_STUDENT_WEB_URL": "https://campusos-app.vercel.app"
+      }
+    },
+    "production": {
+      "android": {
+        "buildType": "apk",
+        "image": "latest"
+      },
+      "env": {
+        "EXPO_NO_CAPABILITY_SYNC": "1",
+        "EXPO_PUBLIC_SUPABASE_URL": "https://dwdqeapwesrjsvenbwvk.supabase.co",
+        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImR3ZHFlYXB3ZXNyanN2ZW5id3ZrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTQzODQyNjIsImV4cCI6MjEwOTk2MDI2Mn0.wDcBBv1sKD7uscDNtdW_cUuQWCKuVjzIif1uOzki-Bw",
+        "EXPO_PUBLIC_STUDENT_WEB_URL": "https://campusos-app.vercel.app"
+      }
+    }
+  },
+  "submit": {
+    "production": {}
+  }
+}

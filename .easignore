@@ -1,0 +1,34 @@
+# Monorepo: only student-app is needed for this EAS Android build
+/business-portal/
+/student-website/
+/doc/
+/docs/
+/supabase/
+/scripts/
+
+# Never upload dependencies or native build dirs
+**/node_modules/
+**/android/
+**/ios/
+**/.gradle/
+**/build/
+**/.cxx/
+**/.expo/
+**/.git/
+
+# Artifacts / secrets / junk
+**/*.apk
+**/*.aab
+**/*.log
+**/dist/
+**/.env
+**/.env.*
+!**/.env.example
+**/*firebase-adminsdk*.json
+**/campusos-*-firebase-adminsdk*.json
+**/.eas-*.json
+**/.eas-*.err
+**/.eas-*.log
+**/tmp/
+**/.tmp/
+/tmp/

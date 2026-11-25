@@ -23,7 +23,7 @@ export function AuthFrame({
     <div className="relative min-h-[calc(100dvh-3.5rem)] lg:min-h-dvh">
       <div
         aria-hidden
-        className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top_left,_rgba(10,10,10,0.05),_transparent_50%),radial-gradient(ellipse_at_bottom_right,_rgba(10,10,10,0.04),_transparent_45%)] dark:bg-[radial-gradient(ellipse_at_top_left,_rgba(250,250,250,0.06),_transparent_50%),radial-gradient(ellipse_at_bottom_right,_rgba(250,250,250,0.04),_transparent_45%)]"
+        className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top_left,_rgba(171,159,242,0.28),_transparent_50%),radial-gradient(ellipse_at_bottom_right,_rgba(60,49,91,0.08),_transparent_45%)]"
       />
 
       <div className="relative mx-auto grid min-h-[inherit] w-full max-w-6xl lg:grid-cols-2">

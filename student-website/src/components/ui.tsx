@@ -22,14 +22,14 @@ export function Button({
 }) {
   const styles =
     variant === "primary"
-      ? "bg-inverse-bg text-inverse-fg hover:opacity-90"
+      ? "bg-accent text-on-accent hover:opacity-90"
       : variant === "secondary"
         ? "border border-border bg-bg text-fg hover:bg-surface"
         : "text-fg hover:bg-surface";
 
   return (
     <button
-      className={`inline-flex h-11 items-center justify-center gap-2 whitespace-nowrap rounded-md px-4 text-sm font-medium transition disabled:opacity-50 ${styles} ${className}`}
+      className={`inline-flex h-11 items-center justify-center gap-2 whitespace-nowrap rounded-full px-5 text-sm font-medium transition disabled:opacity-50 ${styles} ${className}`}
       {...props}
     />
   );
@@ -48,7 +48,7 @@ export function ButtonLink({
 }) {
   const styles =
     variant === "primary"
-      ? "bg-inverse-bg text-inverse-fg hover:opacity-90"
+      ? "bg-accent text-on-accent hover:opacity-90"
       : variant === "secondary"
         ? "border border-border bg-bg text-fg hover:bg-surface"
         : "text-fg hover:bg-surface";
@@ -56,7 +56,7 @@ export function ButtonLink({
   return (
     <Link
       href={href}
-      className={`inline-flex h-11 items-center justify-center gap-2 whitespace-nowrap rounded-md px-4 text-sm font-medium transition ${styles} ${className}`}
+      className={`inline-flex h-11 items-center justify-center gap-2 whitespace-nowrap rounded-full px-5 text-sm font-medium transition ${styles} ${className}`}
     >
       {children}
     </Link>
@@ -69,7 +69,7 @@ export function Input({
 }: InputHTMLAttributes<HTMLInputElement>) {
   return (
     <input
-      className={`h-11 w-full rounded-md border border-border bg-bg px-3 text-sm text-fg outline-none placeholder:text-muted focus:border-fg ${className}`}
+      className={`h-11 w-full rounded-2xl border border-border bg-bg px-3 text-sm text-fg outline-none placeholder:text-muted focus:border-accent ${className}`}
       {...props}
     />
   );

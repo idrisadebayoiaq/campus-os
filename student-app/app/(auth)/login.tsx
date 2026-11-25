@@ -10,6 +10,7 @@ import {
 import { AppText, Button, Field, Input, Screen } from "@/src/components/ui";
 import { useAuth } from "@/src/lib/auth";
 import { useTheme } from "@/src/theme/ThemeProvider";
+import { radii } from "@/src/theme/tokens";
 
 export default function LoginScreen() {
   const { signIn, configured } = useAuth();
@@ -42,30 +43,23 @@ export default function LoginScreen() {
     <Screen>
       <KeyboardAvoidingView
         style={{ flex: 1 }}
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
+        behavior="padding"
+        keyboardVerticalOffset={Platform.OS === "ios" ? 8 : 0}
       >
         <ScrollView
           contentContainerStyle={styles.content}
           keyboardShouldPersistTaps="handled"
         >
-          <View style={{ gap: 8 }}>
-            <AppText muted size={14} weight="500">
-              Student access
+          <View style={{ gap: 6 }}>
+            <AppText size={34} weight="700">
+              CampusOS
             </AppText>
-            <AppText size={28} weight="700">
-              Welcome back
-            </AppText>
-            <AppText muted>
-              Log in to housing, study tools, and your campus inbox.
+            <AppText muted size={15}>
+              Welcome back — housing, study tools, and your campus inbox.
             </AppText>
           </View>
 
-          <View
-            style={[
-              styles.card,
-              { borderColor: colors.border, backgroundColor: colors.bg },
-            ]}
-          >
+          <View style={[styles.card, { backgroundColor: colors.surface }]}>
             <Field label="Email">
               <Input
                 autoCapitalize="none"
@@ -74,6 +68,7 @@ export default function LoginScreen() {
                 placeholder="you@school.edu.ng"
                 value={email}
                 onChangeText={setEmail}
+                style={{ backgroundColor: colors.bg }}
               />
             </Field>
             <Field label="Password">
@@ -83,6 +78,7 @@ export default function LoginScreen() {
                 placeholder="Password"
                 value={password}
                 onChangeText={setPassword}
+                style={{ backgroundColor: colors.bg }}
               />
             </Field>
             {error ? (
@@ -97,11 +93,11 @@ export default function LoginScreen() {
             />
           </View>
 
-          <AppText muted size={14}>
+          <AppText muted size={14} style={{ textAlign: "center" }}>
             New here?{" "}
             <Link
               href="/(auth)/signup"
-              style={{ color: colors.fg, fontWeight: "600" }}
+              style={{ color: colors.fg, fontWeight: "700" }}
             >
               Create a student account
             </Link>
@@ -116,13 +112,12 @@ const styles = StyleSheet.create({
   content: {
     flexGrow: 1,
     justifyContent: "center",
-    gap: 24,
+    gap: 28,
     paddingVertical: 32,
   },
   card: {
-    borderWidth: 1,
-    borderRadius: 16,
-    padding: 16,
-    gap: 14,
+    borderRadius: radii.xl,
+    padding: 20,
+    gap: 16,
   },
 });

@@ -2,9 +2,9 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { Suspense } from "react";
 import {
-  StudentShellFallback,
-  StudentShellServer,
-} from "@/components/student-shell-server";
+  MarketingShellFallback,
+  MarketingShellServer,
+} from "@/components/marketing-shell-server";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -23,11 +23,14 @@ export const metadata: Metadata = {
     template: "%s · CampusOS",
   },
   description:
-    "Housing-first Nigerian student platform for campus life, study tools, and everyday needs.",
+    "CampusOS is the Nigerian student app for housing, study tools, food, marketplace, and AI tutoring. Download for Android and iOS.",
   applicationName: "CampusOS",
   icons: {
-    icon: [{ url: "/brand/mark.svg", type: "image/svg+xml" }],
-    apple: [{ url: "/brand/mark.svg", type: "image/svg+xml" }],
+    icon: [
+      { url: "/brand/mark.png", type: "image/png" },
+      { url: "/brand/CampusOS.png", type: "image/png", sizes: "1254x1254" },
+    ],
+    apple: [{ url: "/brand/CampusOS.png", type: "image/png" }],
   },
 };
 
@@ -50,8 +53,8 @@ export default function RootLayout({
         />
       </head>
       <body className="min-h-full bg-bg text-fg">
-        <Suspense fallback={<StudentShellFallback />}>
-          <StudentShellServer>{children}</StudentShellServer>
+        <Suspense fallback={<MarketingShellFallback>{children}</MarketingShellFallback>}>
+          <MarketingShellServer>{children}</MarketingShellServer>
         </Suspense>
       </body>
     </html>

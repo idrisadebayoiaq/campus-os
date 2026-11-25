@@ -9,6 +9,15 @@ import {
 import type { Session, User } from "@supabase/supabase-js";
 import { supabase, supabaseConfigured } from "@/src/lib/supabase";
 
+export type SignUpProfile = {
+  firstName: string;
+  lastName: string;
+  preferredName?: string;
+  marketing?: boolean;
+};
+
+const CONSENT_VERSION = "2026-11";
+
 type AuthContextValue = {
   session: Session | null;
   user: User | null;
@@ -18,7 +27,7 @@ type AuthContextValue = {
   signUp: (
     email: string,
     password: string,
-    fullName: string,
+    profile: SignUpProfile,
   ) => Promise<{ error: string | null; needsConfirm?: boolean }>;
   signOut: () => Promise<void>;
 };
@@ -30,21 +39,31 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!supabaseConfigured) {
-      setLoading(false);
-      return;
+    let active = true;
+
+    async function boot() {
+      if (!supabaseConfigured) {
+        if (active) setLoading(false);
+        return;
+      }
+      try {
+        const { data } = await supabase.auth.getSession();
+        if (active) setSession(data.session);
+      } catch {
+        if (active) setSession(null);
+      } finally {
+        if (active) setLoading(false);
+      }
     }
 
-    supabase.auth.getSession().then(({ data }) => {
-      setSession(data.session);
-      setLoading(false);
-    });
+    void boot();
 
     const { data: sub } = supabase.auth.onAuthStateChange((_event, next) => {
-      setSession(next);
+      if (active) setSession(next);
     });
 
     return () => {
+      active = false;
       sub.subscription.unsubscribe();
     };
   }, []);
@@ -56,45 +75,116 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       loading,
       configured: supabaseConfigured,
       async signIn(email, password) {
-        const { error } = await supabase.auth.signInWithPassword({
-          email,
-          password,
-        });
-        return { error: error?.message ?? null };
-      },
-      async signUp(email, password, fullName) {
-        const { data, error } = await supabase.auth.signUp({
-          email,
-          password,
-          options: { data: { full_name: fullName } },
-        });
-        if (error) return { error: error.message };
-        if (data.user) {
-          await supabase.from("profiles").upsert({
-            id: data.user.id,
-            full_name: fullName,
+        try {
+          const { error } = await supabase.auth.signInWithPassword({
+            email,
+            password,
           });
-          await supabase.from("student_profiles").upsert({
-            user_id: data.user.id,
-          });
-          await supabase.from("onboarding_progress").upsert({
-            user_id: data.user.id,
-            current_step: "status",
-            setup_tasks: [
-              "add_courses",
-              "add_timetable",
-              "set_housing_budget",
-              "set_study_goal",
-            ],
-          });
+          return { error: error?.message ?? null };
+        } catch (e) {
+          return {
+            error: e instanceof Error ? e.message : "Sign in failed. Try again.",
+          };
         }
-        return {
-          error: null,
-          needsConfirm: !data.session,
-        };
+      },
+      async signUp(email, password, profile) {
+        try {
+          const firstName = profile.firstName.trim();
+          const lastName = profile.lastName.trim();
+          const preferredName = profile.preferredName?.trim() || null;
+          const marketing = Boolean(profile.marketing);
+          const fullName = `${firstName} ${lastName}`.trim();
+
+          const { data, error } = await supabase.auth.signUp({
+            email,
+            password,
+            options: {
+              data: {
+                full_name: fullName,
+                first_name: firstName,
+                last_name: lastName,
+                preferred_name: preferredName,
+              },
+            },
+          });
+          if (error) return { error: error.message };
+          if (data.user) {
+            // Best-effort profile rows — never block signup on these.
+            const uid = data.user.id;
+            const now = new Date().toISOString();
+            const writes = [
+              () =>
+                supabase.from("profiles").upsert({
+                  id: uid,
+                  full_name: fullName,
+                  first_name: firstName,
+                  last_name: lastName,
+                  preferred_name: preferredName,
+                }),
+              () => supabase.from("student_profiles").upsert({ user_id: uid }),
+              () =>
+                supabase
+                  .from("student_preferences")
+                  .upsert({ user_id: uid, interests: [] }),
+              () =>
+                supabase.from("notification_preferences").upsert({
+                  user_id: uid,
+                  academic_reminders: true,
+                  lecture_alerts: true,
+                  examination_alerts: true,
+                  housing_alerts: true,
+                  food_order_updates: true,
+                  marketing_email: marketing,
+                  updated_at: now,
+                }),
+              () =>
+                supabase.from("user_consents").insert(
+                  [
+                    { purpose: "terms_of_service", granted: true },
+                    { purpose: "privacy_notice", granted: true },
+                    ...(marketing ? [{ purpose: "marketing", granted: true }] : []),
+                  ].map((c) => ({
+                    user_id: uid,
+                    version: CONSENT_VERSION,
+                    ...c,
+                  })),
+                ),
+              () =>
+                supabase.from("onboarding_progress").upsert({
+                  user_id: uid,
+                  current_step: "status",
+                  setup_tasks: [
+                    "add_courses",
+                    "add_timetable",
+                    "set_housing_budget",
+                    "set_study_goal",
+                  ],
+                }),
+            ];
+            for (const write of writes) {
+              try {
+                await write();
+              } catch {
+                /* ignore individual write failures */
+              }
+            }
+          }
+          return {
+            error: null,
+            needsConfirm: !data.session,
+          };
+        } catch (e) {
+          return {
+            error: e instanceof Error ? e.message : "Sign up failed. Try again.",
+          };
+        }
       },
       async signOut() {
-        await supabase.auth.signOut();
+        try {
+          await supabase.auth.signOut();
+        } catch {
+          /* still clear local session via listener */
+        }
       },
     }),
     [session, loading],
