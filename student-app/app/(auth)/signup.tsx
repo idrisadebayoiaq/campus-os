@@ -14,21 +14,50 @@ import {
   PasswordInput,
 } from "@/src/components/ui";
 import { useAuth } from "@/src/lib/auth";
+import { EXAMS } from "@/src/lib/exams";
 import { useTheme } from "@/src/theme/ThemeProvider";
 import { radii } from "@/src/theme/tokens";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
+type Kind = "enrolled" | "exam_prep";
+type Step = "kind" | "details" | "final";
+
+const KIND_OPTIONS: {
+  key: Kind;
+  icon: keyof typeof Ionicons.glyphMap;
+  title: string;
+  text: string;
+  perks: string[];
+}[] = [
+  {
+    key: "enrolled",
+    icon: "school-outline",
+    title: "I'm already in school",
+    text: "University, polytechnic or college student.",
+    perks: ["Courses, timetable and CGPA", "Classes, housing and food near campus", "AI tutor, free with daily limits"],
+  },
+  {
+    key: "exam_prep",
+    icon: "ribbon-outline",
+    title: "I'm preparing for an exam",
+    text: "JAMB, WAEC, NECO, Post-UTME or similar.",
+    perks: ["Exam countdown and study plan", "Flashcards, notes and study groups", "AI tutor and past questions with Premium"],
+  },
+];
+
 export default function SignupScreen() {
   const { signUp, configured } = useAuth();
   const colors = useTheme();
-  const [step, setStep] = useState<1 | 2>(1);
+  const [step, setStep] = useState<Step>("kind");
+  const [kind, setKind] = useState<Kind | null>(null);
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [preferredName, setPreferredName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [location, setLocation] = useState<PickedLocation | null>(null);
+  const [exams, setExams] = useState<string[]>([]);
   const [terms, setTerms] = useState(false);
   const [marketing, setMarketing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -37,6 +66,17 @@ export default function SignupScreen() {
 
   const longEnough = password.length >= 8;
   const hasNumber = /\d/.test(password);
+  const examPrep = kind === "exam_prep";
+  const stepNo = step === "kind" ? 1 : step === "details" ? 2 : 3;
+
+  function chooseKind() {
+    setError(null);
+    if (!kind) {
+      setError("Pick the option that fits you to continue.");
+      return;
+    }
+    setStep("details");
+  }
 
   function nextStep() {
     setError(null);
@@ -52,7 +92,12 @@ export default function SignupScreen() {
       setError("Use a password with at least 8 characters and a number.");
       return;
     }
-    setStep(2);
+    setStep("final");
+  }
+
+  function toggleExam(key: string) {
+    setError(null);
+    setExams((cur) => (cur.includes(key) ? cur.filter((k) => k !== key) : [...cur, key]));
   }
 
   async function onSubmit() {
@@ -62,7 +107,11 @@ export default function SignupScreen() {
       setError("Add EXPO_PUBLIC_SUPABASE_URL and EXPO_PUBLIC_SUPABASE_ANON_KEY to .env");
       return;
     }
-    if (!location) {
+    if (examPrep && exams.length === 0) {
+      setError("Choose at least one exam you are preparing for.");
+      return;
+    }
+    if (!examPrep && !location) {
       setError("Choose your location so we can show schools and places near you.");
       return;
     }
@@ -76,7 +125,9 @@ export default function SignupScreen() {
       lastName,
       preferredName,
       marketing,
-      location: { label: location.label, lat: location.lat, lng: location.lng },
+      location: location ? { label: location.label, lat: location.lat, lng: location.lng } : null,
+      studentKind: examPrep ? "exam_prep" : "enrolled",
+      exams: examPrep ? exams : [],
     });
     setLoading(false);
     if (result.error) {
@@ -88,7 +139,7 @@ export default function SignupScreen() {
       setTimeout(() => router.replace("/(auth)/login"), 2400);
       return;
     }
-    router.replace("/onboarding");
+    router.replace(examPrep ? "/(tabs)" : "/onboarding");
   }
 
   const errorBanner = error ? (
@@ -99,13 +150,93 @@ export default function SignupScreen() {
     </View>
   ) : null;
 
-  if (step === 1) {
+  if (step === "kind") {
+    return (
+      <AuthShell
+        title="How will you use CampusOS?"
+        subtitle="Pick the one that fits you today. We set up the right tools for you, and you can switch later."
+        step={{ current: 1, total: 3, label: "Your path" }}
+      >
+        {KIND_OPTIONS.map((o) => {
+          const on = kind === o.key;
+          return (
+            <Pressable
+              key={o.key}
+              onPress={() => {
+                setKind(o.key);
+                setError(null);
+              }}
+              accessibilityRole="radio"
+              accessibilityState={{ selected: on }}
+              style={[
+                styles.kindCard,
+                {
+                  backgroundColor: on ? colors.accentSoft : colors.surface,
+                  borderColor: on ? colors.accent : colors.border,
+                },
+              ]}
+            >
+              <View style={styles.kindHead}>
+                <View style={[styles.kindIcon, { backgroundColor: on ? colors.accent : colors.soft }]}>
+                  <Ionicons name={o.icon} size={22} color={on ? colors.onAccent : colors.fg} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <AppText weight="700" size={16}>
+                    {o.title}
+                  </AppText>
+                  <AppText muted size={13}>
+                    {o.text}
+                  </AppText>
+                </View>
+                <Ionicons
+                  name={on ? "radio-button-on" : "radio-button-off"}
+                  size={22}
+                  color={on ? colors.accent : colors.muted}
+                />
+              </View>
+              <View style={{ gap: 6, marginTop: 12 }}>
+                {o.perks.map((p) => (
+                  <View key={p} style={styles.perk}>
+                    <Ionicons name="checkmark" size={15} color={colors.success} />
+                    <AppText size={13}>{p}</AppText>
+                  </View>
+                ))}
+              </View>
+            </Pressable>
+          );
+        })}
+
+        {errorBanner}
+
+        <Button title="Continue" onPress={chooseKind} />
+
+        <AppText muted size={14} style={{ textAlign: "center" }}>
+          Already have an account?{" "}
+          <Link href="/(auth)/login" style={{ color: colors.fg, fontWeight: "700" }}>
+            Log in
+          </Link>
+        </AppText>
+      </AuthShell>
+    );
+  }
+
+  if (step === "details") {
     return (
       <AuthShell
         title="Create your account"
-        subtitle="Join students finding rooms, food, study tools and classmates."
-        step={{ current: 1, total: 2, label: "About you" }}
+        subtitle={
+          examPrep
+            ? "Join students getting ready for their exams."
+            : "Join students finding rooms, food, study tools and classmates."
+        }
+        step={{ current: 2, total: 3, label: "About you" }}
       >
+        <Pressable onPress={() => setStep("kind")} style={styles.backLink} hitSlop={8}>
+          <Ionicons name="arrow-back" size={16} color={colors.muted} />
+          <AppText size={13} muted weight="600">
+            {examPrep ? "Preparing for an exam" : "Already in school"} · change
+          </AppText>
+        </Pressable>
         <View style={styles.row}>
           <View style={{ flex: 1 }}>
             <Field label="First name">
@@ -141,7 +272,7 @@ export default function SignupScreen() {
             autoCapitalize="none"
             autoComplete="email"
             keyboardType="email-address"
-            placeholder="you@school.edu.ng"
+            placeholder={examPrep ? "you@gmail.com" : "you@school.edu.ng"}
             value={email}
             onChangeText={setEmail}
           />
@@ -162,42 +293,79 @@ export default function SignupScreen() {
         {errorBanner}
 
         <Button title="Continue" onPress={nextStep} />
-
-        <AppText muted size={14} style={{ textAlign: "center" }}>
-          Already have an account?{" "}
-          <Link href="/(auth)/login" style={{ color: colors.fg, fontWeight: "700" }}>
-            Log in
-          </Link>
-        </AppText>
       </AuthShell>
     );
   }
 
   return (
     <AuthShell
-      title="Where are you based?"
-      subtitle="We'll show schools, housing and places around this location."
-      step={{ current: 2, total: 2, label: "Your location" }}
+      title={examPrep ? "Which exam are you writing?" : "Where are you based?"}
+      subtitle={
+        examPrep
+          ? "Choose all that apply. We build your countdown and study plan from this."
+          : "We'll show schools, housing and places around this location."
+      }
+      step={{ current: 3, total: 3, label: examPrep ? "Your exams" : "Your location" }}
     >
-      <Pressable onPress={() => setStep(1)} style={styles.backLink} hitSlop={8}>
+      <Pressable onPress={() => setStep("details")} style={styles.backLink} hitSlop={8}>
         <Ionicons name="arrow-back" size={16} color={colors.muted} />
         <AppText size={13} muted weight="600">
           Back to your details
         </AppText>
       </Pressable>
 
-      <Field
-        label="Your location"
-        hint="Search and tap your area, street or hostel, or use your current location."
-      >
-        <LocationSearch
-          value={location}
-          onChange={(place) => {
-            setLocation(place);
-            if (place) setError(null);
-          }}
-        />
-      </Field>
+      {examPrep ? (
+        <View style={{ gap: 10 }}>
+          {EXAMS.map((e) => {
+            const on = exams.includes(e.key);
+            return (
+              <Pressable
+                key={e.key}
+                onPress={() => toggleExam(e.key)}
+                accessibilityRole="checkbox"
+                accessibilityState={{ checked: on }}
+                style={[
+                  styles.examRow,
+                  {
+                    backgroundColor: on ? colors.accentSoft : colors.surface,
+                    borderColor: on ? colors.accent : colors.border,
+                  },
+                ]}
+              >
+                <View style={{ flex: 1 }}>
+                  <AppText weight="600" size={15}>
+                    {e.label}
+                  </AppText>
+                  <AppText muted size={12}>
+                    {e.blurb}
+                  </AppText>
+                </View>
+                <Ionicons
+                  name={on ? "checkbox" : "square-outline"}
+                  size={22}
+                  color={on ? colors.accent : colors.muted}
+                />
+              </Pressable>
+            );
+          })}
+          <AppText muted size={12}>
+            You can add your subjects, exam date and the school you want after you sign up.
+          </AppText>
+        </View>
+      ) : (
+        <Field
+          label="Your location"
+          hint="Search and tap your area, street or hostel, or use your current location."
+        >
+          <LocationSearch
+            value={location}
+            onChange={(place) => {
+              setLocation(place);
+              if (place) setError(null);
+            }}
+          />
+        </Field>
+      )}
 
       <View style={[styles.consent, { borderColor: colors.border }]}>
         <Checkbox checked={terms} onChange={setTerms}>
@@ -239,7 +407,7 @@ export default function SignupScreen() {
         title="Create account"
         onPress={() => void onSubmit()}
         loading={loading}
-        disabled={!terms || !location}
+        disabled={!terms || (examPrep ? exams.length === 0 : !location)}
       />
     </AuthShell>
   );
@@ -268,4 +436,17 @@ const styles = StyleSheet.create({
   banner: { borderRadius: radii.sm, borderWidth: 1, padding: 12 },
   backLink: { flexDirection: "row", alignItems: "center", gap: 6, alignSelf: "flex-start" },
   consent: { borderWidth: 1, borderRadius: radii.md, padding: 16, gap: 14 },
+  kindCard: { borderWidth: 1.5, borderRadius: radii.md, padding: 16 },
+  kindHead: { flexDirection: "row", alignItems: "center", gap: 12 },
+  kindIcon: { width: 44, height: 44, borderRadius: 22, alignItems: "center", justifyContent: "center" },
+  perk: { flexDirection: "row", alignItems: "center", gap: 8 },
+  examRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    borderWidth: 1.5,
+    borderRadius: radii.md,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
 });

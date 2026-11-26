@@ -2,13 +2,31 @@ import { Pressable, ScrollView, StyleSheet, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter, type Href } from "expo-router";
 import { AppText, Screen, TAB_BAR_CLEARANCE } from "@/src/components/ui";
+import { useStudentKind } from "@/src/lib/student-kind";
 import { STUDY_TOOLS } from "@/src/lib/study";
 import { useTheme } from "@/src/theme/ThemeProvider";
 import { radii } from "@/src/theme/tokens";
 
+/** Tools that make sense before a student has a school. Courses, timetable, classes and CGPA wait for admission. */
+const EXAM_TOOLS = new Set([
+  "planner",
+  "calendar",
+  "library",
+  "past-questions",
+  "flashcards",
+  "cbt",
+  "focus",
+  "ai",
+  "groups",
+  "tutors",
+  "insights",
+]);
+
 export default function StudyScreen() {
   const colors = useTheme();
   const router = useRouter();
+  const { isExamPrep } = useStudentKind();
+  const tools = isExamPrep ? STUDY_TOOLS.filter((t) => EXAM_TOOLS.has(t.href)) : STUDY_TOOLS;
 
   return (
     <Screen padded={false} tabClearance>
@@ -60,7 +78,7 @@ export default function StudyScreen() {
         </Pressable>
 
         <View style={styles.grid}>
-          {STUDY_TOOLS.map((tool) => (
+          {tools.map((tool) => (
             <Pressable
               key={tool.href}
               onPress={() => router.push(`/study/${tool.href}` as Href)}

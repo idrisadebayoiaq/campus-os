@@ -62,6 +62,91 @@ function toPlace(f: PhotonFeature): Place {
   };
 }
 
+/**
+ * Public Mapbox token (starts with "pk."). Optional: when it is set, maps use Mapbox tiles and search
+ * uses Mapbox geocoding; otherwise we fall back to free OpenStreetMap services. Never put a secret
+ * ("sk.") token here, it is shipped inside the app.
+ */
+export const MAPBOX_TOKEN = (process.env.EXPO_PUBLIC_MAPBOX_TOKEN ?? "").trim();
+export const mapboxEnabled = MAPBOX_TOKEN.startsWith("pk.");
+
+const MAPBOX_GEOCODE = "https://api.mapbox.com/search/geocode/v6";
+
+type MapboxContext = { name?: string };
+type MapboxFeature = {
+  id?: string;
+  geometry: { coordinates: [number, number] };
+  properties: {
+    mapbox_id?: string;
+    name?: string;
+    name_preferred?: string;
+    place_formatted?: string;
+    context?: {
+      place?: MapboxContext;
+      district?: MapboxContext;
+      locality?: MapboxContext;
+      region?: MapboxContext;
+    };
+  };
+};
+
+function mapboxToPlace(f: MapboxFeature): Place {
+  const p = f.properties;
+  const [lng, lat] = f.geometry.coordinates;
+  const title = p.name_preferred || p.name || "Pinned location";
+  const subtitle = (p.place_formatted ?? "").replace(/,\s*Nigeria$/i, "");
+  return {
+    id: p.mapbox_id ?? f.id ?? `${lat},${lng}`,
+    lat,
+    lng,
+    title,
+    subtitle,
+    label: [title, subtitle].filter(Boolean).join(", "),
+    city: p.context?.place?.name ?? p.context?.district?.name ?? p.context?.locality?.name,
+    state: p.context?.region?.name,
+  };
+}
+
+async function searchMapbox(q: string, near: LatLng | null | undefined, signal?: AbortSignal): Promise<Place[] | null> {
+  try {
+    const params = new URLSearchParams({
+      q,
+      access_token: MAPBOX_TOKEN,
+      country: "ng",
+      limit: "8",
+      language: "en",
+      autocomplete: "true",
+    });
+    if (near) params.set("proximity", `${near.lng},${near.lat}`);
+    const res = await fetch(`${MAPBOX_GEOCODE}/forward?${params}`, { signal });
+    if (!res.ok) return null;
+    const json = (await res.json()) as { features?: MapboxFeature[] };
+    return (json.features ?? []).map(mapboxToPlace);
+  } catch (e) {
+    if (e instanceof Error && e.name === "AbortError") throw e;
+    return null;
+  }
+}
+
+async function reverseMapbox(point: LatLng): Promise<Place | null> {
+  try {
+    const params = new URLSearchParams({
+      longitude: String(point.lng),
+      latitude: String(point.lat),
+      access_token: MAPBOX_TOKEN,
+      language: "en",
+      limit: "1",
+    });
+    const res = await fetch(`${MAPBOX_GEOCODE}/reverse?${params}`);
+    if (!res.ok) return null;
+    const json = (await res.json()) as { features?: MapboxFeature[] };
+    const f = json.features?.[0];
+    return f ? { ...mapboxToPlace(f), lat: point.lat, lng: point.lng } : null;
+  } catch {
+    return null;
+  }
+}
+
 /** Address / place autocomplete, ranked around `near` when given. */
 export async function searchPlaces(
   query: string,
@@ -70,6 +155,10 @@ export async function searchPlaces(
 ): Promise<Place[]> {
   const q = query.trim();
   if (q.length < 2) return [];
+  if (mapboxEnabled) {
+    const found = await searchMapbox(q, near, signal);
+    if (found && found.length) return found;
+  }
   const params = new URLSearchParams({ q, limit: "8", lang: "en" });
   if (near) {
     params.set("lat", String(near.lat));
@@ -89,6 +178,10 @@ export async function searchPlaces(
 }
 
 export async function reverseGeocode(point: LatLng): Promise<Place> {
+  if (mapboxEnabled) {
+    const place = await reverseMapbox(point);
+    if (place) return place;
+  }
   try {
     const res = await fetch(
       `${PHOTON}/reverse?lat=${point.lat}&lon=${point.lng}&lang=en`,

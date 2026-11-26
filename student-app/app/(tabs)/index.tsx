@@ -14,6 +14,8 @@ import {
   Screen,
   TAB_BAR_CLEARANCE,
 } from "@/src/components/ui";
+import { ExamHome } from "@/src/components/exam-home";
+import { useStudentKind } from "@/src/lib/student-kind";
 import { useAuth } from "@/src/lib/auth";
 import { formatNaira, getStudentCampus } from "@/src/lib/campus";
 import {
@@ -141,6 +143,11 @@ function pickNextCalendarEvent(events: CalendarEvent[], now = new Date()) {
 }
 
 export default function HomeScreen() {
+  const { isExamPrep } = useStudentKind();
+  return isExamPrep ? <ExamHome /> : <StudentHome />;
+}
+
+function StudentHome() {
   const { user } = useAuth();
   const colors = useTheme();
   const [name, setName] = useState("Student");

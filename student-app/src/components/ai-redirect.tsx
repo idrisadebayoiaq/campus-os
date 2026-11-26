@@ -2,21 +2,58 @@ import { Redirect } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
 import { ActivityIndicator, View } from "react-native";
 import { AppText, Button } from "@/src/components/ui";
+import { PremiumGate } from "@/src/components/premium-gate";
 import { StudyShell } from "@/src/components/study";
 import { useAuth } from "@/src/lib/auth";
 import { ensureAiConversation } from "@/src/lib/messaging";
+import { usePremium } from "@/src/lib/premium-state";
+import { useStudentKind } from "@/src/lib/student-kind";
 import { useStudyLock } from "@/src/lib/study-lock";
 import { supabase } from "@/src/lib/supabase";
 import { useTheme } from "@/src/theme/ThemeProvider";
 
-/** Opens the WhatsApp-style AI companion chat, with recoverable errors. */
-export function AiConversationRedirect({
+type RedirectProps = { title?: string; subtitle?: string };
+
+/**
+ * Opens the WhatsApp-style AI companion chat. Students in school use it free (with limits);
+ * exam candidates need Premium, so they see an unlock card first.
+ */
+export function AiConversationRedirect(props: RedirectProps) {
+  const { isExamPrep } = useStudentKind();
+  const premium = usePremium();
+  const colors = useTheme();
+  if (isExamPrep && premium.loading) {
+    return (
+      <StudyShell title={props.title ?? "AI Tutor"} subtitle="One moment…">
+        <View style={{ paddingVertical: 48, alignItems: "center" }}>
+          <ActivityIndicator color={colors.fg} />
+        </View>
+      </StudyShell>
+    );
+  }
+  if (isExamPrep && !premium.active) {
+    return (
+      <PremiumGate
+        title="AI Tutor"
+        subtitle="Your personal exam coach"
+        feature="The AI tutor"
+        price={premium.price}
+        points={[
+          "Step-by-step answers for JAMB, WAEC and NECO subjects",
+          "Exam-style practice questions with explanations",
+          "Ask as many questions as you need, every day",
+        ]}
+      />
+    );
+  }
+  return <TutorOpener {...props} />;
+}
+
+/** Opens the AI companion chat, with recoverable errors. */
+function TutorOpener({
   title = "AI Tutor",
   subtitle = "Opening your study chat…",
-}: {
-  title?: string;
-  subtitle?: string;
-}) {
+}: RedirectProps) {
   const { user } = useAuth();
   const { allowPath } = useStudyLock();
   const colors = useTheme();

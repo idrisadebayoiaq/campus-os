@@ -11,6 +11,7 @@ import {
 import { PremiumBadge } from "@/src/components/premium-badge";
 import { useAuth } from "@/src/lib/auth";
 import { getStudentCampus, type StudentCampus } from "@/src/lib/campus";
+import { useStudentKind } from "@/src/lib/student-kind";
 import { supabase } from "@/src/lib/supabase";
 import { useTheme } from "@/src/theme/ThemeProvider";
 import { radii } from "@/src/theme/tokens";
@@ -44,8 +45,20 @@ const MENU: MenuRow[] = [
   { title: "Help & support", icon: "headset-outline", href: "/support" },
 ];
 
+const EXAM_HIDDEN = new Set(["Verify student ID", "My room & rent", "Rate & review"]);
+
 export default function ProfileScreen() {
   const { user, signOut } = useAuth();
+  const { isExamPrep } = useStudentKind();
+  const menu: MenuRow[] = isExamPrep
+    ? [
+        ...MENU.filter((r) => !EXAM_HIDDEN.has(r.title)).flatMap((r) =>
+          r.title === "Edit Profile"
+            ? [r, { title: "Exam goals", icon: "flag-outline" as const, href: "/exam-goals" as Href }]
+            : [r],
+        ),
+      ]
+    : MENU;
   const colors = useTheme();
   const [campus, setCampus] = useState<StudentCampus | null>(null);
   const [bits, setBits] = useState<ProfileBits>({
@@ -230,7 +243,9 @@ export default function ProfileScreen() {
                   Go Premium
                 </AppText>
                 <AppText size={12} style={{ color: colors.heroMuted }}>
-                  Premium badge, higher AI tutor limits, lower selling fee and priority support.
+                  {isExamPrep
+                    ? "Unlock the AI tutor and past questions for your exam, plus a Premium badge and priority support."
+                    : "Premium badge, higher AI tutor limits, lower selling fee and priority support."}
                 </AppText>
               </View>
             </View>
@@ -242,7 +257,7 @@ export default function ProfileScreen() {
         </AppText>
 
         <View style={{ gap: 10 }}>
-          {MENU.map((row) => (
+          {menu.map((row) => (
             <Pressable
               key={row.title}
               onPress={() => router.push(row.href)}

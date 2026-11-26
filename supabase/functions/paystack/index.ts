@@ -401,7 +401,8 @@ Deno.serve(async (req) => {
     // Student Premium by card. The card is saved (when Paystack allows) so it can renew by itself.
     if (action === "init-premium") {
       const callback = typeof body.callback_url === "string" ? body.callback_url : undefined;
-      const price = await num("student_plan_price", 1000);
+      const { data: priceRow } = await admin.rpc("student_price", { p_user: user.id });
+      const price = Number(priceRow ?? 2000);
       const reference = `prem_${user.id.replaceAll("-", "").slice(0, 16)}_${Date.now().toString(36)}`;
       const init = await paystack("/transaction/initialize", "POST", {
         email,

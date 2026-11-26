@@ -3,12 +3,14 @@ import { useEffect, useState } from "react";
 import { ActivityIndicator, View } from "react-native";
 import { FloatingTabBar } from "@/src/components/floating-tab-bar";
 import { useAuth } from "@/src/lib/auth";
+import { useStudentKind } from "@/src/lib/student-kind";
 import { supabase } from "@/src/lib/supabase";
 import { useTheme } from "@/src/theme/ThemeProvider";
 
 export default function TabsLayout() {
   const { session, user, loading } = useAuth();
   const colors = useTheme();
+  const { isExamPrep, loading: kindLoading } = useStudentKind();
   const [needsCampus, setNeedsCampus] = useState<boolean | null>(null);
 
   useEffect(() => {
@@ -36,7 +38,7 @@ export default function TabsLayout() {
     };
   }, [user]);
 
-  if (loading || (session && needsCampus === null)) {
+  if (loading || (session && (needsCampus === null || kindLoading))) {
     return (
       <View
         style={{
@@ -55,7 +57,8 @@ export default function TabsLayout() {
     return <Redirect href="/(auth)/login" />;
   }
 
-  if (needsCampus) {
+  // Exam candidates are not in a school yet, so they skip campus setup.
+  if (needsCampus && !isExamPrep) {
     return <Redirect href="/onboarding" />;
   }
 

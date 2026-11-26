@@ -9,7 +9,7 @@ import {
 } from "react";
 import { StyleSheet, View, type StyleProp, type ViewStyle } from "react-native";
 import { WebView, type WebViewMessageEvent } from "react-native-webview";
-import type { LatLng } from "@/src/lib/location";
+import { MAPBOX_TOKEN, mapboxEnabled, type LatLng } from "@/src/lib/location";
 import { useTheme } from "@/src/theme/ThemeProvider";
 
 type WebViewHandle = { injectJavaScript: (script: string) => void };
@@ -33,6 +33,10 @@ export type MapPickerHandle = {
 
 function mapHtml(center: LatLng, zoom: number, dark: boolean) {
   const tiles = dark ? "dark_all" : "rastertiles/voyager";
+  const mapboxStyle = dark ? "dark-v11" : "streets-v12";
+  const mapboxLayer = mapboxEnabled
+    ? `var mb=L.tileLayer('https://api.mapbox.com/styles/v1/mapbox/${mapboxStyle}/tiles/256/{z}/{x}/{y}{r}?access_token=${encodeURIComponent(MAPBOX_TOKEN)}',{maxZoom:19,attribution:'&copy; Mapbox &copy; OpenStreetMap'});`
+    : "var mb=null;";
   return `<!doctype html><html><head>
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
@@ -41,7 +45,9 @@ function mapHtml(center: LatLng, zoom: number, dark: boolean) {
 .leaflet-control-attribution{font-size:9px;opacity:.75}</style>
 </head><body><div id="map"></div><script>
 var map=L.map('map',{zoomControl:false}).setView([${center.lat},${center.lng}],${zoom});
-L.tileLayer('https://{s}.basemaps.cartocdn.com/${tiles}/{z}/{x}/{y}{r}.png',{subdomains:'abcd',maxZoom:20,attribution:'&copy; OpenStreetMap &copy; CARTO'}).addTo(map);
+var carto=L.tileLayer('https://{s}.basemaps.cartocdn.com/${tiles}/{z}/{x}/{y}{r}.png',{subdomains:'abcd',maxZoom:20,attribution:'&copy; OpenStreetMap &copy; CARTO'});
+${mapboxLayer}
+if(mb){var bad=0;mb.addTo(map);mb.on('tileerror',function(){bad++;if(bad>=3&&map.hasLayer(mb)){map.removeLayer(mb);carto.addTo(map);}});}else{carto.addTo(map);}
 function post(t){var c=map.getCenter();window.ReactNativeWebView.postMessage(JSON.stringify({type:t,lat:c.lat,lng:c.lng}));}
 map.on('movestart',function(){post('movestart');});
 map.on('moveend',function(){post('moveend');});

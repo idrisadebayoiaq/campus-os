@@ -4,6 +4,7 @@ import "leaflet/dist/leaflet.css";
 import type { Map as LeafletMap } from "leaflet";
 import { useEffect, useRef, useState } from "react";
 import {
+  addBaseTiles,
   NIGERIA_CENTER,
   reverseGeocode,
   searchPlaces,
@@ -67,14 +68,7 @@ export function LocationPicker({
         zoom,
       );
       const dark = document.documentElement.dataset.theme === "dark";
-      L.tileLayer(
-        `https://{s}.basemaps.cartocdn.com/${dark ? "dark_all" : "rastertiles/voyager"}/{z}/{x}/{y}{r}.png`,
-        {
-          subdomains: "abcd",
-          maxZoom: 20,
-          attribution: "&copy; OpenStreetMap &copy; CARTO",
-        },
-      ).addTo(m);
+      addBaseTiles(L, m, dark);
       m.on("movestart", () => setMoving(true));
       m.on("moveend", () => {
         setMoving(false);

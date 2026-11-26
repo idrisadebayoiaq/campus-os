@@ -19,9 +19,6 @@ const CORS = {
 
 const MODEL = Deno.env.get("TUTOR_MODEL") || "deepseek/deepseek-v4.1-flash";
 const FALLBACK = Deno.env.get("TUTOR_FALLBACK_MODEL") || "qwen/qwen3.7-flash";
-const PER_HOUR = 40;
-const PER_DAY = 200;
-
 const PERSONALITY: Record<string, string> = {
   friendly: "Warm, encouraging and patient, like a friendly older coursemate.",
   strict_tutor: "Direct and rigorous. Push the student to think; point out mistakes clearly but kindly.",
@@ -145,18 +142,39 @@ Deno.serve(async (req) => {
         .eq("feature", "tutor")
         .gte("created_at", day),
     ]);
-    // Premium students get a higher limit.
-    const { data: premiumSet } = await admin.rpc("premium_ids", { p_ids: [user.id] });
-    let multiplier = 1;
-    if (Array.isArray(premiumSet) && premiumSet.includes(user.id)) {
-      const { data: m } = await admin.rpc("setting_num", { p_key: "tutor_premium_multiplier", p_default: 3 });
-      multiplier = Math.max(1, Number(m ?? 3));
+    // Limits: in-school students use the tutor free with a limit; Premium raises it.
+    // Exam candidates need Premium for the tutor (it is part of their plan).
+    const [{ data: premiumSet }, { data: kindRow }] = await Promise.all([
+      admin.rpc("premium_ids", { p_ids: [user.id] }),
+      admin.rpc("student_kind", { p_user: user.id }),
+    ]);
+    const isPremium = Array.isArray(premiumSet) && premiumSet.includes(user.id);
+    const examPrep = kindRow === "exam_prep";
+    const num = async (key: string, fallback: number) => {
+      const { data } = await admin.rpc("setting_num", { p_key: key, p_default: fallback });
+      return Math.max(1, Number(data ?? fallback));
+    };
+    if (examPrep && !isPremium) {
+      return json(
+        { error: "The AI tutor is part of Premium for exam candidates. Open Profile › Premium to unlock it.", code: "premium_required" },
+        402,
+      );
     }
-    if ((lastHour ?? 0) >= PER_HOUR * multiplier) {
-      return json({ error: "You've asked a lot this hour. Take a short break and try again soon." }, 429);
+    let perHour: number;
+    let perDay: number;
+    if (examPrep) {
+      perHour = await num("tutor_exam_per_hour", 60);
+      perDay = await num("tutor_exam_per_day", 200);
+    } else {
+      const mult = isPremium ? await num("tutor_premium_multiplier", 3) : 1;
+      perHour = (await num("tutor_free_per_hour", 10)) * mult;
+      perDay = (await num("tutor_free_per_day", 30)) * mult;
     }
-    if ((lastDay ?? 0) >= PER_DAY * multiplier) {
-      return json({ error: "You've reached today's tutor limit. It resets tomorrow." }, 429);
+    if ((lastHour ?? 0) >= perHour) {
+      return json({ error: "You've asked a lot this hour. Take a short break and try again soon." + (isPremium ? "" : " Premium raises your limit."), code: "limit" }, 429);
+    }
+    if ((lastDay ?? 0) >= perDay) {
+      return json({ error: "You've reached today's tutor limit. It resets tomorrow." + (isPremium ? "" : " Premium raises your limit."), code: "limit" }, 429);
     }
 
     const [{ data: profile }, { data: me }, { data: history }] = await Promise.all([
@@ -201,6 +219,26 @@ Deno.serve(async (req) => {
       }
     }
 
+    let examContext = "";
+    if (examPrep) {
+      const { data: goals } = await admin
+        .from("student_profiles")
+        .select("exam_targets, exam_subjects, exam_date, target_course")
+        .eq("user_id", user.id)
+        .maybeSingle();
+      const exams = (goals?.exam_targets ?? []).map((e: string) => e.toUpperCase().replace("_", "-")).join(", ");
+      const subjects = (goals?.exam_subjects ?? []).join(", ");
+      examContext = [
+        `This student is preparing for ${exams || "a secondary-school or entrance exam"} and is not in school yet.`,
+        subjects ? `Their subjects: ${subjects}.` : "",
+        goals?.exam_date ? `Their exam date is ${goals.exam_date}.` : "",
+        goals?.target_course ? `They want to study ${goals.target_course}.` : "",
+        `Teach to the JAMB/WAEC/NECO syllabus. Prefer exam-style practice: give short multiple-choice questions with four options, wait for their answer, then explain. Point out common exam traps and time-saving tricks.`,
+      ]
+        .filter(Boolean)
+        .join(" ");
+    }
+
     const name = me?.preferred_name || me?.first_name || me?.full_name?.split(" ")[0] || "";
     const language = profile?.language && profile.language !== "auto" ? profile.language : "";
 
@@ -213,6 +251,7 @@ Deno.serve(async (req) => {
         ? `Reply in ${language}.`
         : "Reply in the language the student writes in (English or Nigerian Pidgin are both fine).",
       courses ? `Courses the student is taking this semester: ${courses}.` : "",
+      examContext,
       `Help with studying: explain concepts, solve and check problems step by step, summarise notes, make practice questions, plan revision, and give exam tips.`,
       `Do not write the student's graded assignments or take-home exams for them; guide them to the answer instead. Say so briefly if asked.`,
       `If you are not sure about a fact, say so instead of guessing. Never invent references or statistics.`,

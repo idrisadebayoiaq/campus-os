@@ -15,6 +15,9 @@ export type SignUpProfile = {
   preferredName?: string;
   marketing?: boolean;
   location?: { label: string; lat: number; lng: number } | null;
+  /** "enrolled" = already in school, "exam_prep" = preparing for JAMB, WAEC, NECO etc. */
+  studentKind?: "enrolled" | "exam_prep";
+  exams?: string[];
 };
 
 const CONSENT_VERSION = "2026-11";
@@ -106,6 +109,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 last_name: lastName,
                 preferred_name: preferredName,
                 signup_intent: "student",
+                student_kind: profile.studentKind ?? "enrolled",
+                exam_targets: (profile.exams ?? []).join(","),
                 location_label: profile.location?.label ?? null,
                 location_lat: profile.location?.lat ?? null,
                 location_lng: profile.location?.lng ?? null,

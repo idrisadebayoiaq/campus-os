@@ -19,11 +19,22 @@ type State = {
   pay_method: "card" | "wallet" | null;
   card: { brand: string | null; last4: string | null; exp: string } | null;
   price: number;
+  kind?: "enrolled" | "exam_prep";
 };
 
-const BENEFITS: { icon: keyof typeof Ionicons.glyphMap; title: string; body: string; soon?: boolean }[] = [
+type Benefit = { icon: keyof typeof Ionicons.glyphMap; title: string; body: string; soon?: boolean };
+
+const EXAM_BENEFITS: Benefit[] = [
+  { icon: "sparkles", title: "AI tutor for your exam", body: "Ask your tutor anything, get step-by-step answers and exam-style practice questions, any time." },
+  { icon: "document-text", title: "Past questions", body: "Practise with JAMB, WAEC and NECO past questions and keep your own notes. More added all the time." },
   { icon: "checkmark-circle", title: "Green Premium badge", body: "Shown next to your name on your profile, chats and marketplace listings." },
-  { icon: "sparkles", title: "Higher AI tutor limits", body: "Ask your study tutor three times more questions every hour and every day." },
+  { icon: "pricetag", title: "Lower selling fee", body: "Keep more of what you sell. The marketplace fee drops from 2% to 1% on new sales." },
+  { icon: "headset", title: "Priority support", body: "Your support tickets are answered before the rest." },
+];
+
+const BENEFITS: Benefit[] = [
+  { icon: "checkmark-circle", title: "Green Premium badge", body: "Shown next to your name on your profile, chats and marketplace listings." },
+  { icon: "sparkles", title: "Higher AI tutor limits", body: "The tutor is free for you with a daily limit. Premium gives you three times more questions every hour and every day." },
   { icon: "pricetag", title: "Lower selling fee", body: "Keep more of what you sell. The marketplace fee drops from 2% to 1% on new sales." },
   { icon: "headset", title: "Priority support", body: "Your support tickets are answered before the rest." },
   { icon: "flash", title: "Early access to deals", body: "See new food and campus deals before everyone else.", soon: true },
@@ -105,8 +116,10 @@ export default function PremiumScreen() {
     void load();
   }
 
-  const price = state?.price ?? 1000;
+  const examPrep = state?.kind === "exam_prep";
+  const price = state?.price ?? (examPrep ? 4000 : 2000);
   const active = Boolean(state?.active);
+  const benefits = examPrep ? EXAM_BENEFITS : BENEFITS;
   const ends = state?.ends_at ? new Date(state.ends_at).toLocaleDateString(undefined, { day: "numeric", month: "long", year: "numeric" }) : "";
   const renewLine =
     state?.auto_renew === false
@@ -144,7 +157,11 @@ export default function PremiumScreen() {
           </AppText>
         </AppText>
         <AppText size={13} style={{ color: colors.heroMuted }}>
-          {active ? "Premium is active on your account." : "Cancel renewal any time. No hidden charges."}
+          {active
+            ? "Premium is active on your account."
+            : examPrep
+              ? "Unlocks the AI tutor and past questions. Everything else in CampusOS is already free for you."
+              : "Cancel renewal any time. No hidden charges."}
         </AppText>
       </View>
 
@@ -154,7 +171,7 @@ export default function PremiumScreen() {
 
       <Section title="What you get">
         <Group>
-          {BENEFITS.map((b) => (
+          {benefits.map((b) => (
             <View key={b.title} style={{ flexDirection: "row", gap: 12, padding: 14, alignItems: "flex-start" }}>
               <View style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: b.soon ? colors.accentSoft : PREMIUM_GREEN, alignItems: "center", justifyContent: "center" }}>
                 <Ionicons name={b.soon ? "time-outline" : "checkmark"} size={16} color={b.soon ? colors.fg : "#fff"} />

@@ -8,6 +8,7 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 import { AuthProvider } from "@/src/lib/auth";
 import { FeedbackProvider } from "@/src/lib/feedback";
 import { PaySheetProvider } from "@/src/lib/pay-sheet";
+import { StudentKindProvider } from "@/src/lib/student-kind";
 import { StudyLockProvider } from "@/src/lib/study-lock";
 import {
   ThemeProvider,
@@ -29,13 +30,15 @@ export default function RootLayout() {
       <SafeAreaProvider>
         <ThemeProvider>
           <AuthProvider>
-            <StudyLockProvider>
-              <FeedbackProvider>
-                <PaySheetProvider>
-                  <RootNavigator />
-                </PaySheetProvider>
-              </FeedbackProvider>
-            </StudyLockProvider>
+            <StudentKindProvider>
+              <StudyLockProvider>
+                <FeedbackProvider>
+                  <PaySheetProvider>
+                    <RootNavigator />
+                  </PaySheetProvider>
+                </FeedbackProvider>
+              </StudyLockProvider>
+            </StudentKindProvider>
           </AuthProvider>
         </ThemeProvider>
       </SafeAreaProvider>
@@ -71,6 +74,7 @@ function RootNavigator() {
         <Stack.Screen name="orders" options={{ headerShown: false }} />
         <Stack.Screen name="wallet" options={{ headerShown: false }} />
         <Stack.Screen name="premium" options={{ headerShown: false }} />
+        <Stack.Screen name="exam-goals" options={{ headerShown: false }} />
         <Stack.Screen name="transactions" options={{ headerShown: false }} />
         <Stack.Screen name="payout" options={{ headerShown: false }} />
         <Stack.Screen name="study-lock" options={{ headerShown: false }} />

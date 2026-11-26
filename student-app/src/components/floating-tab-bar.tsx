@@ -9,6 +9,7 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useStudentKind } from "@/src/lib/student-kind";
 import { useTheme } from "@/src/theme/ThemeProvider";
 import { radii } from "@/src/theme/tokens";
 
@@ -88,8 +89,32 @@ const MORE_MENU = [
   },
 ];
 
+const EXAM_STUDY_TAB = {
+  name: "study",
+  label: "Study",
+  href: "/(tabs)/study",
+  active: "book" as const,
+  idle: "book-outline" as const,
+};
+
+const EXAM_MORE_MENU = [
+  { title: "Profile", href: "/(tabs)/profile", icon: "person-outline" as const },
+  { title: "Settings", href: "/settings", icon: "settings-outline" as const },
+  { title: "Exam goals", href: "/exam-goals", icon: "flag-outline" as const },
+  { title: "AI tutor", href: "/study/ai", icon: "sparkles-outline" as const },
+  { title: "Past Questions", href: "/study/past-questions", icon: "document-text-outline" as const },
+  { title: "Chat", href: "/(tabs)/inbox", icon: "chatbubble-outline" as const },
+];
+
 export function FloatingTabBar({ state }: TabBarProps) {
   const colors = useTheme();
+  const { isExamPrep } = useStudentKind();
+  // Exam candidates have no school yet, so Housing makes way for the Study hub.
+  const primaryTabs = isExamPrep
+    ? PRIMARY_TABS.map((t) => (t.name === "housing" ? EXAM_STUDY_TAB : t))
+    : PRIMARY_TABS;
+  const primaryNames = isExamPrep ? new Set(["index", "study", "marketplace", "ai"]) : PRIMARY_TAB_NAMES;
+  const moreMenu = isExamPrep ? EXAM_MORE_MENU : MORE_MENU;
   const insets = useSafeAreaInsets();
   const segments = useSegments();
   const [moreOpen, setMoreOpen] = useState(false);
@@ -100,7 +125,7 @@ export function FloatingTabBar({ state }: TabBarProps) {
 
   const activeName = state.routes[state.index]?.name;
   const onSecondaryTab = Boolean(
-    activeName && !PRIMARY_TAB_NAMES.has(activeName),
+    activeName && !primaryNames.has(activeName),
   );
 
   // Show on every screen inside (tabs), including Profile / Chat / Study Hub.
@@ -131,7 +156,7 @@ export function FloatingTabBar({ state }: TabBarProps) {
             ]}
             pointerEvents="box-none"
           >
-            {MORE_MENU.map((item) => (
+            {moreMenu.map((item) => (
               <Pressable
                 key={item.title}
                 onPress={() => {
@@ -168,7 +193,7 @@ export function FloatingTabBar({ state }: TabBarProps) {
         style={[styles.wrap, { paddingBottom: Math.max(insets.bottom, 14) }]}
       >
         <View style={[styles.bar, { backgroundColor: colors.tabBar }]}>
-          {PRIMARY_TABS.map((tab) => {
+          {primaryTabs.map((tab) => {
             const focused = activeName === tab.name;
             return (
               <Pressable

@@ -1,6 +1,6 @@
-import { Ionicons } from "@expo/vector-icons";
 import { Redirect, router } from "expo-router";
-import { useEffect, useMemo, useState } from "react";
+import { Ionicons } from "@expo/vector-icons";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -10,25 +10,20 @@ import {
   StyleSheet,
   View,
 } from "react-native";
-import {
-  AppText,
-  Button,
-  Chip,
-  EmptyState,
-  Field,
-  Input,
-  Screen,
-  SearchBar,
-} from "@/src/components/ui";
+import { AppText, Button, Chip, Field, Input, Screen } from "@/src/components/ui";
 import { LocationPicker } from "@/src/components/location-picker";
+import { DropdownField, PickerSheet, type PickerItem } from "@/src/components/picker-sheet";
 import { useAuth } from "@/src/lib/auth";
 import {
+  currentPosition,
   distanceKm,
   formatDistance,
   loadSavedLocation,
+  reverseGeocode,
   saveLocation,
   type SavedLocation,
 } from "@/src/lib/location";
+import { useStudentKind } from "@/src/lib/student-kind";
 import { supabase } from "@/src/lib/supabase";
 import { useTheme } from "@/src/theme/ThemeProvider";
 import { radii } from "@/src/theme/tokens";
@@ -59,19 +54,24 @@ const TERTIARY_TYPES = [
   "other",
 ];
 
-const MAX_VISIBLE = 40;
+/** Schools closer than this to the student are listed first as "near me". */
+const NEAR_KM = 80;
 
 function campusesOf(inst: Institution | null | undefined): Campus[] {
   if (!inst?.campuses) return [];
   return Array.isArray(inst.campuses) ? inst.campuses : [inst.campuses];
 }
 
+function typeLabel(t: string) {
+  return t.replaceAll("_", " ");
+}
+
 export default function OnboardingScreen() {
   const { user, loading: authLoading } = useAuth();
+  const { refresh: refreshKind } = useStudentKind();
   const colors = useTheme();
   const [institutions, setInstitutions] = useState<Institution[]>([]);
   const [loading, setLoading] = useState(true);
-  const [query, setQuery] = useState("");
   const [institutionId, setInstitutionId] = useState("");
   const [campusId, setCampusId] = useState("");
   const [academicLevel, setAcademicLevel] = useState("");
@@ -79,7 +79,14 @@ export default function OnboardingScreen() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [home, setHome] = useState<SavedLocation | null>(null);
+  const [homeChecked, setHomeChecked] = useState(false);
   const [picking, setPicking] = useState(false);
+  const [schoolOpen, setSchoolOpen] = useState(false);
+  const [campusOpen, setCampusOpen] = useState(false);
+  const [showAll, setShowAll] = useState(false);
+  const [locating, setLocating] = useState(false);
+  const [locNote, setLocNote] = useState<string | null>(null);
+  const autoTried = useRef(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -123,7 +130,7 @@ export default function OnboardingScreen() {
     };
   }, [user]);
 
-  // The student's chosen location (from signup), used to rank schools by distance.
+  // The student's saved location (from signup), used to rank schools by distance.
   useEffect(() => {
     if (!user) return;
     let cancelled = false;
@@ -138,12 +145,43 @@ export default function OnboardingScreen() {
         };
         await saveLocation(supabase, user.id, loc);
       }
-      if (!cancelled) setHome(loc);
+      if (!cancelled) {
+        setHome(loc);
+        setHomeChecked(true);
+      }
     })();
     return () => {
       cancelled = true;
     };
   }, [user]);
+
+  /** Asks for location permission and uses the device position to find schools around it. */
+  async function useCurrentLocation(silent: boolean) {
+    setLocating(true);
+    setLocNote(null);
+    const pos = await currentPosition();
+    if (!pos) {
+      setLocating(false);
+      if (!silent) {
+        setLocNote("Location permission is off. Search for your school below or pick a spot on the map.");
+      }
+      return;
+    }
+    const place = await reverseGeocode(pos);
+    const loc: SavedLocation = { label: place.label, lat: pos.lat, lng: pos.lng };
+    setHome(loc);
+    setShowAll(false);
+    if (user) await saveLocation(supabase, user.id, loc);
+    setLocating(false);
+  }
+
+  // First visit with no saved place: ask once for the device location.
+  useEffect(() => {
+    if (!user || !homeChecked || home || autoTried.current) return;
+    autoTried.current = true;
+    void useCurrentLocation(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user, homeChecked, home]);
 
   const distanceOf = useMemo(() => {
     const map = new Map<string, number>();
@@ -159,31 +197,50 @@ export default function OnboardingScreen() {
     return map;
   }, [institutions, home]);
 
-  const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    const tokens = q.split(/\s+/).filter(Boolean);
-    const list = institutions
-      .filter((i) => TERTIARY_TYPES.includes(i.institution_type))
-      .filter((i) => {
-        if (!tokens.length) return true;
-        const campusText = campusesOf(i)
-          .map((c) => `${c.city || ""} ${c.state || ""}`)
-          .join(" ");
-        const hay = `${i.name} ${i.short_name || ""} ${campusText}`.toLowerCase();
-        return hay.includes(q) || tokens.every((t) => hay.includes(t));
-      });
+  const sortedAll = useMemo(() => {
+    const list = institutions.filter((i) => TERTIARY_TYPES.includes(i.institution_type));
     if (!home) return list;
     return [...list].sort(
       (a, b) => (distanceOf.get(a.id) ?? Infinity) - (distanceOf.get(b.id) ?? Infinity),
     );
-  }, [institutions, query, home, distanceOf]);
+  }, [institutions, home, distanceOf]);
+
+  const toItem = (i: Institution): PickerItem => {
+    const km = distanceOf.get(i.id);
+    return {
+      id: i.id,
+      label: i.name,
+      sub: [
+        i.short_name,
+        typeLabel(i.institution_type),
+        campusesOf(i)[0]?.city,
+        km != null ? `${formatDistance(km)} away` : null,
+      ]
+        .filter(Boolean)
+        .join(" · "),
+      keywords: campusesOf(i)
+        .map((c) => `${c.name} ${c.city ?? ""} ${c.state ?? ""}`)
+        .join(" "),
+    };
+  };
+
+  const allItems = useMemo(() => sortedAll.map(toItem), [sortedAll, distanceOf]); // eslint-disable-line react-hooks/exhaustive-deps
+  const nearItems = useMemo(
+    () => (home ? sortedAll.filter((i) => (distanceOf.get(i.id) ?? Infinity) <= NEAR_KM).map(toItem) : []),
+    [sortedAll, home, distanceOf], // eslint-disable-line react-hooks/exhaustive-deps
+  );
+  const nearMode = Boolean(home) && nearItems.length > 0 && !showAll;
 
   const selected = institutions.find((i) => i.id === institutionId) || null;
   const campuses = campusesOf(selected);
+  const selectedCampus = campuses.find((c) => c.id === campusId) || null;
 
-  function pickInstitution(inst: Institution) {
+  function pickInstitution(id: string) {
+    const inst = institutions.find((i) => i.id === id);
+    if (!inst) return;
     setInstitutionId(inst.id);
     setCampusId(campusesOf(inst)[0]?.id || "");
+    setSchoolOpen(false);
     setError(null);
   }
 
@@ -272,6 +329,7 @@ export default function OnboardingScreen() {
         updated_at: new Date().toISOString(),
       });
 
+      await refreshKind();
       router.replace("/(tabs)");
     } catch (e) {
       setError(e instanceof Error ? e.message : "Could not save your campus.");
@@ -294,7 +352,29 @@ export default function OnboardingScreen() {
     return <Redirect href="/(auth)/login" />;
   }
 
-  const visible = filtered.slice(0, MAX_VISIBLE);
+  const sheetHeader = (
+    <View style={{ paddingHorizontal: 16, paddingBottom: 10, gap: 8 }}>
+      {home ? (
+        <AppText muted size={12} numberOfLines={1}>
+          {nearMode ? `Schools within ${NEAR_KM} km of ${home.label || "you"}` : `Closest first to ${home.label || "you"}`}
+        </AppText>
+      ) : (
+        <AppText muted size={12}>
+          Turn on location to see schools near you, or search by name.
+        </AppText>
+      )}
+      {home && nearItems.length > 0 ? (
+        <View style={styles.chips}>
+          <Chip label={`Near me (${nearItems.length})`} active={!showAll} onPress={() => setShowAll(false)} />
+          <Chip label={`All schools (${allItems.length})`} active={showAll} onPress={() => setShowAll(true)} />
+        </View>
+      ) : home ? (
+        <AppText muted size={12}>
+          No listed schools within {NEAR_KM} km. Showing every school, closest first.
+        </AppText>
+      ) : null}
+    </View>
+  );
 
   return (
     <Screen padded={false}>
@@ -313,123 +393,71 @@ export default function OnboardingScreen() {
               Pick your school
             </AppText>
             <AppText muted size={15}>
-              Housing, study tools and listings are scoped to the school you
-              attend.
+              Housing, study tools and listings are scoped to the school you attend.
             </AppText>
           </View>
 
-          <Pressable
-            onPress={() => setPicking(true)}
-            style={[styles.nearRow, { backgroundColor: colors.surface }]}
-          >
+          <View style={[styles.nearRow, { backgroundColor: colors.surface }]}>
             <Ionicons name="location" size={18} color={colors.fg} />
             <View style={{ flex: 1 }}>
               <AppText size={12} muted>
-                {home ? "Showing schools near" : "Set your location to see nearby schools"}
+                {locating
+                  ? "Finding schools near you…"
+                  : home
+                    ? "Showing schools near"
+                    : "Turn on location to see schools near you"}
               </AppText>
               <AppText size={14} weight="600" numberOfLines={1}>
-                {home?.label || "Choose on map"}
+                {home?.label || "No location set"}
               </AppText>
             </View>
-            <AppText size={13} weight="700" style={{ color: colors.fg, opacity: 0.8 }}>
-              {home ? "Change" : "Set"}
-            </AppText>
-          </Pressable>
-
-          <SearchBar
-            value={query}
-            onChangeText={setQuery}
-            placeholder="Search school, short name or city…"
-          />
-
-          {loading ? (
-            <View style={styles.center}>
+            {locating ? (
               <ActivityIndicator color={colors.fg} />
-            </View>
-          ) : visible.length === 0 ? (
-            <EmptyState
-              title="No schools match"
-              description="Try a shorter name or the school abbreviation."
+            ) : (
+              <Pressable onPress={() => setPicking(true)} hitSlop={8}>
+                <AppText size={13} weight="700" style={{ color: colors.fg, opacity: 0.8 }}>
+                  {home ? "Change" : "Set"}
+                </AppText>
+              </Pressable>
+            )}
+          </View>
+          {!home && !locating ? (
+            <Button
+              title="Use my current location"
+              variant="secondary"
+              compact
+              onPress={() => void useCurrentLocation(false)}
             />
-          ) : (
-            <View style={{ gap: 8 }}>
-              {visible.map((inst) => {
-                const active = inst.id === institutionId;
-                return (
-                  <Pressable
-                    key={inst.id}
-                    onPress={() => pickInstitution(inst)}
-                    style={[
-                      styles.instRow,
-                      {
-                        backgroundColor: active
-                          ? colors.inverseBg
-                          : colors.surface,
-                      },
-                    ]}
-                  >
-                    <View style={{ flex: 1, gap: 2 }}>
-                      <AppText
-                        weight="700"
-                        size={15}
-                        style={{
-                          color: active ? colors.inverseFg : colors.fg,
-                        }}
-                      >
-                        {inst.name}
-                      </AppText>
-                      <AppText
-                        size={12}
-                        style={{
-                          color: active ? colors.inverseFg : colors.muted,
-                          opacity: active ? 0.75 : 1,
-                        }}
-                      >
-                        {[
-                          inst.short_name,
-                          inst.institution_type.replaceAll("_", " "),
-                          campusesOf(inst)[0]?.city,
-                          distanceOf.has(inst.id)
-                            ? `${formatDistance(distanceOf.get(inst.id)!)} away`
-                            : null,
-                        ]
-                          .filter(Boolean)
-                          .join(" · ")}
-                      </AppText>
-                    </View>
-                  </Pressable>
-                );
-              })}
-              {filtered.length > MAX_VISIBLE ? (
-                <AppText muted size={13} style={{ textAlign: "center" }}>
-                  Showing {MAX_VISIBLE} of {filtered.length}. Refine your
-                  search to see more.
-                </AppText>
-              ) : null}
-            </View>
-          )}
-
-          {selected ? (
-            <View style={[styles.card, { backgroundColor: colors.surface }]}>
-              <AppText weight="700">Campus</AppText>
-              {campuses.length === 0 ? (
-                <AppText muted size={14}>
-                  No campuses listed for this school yet.
-                </AppText>
-              ) : (
-                <View style={styles.chips}>
-                  {campuses.map((c) => (
-                    <Chip
-                      key={c.id}
-                      label={[c.name, c.city].filter(Boolean).join(" · ")}
-                      active={c.id === campusId}
-                      onPress={() => setCampusId(c.id)}
-                    />
-                  ))}
-                </View>
-              )}
-            </View>
           ) : null}
+          {locNote ? (
+            <AppText muted size={13}>
+              {locNote}
+            </AppText>
+          ) : null}
+          {home ? (
+            <AppText muted size={12} style={{ marginTop: -6 }}>
+              Not studying in this city? Tap Change, or open the school list and choose All schools.
+            </AppText>
+          ) : null}
+
+          <View style={[styles.card, { backgroundColor: colors.surface }]}>
+            <DropdownField
+              label="School"
+              value={selected?.name}
+              placeholder={loading ? "Loading schools…" : "Select your school"}
+              disabled={loading}
+              onPress={() => setSchoolOpen(true)}
+            />
+            {selected ? (
+              <DropdownField
+                label="Campus"
+                value={selectedCampus ? [selectedCampus.name, selectedCampus.city].filter(Boolean).join(" · ") : null}
+                placeholder={campuses.length === 0 ? "No campuses listed yet" : "Select your campus"}
+                disabled={campuses.length <= 1}
+                onPress={() => setCampusOpen(true)}
+              />
+            ) : null}
+          </View>
 
           <View style={[styles.card, { backgroundColor: colors.surface }]}>
             <AppText weight="700">Academic details (optional)</AppText>
@@ -464,14 +492,39 @@ export default function OnboardingScreen() {
             disabled={!selected || !campusId}
           />
           {router.canGoBack() ? (
-            <Button
-              title="Cancel"
-              variant="ghost"
-              onPress={() => router.back()}
-            />
+            <Button title="Cancel" variant="ghost" onPress={() => router.back()} />
           ) : null}
         </ScrollView>
       </KeyboardAvoidingView>
+
+      <PickerSheet
+        visible={schoolOpen}
+        title="Select your school"
+        searchPlaceholder="Search school, short name or city…"
+        items={nearMode ? nearItems : allItems}
+        searchItems={allItems}
+        selectedId={institutionId}
+        header={sheetHeader}
+        onSelect={(i) => pickInstitution(i.id)}
+        onClose={() => setSchoolOpen(false)}
+        emptyText="No school matches. Try the abbreviation or the city."
+      />
+      <PickerSheet
+        visible={campusOpen}
+        title="Select your campus"
+        searchable={false}
+        items={campuses.map((c) => ({
+          id: c.id,
+          label: c.name,
+          sub: [c.city, c.state].filter(Boolean).join(", ") || undefined,
+        }))}
+        selectedId={campusId}
+        onSelect={(i) => {
+          setCampusId(i.id);
+          setCampusOpen(false);
+        }}
+        onClose={() => setCampusOpen(false)}
+      />
       <LocationPicker
         visible={picking}
         title="Your location"
@@ -480,6 +533,7 @@ export default function OnboardingScreen() {
         onConfirm={async (place) => {
           setPicking(false);
           setHome(place);
+          setShowAll(false);
           if (user) await saveLocation(supabase, user.id, place);
         }}
       />
@@ -495,13 +549,6 @@ const styles = StyleSheet.create({
     gap: 18,
   },
   center: { alignItems: "center", justifyContent: "center", padding: 24 },
-  instRow: {
-    borderRadius: radii.lg,
-    paddingHorizontal: 18,
-    paddingVertical: 14,
-    flexDirection: "row",
-    alignItems: "center",
-  },
   card: {
     borderRadius: radii.xl,
     padding: 20,

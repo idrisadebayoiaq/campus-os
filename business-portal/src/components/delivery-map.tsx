@@ -3,6 +3,7 @@
 import "leaflet/dist/leaflet.css";
 import type { Circle, LayerGroup, Map as LeafletMap, Marker } from "leaflet";
 import { useEffect, useRef } from "react";
+import { addBaseTiles } from "@/lib/geo";
 
 export type MapZone = { id: string; label: string; radius_km: number; is_active: boolean };
 
@@ -45,10 +46,7 @@ export function DeliveryMap({
       leaflet.current = L;
       const m = L.map(el.current, { zoomControl: true }).setView([center.lat, center.lng], 14);
       const dark = document.documentElement.dataset.theme === "dark";
-      L.tileLayer(
-        `https://{s}.basemaps.cartocdn.com/${dark ? "dark_all" : "rastertiles/voyager"}/{z}/{x}/{y}{r}.png`,
-        { subdomains: "abcd", maxZoom: 20, attribution: "&copy; OpenStreetMap &copy; CARTO" },
-      ).addTo(m);
+      addBaseTiles(L, m, dark);
       L.circleMarker([center.lat, center.lng], { radius: 7, color: "#111", weight: 2, fillColor: "#fff", fillOpacity: 1 })
         .bindTooltip("Your kitchen")
         .addTo(m);
