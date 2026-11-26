@@ -10,6 +10,10 @@ export type NavItem = {
 const HOME: NavItem = { href: "/dashboard", label: "Overview", icon: "home", group: "Workspace" };
 const MESSAGES: NavItem = { href: "/inbox", label: "Messages", icon: "inbox", group: "Workspace" };
 const BILLING: NavItem = { href: "/billing", label: "Billing", icon: "budget", group: "Workspace" };
+const TEAM: NavItem = { href: "/team", label: "Team", icon: "groups", group: "Workspace" };
+const INSIGHTS: NavItem = { href: "/insights", label: "Insights", icon: "exams", group: "Workspace" };
+const REVIEWS: NavItem = { href: "/reviews", label: "Reviews", icon: "bell", group: "Workspace" };
+const BOOSTS: NavItem = { href: "/boosts", label: "Featured", icon: "shield", group: "Workspace" };
 const HELP: NavItem = { href: "/support", label: "Help & support", icon: "support", group: "Help" };
 
 const DESK_NAV: NavItem[] = [
@@ -22,6 +26,8 @@ const ADMIN_NAV: NavItem[] = [
   { href: "/admin/users", label: "Users & roles", icon: "profile", group: "Admin" },
   { href: "/admin/applications", label: "Businesses", icon: "assignments", group: "Reviews" },
   { href: "/admin/lecturers", label: "Lecturers", icon: "groups", group: "Reviews" },
+  { href: "/admin/verifications", label: "CAC badges", icon: "shield", group: "Reviews" },
+  { href: "/admin/boosts", label: "Boosts", icon: "budget", group: "Moderation" },
   { href: "/school/verifications", label: "Student IDs", icon: "shield", group: "Reviews" },
   { href: "/admin/listings", label: "Listings", icon: "market", group: "Moderation" },
   { href: "/admin/reports", label: "Reports", icon: "bell", group: "Moderation" },
@@ -36,29 +42,51 @@ const NAV_BY_PERSONA: Record<Exclude<Persona, "admin">, NavItem[]> = {
     HOME,
     { href: "/listings", label: "Properties", icon: "housing", group: "Housing" },
     { href: "/listings/inspections", label: "Inspections", icon: "timetable", group: "Housing" },
+    { href: "/listings/enquiries", label: "Enquiries", icon: "inbox", group: "Housing" },
+    { href: "/tenancies", label: "Tenants", icon: "groups", group: "Housing" },
     MESSAGES,
+    INSIGHTS,
+    REVIEWS,
+    BOOSTS,
+    TEAM,
     BILLING,
     HELP,
   ],
   restaurant: [
     HOME,
-    { href: "/listings", label: "Menu", icon: "food", group: "Restaurant" },
     { href: "/listings/orders", label: "Orders", icon: "assignments", group: "Restaurant" },
+    { href: "/listings/menu", label: "Menu", icon: "food", group: "Restaurant" },
+    { href: "/listings/deals", label: "Deals", icon: "bell", group: "Restaurant" },
+    { href: "/listings/delivery", label: "Delivery", icon: "send", group: "Restaurant" },
     MESSAGES,
+    INSIGHTS,
+    REVIEWS,
+    BOOSTS,
+    TEAM,
     BILLING,
     HELP,
   ],
   service: [
     HOME,
     { href: "/listings", label: "My listings", icon: "market", group: "Services" },
+    { href: "/listings/enquiries", label: "Enquiries", icon: "inbox", group: "Services" },
     MESSAGES,
+    INSIGHTS,
+    REVIEWS,
+    BOOSTS,
+    TEAM,
     BILLING,
     HELP,
   ],
   seller: [
     HOME,
     { href: "/listings", label: "My listings", icon: "market", group: "Marketplace" },
+    { href: "/listings/enquiries", label: "Enquiries", icon: "inbox", group: "Marketplace" },
     MESSAGES,
+    INSIGHTS,
+    REVIEWS,
+    BOOSTS,
+    TEAM,
     BILLING,
     HELP,
   ],
@@ -74,6 +102,7 @@ const NAV_BY_PERSONA: Record<Exclude<Persona, "admin">, NavItem[]> = {
     { href: "/school/verifications", label: "Student IDs", icon: "shield", group: "School" },
     { href: "/school/departments", label: "Departments", icon: "school", group: "School" },
     { href: "/school/lecturers", label: "Lecturers", icon: "groups", group: "School" },
+    { href: "/school/partners", label: "Partners", icon: "market", group: "School" },
     { href: "/school/announcements", label: "School news", icon: "bell", group: "School" },
     MESSAGES,
     HELP,

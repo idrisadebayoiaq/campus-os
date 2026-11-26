@@ -1,6 +1,8 @@
 import { redirect } from "next/navigation";
 import { NavIcon } from "@/components/nav-icons";
 import { SignOutButton } from "@/components/sign-out-button";
+import { TodayCard, type Today } from "@/components/today-card";
+import { myBusinesses } from "@/lib/business";
 import { ButtonLink, Container, EmptyState } from "@/components/ui";
 import { loadAccess } from "@/lib/access";
 import { businessTypeLabel } from "@/lib/business-types";
@@ -143,6 +145,14 @@ export default async function DashboardPage() {
     stats.push({ label: "Student ID reviews", value: ids ?? 0 });
   }
 
+  const teamBusinesses = (await myBusinesses(supabase, user.id)).filter((b) => b.setup_complete);
+  const today = await Promise.all(
+    teamBusinesses.map(async (b) => {
+      const { data } = await supabase.rpc("business_today", { p_business: b.id });
+      return { business: b, data: (data ?? null) as Today | null };
+    }),
+  );
+
   const pendingPersonas = pendingBusinessPersonas(access);
   const applyHref = pendingPersonas[0]
     ? `/apply/${TYPE_KEY[pendingPersonas[0]]}`
@@ -179,6 +189,10 @@ export default async function DashboardPage() {
           )}
         </div>
       </section>
+
+      {today.map(({ business, data }) =>
+        data ? <TodayCard key={business.id} business={business} today={data} /> : null,
+      )}
 
       {stats.length ? (
         <section className="grid grid-cols-2 gap-3 sm:grid-cols-4">

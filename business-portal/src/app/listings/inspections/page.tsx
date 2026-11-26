@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { InspectionBoard, type OpenSlot } from "@/components/inspection-board";
 import { LiveTables } from "@/components/live-tables";
 import { Container, EmptyState, PageHeader } from "@/components/ui";
+import { myBusinesses } from "@/lib/business";
 import { createClient } from "@/lib/supabase/server";
 
 export const instant = false;
@@ -13,11 +14,9 @@ export default async function InspectionsPage() {
   } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  const { data: businesses } = await supabase
-    .from("business_profiles")
-    .select("id")
-    .eq("owner_user_id", user.id);
-  const ids = (businesses ?? []).map((b) => b.id);
+  const ids = (await myBusinesses(supabase, user.id))
+    .filter((b) => b.business_type === "housing_provider")
+    .map((b) => b.id);
   if (!ids.length) {
     return (
       <Container>

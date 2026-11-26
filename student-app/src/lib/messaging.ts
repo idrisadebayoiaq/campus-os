@@ -428,6 +428,7 @@ export async function startBusinessChat(
     subject: string;
     message: string;
     foodOrderId?: string | null;
+    listingEnquiryId?: string | null;
   },
 ) {
   const { data: biz } = await supabase
@@ -444,6 +445,7 @@ export async function startBusinessChat(
       created_by: input.studentId,
       business_id: input.businessId,
       food_order_id: input.foodOrderId || null,
+      listing_enquiry_id: input.listingEnquiryId || null,
     })
     .select("id")
     .single();

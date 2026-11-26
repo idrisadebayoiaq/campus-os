@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState, type ReactNode } from "react";
 import { CampusLogo } from "@/components/campus-logo";
+import { LiveAlerts } from "@/components/live-alerts";
 import { NavIcon } from "@/components/nav-icons";
 import { useTheme } from "@/components/theme-provider";
 import { groupNav, initialsFromName, navForPersonas } from "@/lib/nav";
@@ -245,14 +246,17 @@ export function PortalShell({
               <p className="truncate text-xs text-muted">{personaLabel}</p>
             </div>
           </div>
-          <button
-            type="button"
-            onClick={toggleTheme}
-            className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-border hover:bg-surface"
-            aria-label="Toggle theme"
-          >
-            <NavIcon name={theme === "dark" ? "sun" : "moon"} />
-          </button>
+          <div className="flex items-center gap-2">
+            <LiveAlerts userId={user.id} />
+            <button
+              type="button"
+              onClick={toggleTheme}
+              className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-border hover:bg-surface"
+              aria-label="Toggle theme"
+            >
+              <NavIcon name={theme === "dark" ? "sun" : "moon"} />
+            </button>
+          </div>
         </header>
         <main className="flex-1">{children}</main>
       </div>

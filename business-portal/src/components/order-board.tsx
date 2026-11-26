@@ -15,7 +15,16 @@ export type Order = {
   prep_minutes: number | null;
   decline_reason: string | null;
   student_id: string;
-  food_order_items: { name: string; quantity: number; unit_price: number }[] | null;
+  fulfilment: string;
+  delivery_address: string | null;
+  delivery_fee: number;
+  discount: number;
+  promo_code: string | null;
+  payment_method: string;
+  payment_status: string;
+  food_order_items:
+    | { name: string; quantity: number; unit_price: number; options: { group: string; name: string }[] | null }[]
+    | null;
 };
 
 type Student = { name: string; verified: boolean };
@@ -42,12 +51,35 @@ const LABEL: Record<string, string> = {
   placed: "New",
   accepted: "Accepted",
   preparing: "Preparing",
-  ready: "Ready for pickup",
+  ready: "Ready",
   collected: "Collected",
   completed: "Completed",
   declined: "Rejected",
   cancelled: "Cancelled by student",
 };
+
+function PaymentTag({ order }: { order: Order }) {
+  const label =
+    order.payment_status === "paid"
+      ? "Paid by card"
+      : order.payment_status === "pending"
+        ? "Awaiting card payment"
+        : order.payment_status === "refund_requested"
+          ? "Refund requested"
+          : order.payment_status === "refunded"
+            ? "Refunded"
+            : order.payment_status === "failed"
+              ? "Payment failed"
+              : order.payment_method === "cash"
+                ? "Pay on collection"
+                : "Unpaid";
+  const good = order.payment_status === "paid";
+  return (
+    <span className={`mt-1 inline-block rounded-full px-2 py-0.5 text-xs ${good ? "bg-accent text-on-accent" : "border border-border text-muted"}`}>
+      {label}
+    </span>
+  );
+}
 
 export function OrderBoard({
   orders,
@@ -128,13 +160,32 @@ export function OrderBoard({
                       {order.prep_minutes && order.status !== "placed" ? ` · ~${order.prep_minutes} min` : ""}
                     </p>
                   </div>
-                  <p className="font-medium">₦{Number(order.total).toLocaleString()}</p>
+                  <div className="text-right">
+                    <p className="font-medium">₦{Number(order.total).toLocaleString()}</p>
+                    <PaymentTag order={order} />
+                  </div>
                 </div>
+                <p className="text-muted">
+                  {order.fulfilment === "delivery" ? (
+                    <>
+                      <span className="font-medium text-fg">Delivery</span> to {order.delivery_address}
+                      {Number(order.delivery_fee) > 0 ? ` (fee ₦${Number(order.delivery_fee).toLocaleString()})` : ""}
+                    </>
+                  ) : (
+                    <span className="font-medium text-fg">Pickup</span>
+                  )}
+                  {Number(order.discount) > 0
+                    ? ` · ${order.promo_code} −₦${Number(order.discount).toLocaleString()}`
+                    : ""}
+                </p>
 
                 <ul className="text-muted">
                   {(order.food_order_items || []).map((item, i) => (
                     <li key={`${order.id}-${i}`}>
                       {item.quantity}× {item.name}
+                      {item.options?.length ? (
+                        <span className="text-muted"> ({item.options.map((o) => o.name).join(", ")})</span>
+                      ) : null}
                     </li>
                   ))}
                 </ul>
@@ -194,10 +245,10 @@ export function OrderBoard({
                       </label>
                       <Button
                         type="button"
-                        disabled={busy === order.id}
+                        disabled={busy === order.id || (order.payment_method === "card" && order.payment_status === "pending")}
                         onClick={() => update(order.id, { status: "accepted", prep_minutes: prep[order.id] ?? 20 })}
                       >
-                        Accept
+                        {order.payment_method === "card" && order.payment_status === "pending" ? "Waiting for payment" : "Accept"}
                       </Button>
                       <Button type="button" variant="secondary" onClick={() => setRejecting(order.id)}>
                         Reject
@@ -218,12 +269,12 @@ export function OrderBoard({
                 ) : null}
                 {order.status === "preparing" ? (
                   <Button type="button" disabled={busy === order.id} onClick={() => update(order.id, { status: "ready" })}>
-                    Mark ready for pickup
+                    {order.fulfilment === "delivery" ? "Out for delivery" : "Mark ready for pickup"}
                   </Button>
                 ) : null}
                 {order.status === "ready" ? (
                   <Button type="button" disabled={busy === order.id} onClick={() => update(order.id, { status: "completed" })}>
-                    Handed to student
+                    {order.fulfilment === "delivery" ? "Delivered" : "Handed to student"}
                   </Button>
                 ) : null}
                 {(order.status === "accepted" || order.status === "preparing") && rejecting === order.id ? (

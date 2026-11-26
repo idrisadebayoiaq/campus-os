@@ -33,6 +33,7 @@ import {
   type MarketplaceChip,
 } from "@/src/lib/market-discovery";
 import { supabase } from "@/src/lib/supabase";
+import { levelLabel, loadBizMeta, loadFeatured, metaLine, type BizMeta } from "@/src/lib/trust";
 import { useTheme } from "@/src/theme/ThemeProvider";
 import { radii } from "@/src/theme/tokens";
 
@@ -74,6 +75,10 @@ export default function MarketHubScreen() {
   const [listings, setListings] = useState<ListingRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [meta, setMeta] = useState<Record<string, BizMeta>>({});
+  const [featured, setFeatured] = useState<Set<string>>(new Set());
+  const [onlyApproved, setOnlyApproved] = useState(false);
+  const [onlyVerified, setOnlyVerified] = useState(false);
 
   // Deep-link: food explore → Business + Food chip
   useEffect(() => {
@@ -118,6 +123,16 @@ export default function MarketHubScreen() {
           .limit(60),
       ]);
 
+      const [feat, bizMeta] = await Promise.all([
+        loadFeatured(supabase),
+        loadBizMeta(
+          supabase,
+          ((bizRes.data as BusinessRow[]) || []).map((b) => b.id),
+          { checkOpen: ((bizRes.data as BusinessRow[]) || []).filter((b) => b.business_type === "food_vendor").map((b) => b.id) },
+        ),
+      ]);
+      setFeatured(feat);
+      setMeta(bizMeta);
       if (!bizRes.error) setBusinesses((bizRes.data as BusinessRow[]) || []);
       if (!listRes.error) setListings((listRes.data as ListingRow[]) || []);
     } finally {
@@ -142,15 +157,23 @@ export default function MarketHubScreen() {
     }
   }, [query, mode]);
 
-  const visibleBusinesses = useMemo(
-    () => filterBusinesses(businesses, bizChip, query),
-    [businesses, bizChip, query],
-  );
+  const visibleBusinesses = useMemo(() => {
+    const base = filterBusinesses(businesses, bizChip, query).filter((b) => {
+      const m = meta[b.id];
+      if (onlyApproved && !m?.endorsed) return false;
+      if (onlyVerified && (!m || m.level === "basic")) return false;
+      return true;
+    });
+    const rank = (b: BusinessRow) => (featured.has(`business:${b.id}`) ? 0 : 1) + (meta[b.id]?.open === false ? 2 : 0);
+    return [...base].sort((a, b) => rank(a) - rank(b));
+  }, [businesses, bizChip, query, meta, featured, onlyApproved, onlyVerified]);
 
-  const visibleListings = useMemo(
-    () => filterListings(listings, mktChip, query),
-    [listings, mktChip, query],
-  );
+  const visibleListings = useMemo(() => {
+    const base = filterListings(listings, mktChip, query);
+    return [...base].sort(
+      (a, b) => Number(featured.has(`marketplace_listing:${b.id}`)) - Number(featured.has(`marketplace_listing:${a.id}`)),
+    );
+  }, [listings, mktChip, query, featured]);
 
   return (
     <Screen padded={false} tabClearance>
@@ -237,6 +260,13 @@ export default function MarketHubScreen() {
         }}
       />
 
+      {mode === "business" ? (
+        <View style={styles.filters}>
+          <Chip label="School-approved" active={onlyApproved} onPress={() => setOnlyApproved((v) => !v)} />
+          <Chip label="Verified" active={onlyVerified} onPress={() => setOnlyVerified((v) => !v)} />
+        </View>
+      ) : null}
+
       {loading ? (
         <View style={styles.center}>
           <ActivityIndicator color={colors.fg} />
@@ -300,15 +330,38 @@ export default function MarketHubScreen() {
                 )}
               </View>
               <View style={{ flex: 1, gap: 2 }}>
-                <AppText weight="700" size={15} numberOfLines={1}>
-                  {item.display_name}
-                </AppText>
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                  <AppText weight="700" size={15} numberOfLines={1} style={{ flexShrink: 1 }}>
+                    {item.display_name}
+                  </AppText>
+                  {featured.has(`business:${item.id}`) ? (
+                    <View style={[styles.tag, { backgroundColor: colors.accentSoft }]}>
+                      <AppText size={10} weight="700">
+                        Featured
+                      </AppText>
+                    </View>
+                  ) : null}
+                  {meta[item.id]?.open === true || meta[item.id]?.open === false ? (
+                    <View style={[styles.tag, { backgroundColor: meta[item.id]?.open ? colors.accentSoft : colors.bg }]}>
+                      <AppText size={10} weight="700" style={{ color: meta[item.id]?.open ? colors.success : colors.danger }}>
+                        {meta[item.id]?.open ? "Open" : "Closed"}
+                      </AppText>
+                    </View>
+                  ) : null}
+                </View>
                 <AppText muted size={12} numberOfLines={1}>
                   {businessTypeLabel(item.business_type)}
                   {item.verification_label
                     ? ` · ${item.verification_label.replaceAll("_", " ")}`
                     : ""}
+                  {levelLabel(meta[item.id]?.level ?? "basic") ? ` · ${levelLabel(meta[item.id].level)}` : ""}
+                  {meta[item.id]?.endorsed ? " · School-approved" : ""}
                 </AppText>
+                {metaLine(meta[item.id]) ? (
+                  <AppText size={12} weight="600" numberOfLines={1}>
+                    {metaLine(meta[item.id])}
+                  </AppText>
+                ) : null}
               </View>
               <Ionicons name="chevron-forward" size={18} color={colors.muted} />
             </Pressable>
@@ -373,6 +426,11 @@ export default function MarketHubScreen() {
                 <AppText size={12} numberOfLines={1}>
                   {item.title}
                 </AppText>
+                {featured.has(`marketplace_listing:${item.id}`) ? (
+                  <AppText size={10} weight="700" muted>
+                    Featured
+                  </AppText>
+                ) : null}
               </View>
             </Pressable>
           )}
@@ -397,6 +455,8 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   chips: { paddingHorizontal: 16, gap: 8 },
+  filters: { flexDirection: "row", gap: 8, paddingHorizontal: 16, marginBottom: 8 },
+  tag: { paddingHorizontal: 6, paddingVertical: 2, borderRadius: radii.pill },
   center: { flex: 1, alignItems: "center", justifyContent: "center" },
   bizCard: {
     borderRadius: radii.lg,

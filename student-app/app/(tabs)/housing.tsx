@@ -32,6 +32,7 @@ import {
   type SavedLocation,
 } from "@/src/lib/location";
 import { supabase } from "@/src/lib/supabase";
+import { levelLabel, loadBizMeta, loadFeatured, metaLine, trackEvent, type BizMeta } from "@/src/lib/trust";
 import { useTheme } from "@/src/theme/ThemeProvider";
 import { radii } from "@/src/theme/tokens";
 
@@ -50,6 +51,7 @@ type HousingUnit = {
   properties:
     | {
         id?: string;
+        business_id?: string | null;
         title: string;
         campus_id: string;
         verification_label: string | null;
@@ -62,6 +64,7 @@ type HousingUnit = {
       }
     | {
         id?: string;
+        business_id?: string | null;
         title: string;
         campus_id: string;
         verification_label: string | null;
@@ -93,6 +96,9 @@ export default function HousingScreen() {
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState("All");
   const [home, setHome] = useState<SavedLocation | null>(null);
+  const [meta, setMeta] = useState<Record<string, BizMeta>>({});
+  const [featured, setFeatured] = useState<Set<string>>(new Set());
+  const [onlyApproved, setOnlyApproved] = useState(false);
 
   const load = useCallback(async () => {
     if (!user) return;
@@ -112,7 +118,7 @@ export default function HousingScreen() {
       const { data, error: queryError } = await supabase
         .from("property_units")
         .select(
-          "id, title, unit_type, rent_base, fee_agent, fee_agreement, fee_caution, fee_service, rent_period, properties!inner(id, title, campus_id, verification_label, is_published, lat, lng, campus_areas(name))",
+          "id, title, unit_type, rent_base, fee_agent, fee_agreement, fee_caution, fee_service, rent_period, properties!inner(id, business_id, title, campus_id, verification_label, is_published, lat, lng, campus_areas(name))",
         )
         .eq("is_published", true)
         .eq("status", "available")
@@ -133,6 +139,13 @@ export default function HousingScreen() {
           : unit.properties;
         return property?.verification_label !== "unverified";
       });
+
+      const bizIds = filtered
+        .map((u) => (Array.isArray(u.properties) ? u.properties[0]?.business_id : u.properties?.business_id))
+        .filter((v): v is string => Boolean(v));
+      const [feat, bizMeta] = await Promise.all([loadFeatured(supabase), loadBizMeta(supabase, bizIds)]);
+      setFeatured(feat);
+      setMeta(bizMeta);
 
       const ids = filtered.map((u) => u.id);
       const coverByUnit: Record<string, string> = {};
@@ -223,6 +236,7 @@ export default function HousingScreen() {
       await supabase
         .from("saved_units")
         .upsert({ user_id: user.id, unit_id: unitId });
+      trackEvent(supabase, user.id, "save", "property_unit", unitId);
     }
   }
 
@@ -242,8 +256,17 @@ export default function HousingScreen() {
     [home],
   );
 
+  const metaOf = useCallback(
+    (unit: HousingUnit) => {
+      const p = Array.isArray(unit.properties) ? unit.properties[0] : unit.properties;
+      return p?.business_id ? meta[p.business_id] : undefined;
+    },
+    [meta],
+  );
+
   const visible = useMemo(() => {
     const list = units.filter((unit) => {
+      if (onlyApproved && !metaOf(unit)?.endorsed) return false;
       const type = (unit.unit_type || "room").replaceAll("_", " ");
       const matchesType = filter === "All" || type === filter;
       const q = query.trim().toLowerCase();
@@ -253,11 +276,13 @@ export default function HousingScreen() {
         areaName(unit.properties).toLowerCase().includes(q);
       return matchesType && matchesQuery;
     });
-    if (!home) return list;
+    const isFeat = (u: HousingUnit) => (featured.has(`property_unit:${u.id}`) ? 0 : 1);
     return [...list].sort(
-      (a, b) => (distanceOf(a) ?? Infinity) - (distanceOf(b) ?? Infinity),
+      (a, b) =>
+        isFeat(a) - isFeat(b) ||
+        (home ? (distanceOf(a) ?? Infinity) - (distanceOf(b) ?? Infinity) : 0),
     );
-  }, [units, filter, query, home, distanceOf]);
+  }, [units, filter, query, home, distanceOf, onlyApproved, metaOf, featured]);
 
   return (
     <Screen padded={false} tabClearance>
@@ -285,6 +310,9 @@ export default function HousingScreen() {
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={styles.chips}
         style={{ flexGrow: 0, marginBottom: 8 }}
+        ListHeaderComponent={
+          <Chip label="School-approved" active={onlyApproved} onPress={() => setOnlyApproved((v) => !v)} />
+        }
         renderItem={({ item }) => (
           <Chip
             label={item}
@@ -395,7 +423,19 @@ export default function HousingScreen() {
                 <View style={styles.info}>
                   <AppText weight="700" size={15} numberOfLines={1}>
                     {item.title}
+                    {featured.has(`property_unit:${item.id}`) ? "  · Featured" : ""}
                   </AppText>
+                  {(() => {
+                    const m = metaOf(item);
+                    const line = [metaLine(m), m ? levelLabel(m.level) : null, m?.endorsed ? "School-approved" : null]
+                      .filter(Boolean)
+                      .join(" · ");
+                    return line ? (
+                      <AppText size={11} weight="600" numberOfLines={1}>
+                        {line}
+                      </AppText>
+                    ) : null;
+                  })()}
                   <View style={styles.locRow}>
                     <Ionicons
                       name="location-outline"

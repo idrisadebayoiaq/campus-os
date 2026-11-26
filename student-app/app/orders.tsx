@@ -3,6 +3,7 @@ import { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
+  Linking,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -14,6 +15,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { AppText, EmptyState } from "@/src/components/ui";
 import { useAuth } from "@/src/lib/auth";
 import { formatNaira } from "@/src/lib/campus";
+import { callPaystack } from "@/src/lib/payments";
 import { supabase } from "@/src/lib/supabase";
 import { useTheme } from "@/src/theme/ThemeProvider";
 import { radii } from "@/src/theme/tokens";
@@ -27,8 +29,15 @@ type Order = {
   prep_minutes: number | null;
   decline_reason: string | null;
   accepted_at: string | null;
+  business_id: string;
+  fulfilment: string;
+  delivery_address: string | null;
+  delivery_fee: number;
+  discount: number;
+  payment_method: string;
+  payment_status: string;
   business_profiles: { display_name: string } | { display_name: string }[] | null;
-  food_order_items: { name: string; quantity: number }[] | null;
+  food_order_items: { name: string; quantity: number; options: { name: string }[] | null }[] | null;
 };
 
 const STEPS = ["placed", "accepted", "preparing", "ready", "completed"] as const;
@@ -37,7 +46,7 @@ const STEP_LABEL: Record<string, string> = {
   accepted: "Accepted",
   preparing: "Cooking",
   ready: "Ready",
-  completed: "Picked up",
+  completed: "Done",
 };
 
 const HEADLINE: Record<string, string> = {
@@ -50,6 +59,29 @@ const HEADLINE: Record<string, string> = {
   declined: "Rejected by the kitchen",
   cancelled: "You cancelled this order",
 };
+
+function headline(o: Order) {
+  if (o.status === "ready") return o.fulfilment === "delivery" ? "On its way" : "Ready for pickup";
+  if (o.status === "completed" || o.status === "collected") return o.fulfilment === "delivery" ? "Delivered" : "Picked up";
+  return HEADLINE[o.status] ?? o.status;
+}
+
+function paymentLabel(o: Order) {
+  switch (o.payment_status) {
+    case "paid":
+      return "Paid by card";
+    case "pending":
+      return "Waiting for your card payment";
+    case "refund_requested":
+      return "Refund requested";
+    case "refunded":
+      return "Refunded";
+    case "failed":
+      return "Payment failed";
+    default:
+      return o.payment_method === "cash" ? (o.fulfilment === "delivery" ? "Pay on delivery" : "Pay on collection") : "Unpaid";
+  }
+}
 
 function kitchenName(o: Order) {
   const b = Array.isArray(o.business_profiles) ? o.business_profiles[0] : o.business_profiles;
@@ -80,7 +112,7 @@ export default function OrdersScreen() {
     const { data } = await supabase
       .from("food_orders")
       .select(
-        "id, status, total, notes, created_at, prep_minutes, decline_reason, accepted_at, business_profiles(display_name), food_order_items(name, quantity)",
+        "id, status, total, notes, created_at, prep_minutes, decline_reason, accepted_at, business_id, fulfilment, delivery_address, delivery_fee, discount, payment_method, payment_status, business_profiles(display_name), food_order_items(name, quantity, options)",
       )
       .eq("student_id", user.id)
       .order("created_at", { ascending: false })
@@ -105,6 +137,40 @@ export default function OrdersScreen() {
       void supabase.removeChannel(channel);
     };
   }, [load, user]);
+
+  async function payNow(order: Order) {
+    const res = await callPaystack(supabase, { action: "init-order", order_id: order.id });
+    if (res.ok && typeof res.data.authorization_url === "string") {
+      void Linking.openURL(res.data.authorization_url);
+      return;
+    }
+    Alert.alert("Couldn't start payment", res.ok ? "Try again in a moment." : res.message);
+  }
+
+  function requestRefund(order: Order) {
+    Alert.alert("Request a refund?", "The kitchen will review your request and you'll be notified.", [
+      { text: "Not now", style: "cancel" },
+      {
+        text: "Request refund",
+        onPress: async () => {
+          const { error } = await supabase.rpc("request_refund", { p_order: order.id, p_reason: "Requested from the app" });
+          if (error) Alert.alert("Couldn't request refund", error.message);
+          void load();
+        },
+      },
+    ]);
+  }
+
+  // Coming back from the card page: confirm any payments that finished while we were away.
+  useEffect(() => {
+    const pending = orders.filter((o) => o.payment_method === "card" && o.payment_status === "pending");
+    if (!pending.length) return;
+    const t = setInterval(async () => {
+      for (const o of pending) await callPaystack(supabase, { action: "verify", order_id: o.id });
+      void load();
+    }, 8000);
+    return () => clearInterval(t);
+  }, [orders, load]);
 
   function cancel(order: Order) {
     Alert.alert("Cancel this order?", "The kitchen hasn't accepted it yet.", [
@@ -178,7 +244,11 @@ export default function OrdersScreen() {
                     size={14}
                     style={{ color: dead ? colors.danger : colors.fg }}
                   >
-                    {HEADLINE[o.status] ?? o.status}
+                    {headline(o)}
+                  </AppText>
+                  <AppText size={12} muted>
+                    {o.fulfilment === "delivery" ? `Delivery to ${o.delivery_address ?? "your address"}` : "Pickup"} · {paymentLabel(o)}
+                    {Number(o.discount) > 0 ? ` · saved ${formatNaira(Number(o.discount))}` : ""}
                   </AppText>
 
                   {!dead ? (
@@ -215,8 +285,38 @@ export default function OrdersScreen() {
                   ) : null}
 
                   <AppText size={13} muted>
-                    {(o.food_order_items ?? []).map((i) => `${i.quantity}× ${i.name}`).join(", ")}
+                    {(o.food_order_items ?? [])
+                      .map((i) => `${i.quantity}× ${i.name}${i.options?.length ? ` (${i.options.map((x) => x.name).join(", ")})` : ""}`)
+                      .join(", ")}
                   </AppText>
+                  {o.payment_method === "card" && o.payment_status === "pending" && !dead ? (
+                    <Pressable onPress={() => void payNow(o)} style={[styles.payBtn, { backgroundColor: colors.inverseBg }]}>
+                      <AppText weight="700" size={13} style={{ color: colors.inverseFg }}>
+                        Pay now
+                      </AppText>
+                    </Pressable>
+                  ) : null}
+                  {o.payment_status === "paid" && (o.status === "completed" || o.status === "collected") ? (
+                    <View style={{ flexDirection: "row", gap: 16 }}>
+                      <Pressable onPress={() => router.push({ pathname: "/review", params: { kind: "order", ref: o.id, business: o.business_id, name: kitchenName(o) } })} hitSlop={8}>
+                        <AppText size={13} weight="700">
+                          Rate this order
+                        </AppText>
+                      </Pressable>
+                      <Pressable onPress={() => requestRefund(o)} hitSlop={8}>
+                        <AppText size={13} weight="700" style={{ color: colors.danger }}>
+                          Request refund
+                        </AppText>
+                      </Pressable>
+                    </View>
+                  ) : null}
+                  {o.payment_method === "cash" && (o.status === "completed" || o.status === "collected") ? (
+                    <Pressable onPress={() => router.push({ pathname: "/review", params: { kind: "order", ref: o.id, business: o.business_id, name: kitchenName(o) } })} hitSlop={8}>
+                      <AppText size={13} weight="700">
+                        Rate this order
+                      </AppText>
+                    </Pressable>
+                  ) : null}
                   <View style={styles.rowBetween}>
                     <AppText size={12} muted>
                       {new Date(o.created_at).toLocaleString()}
@@ -253,4 +353,5 @@ const styles = StyleSheet.create({
   rowBetween: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 10 },
   steps: { flexDirection: "row", gap: 6 },
   bar: { height: 4, borderRadius: 2 },
+  payBtn: { height: 42, borderRadius: radii.md, alignItems: "center", justifyContent: "center" },
 });

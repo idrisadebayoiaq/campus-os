@@ -1,7 +1,9 @@
 import { redirect } from "next/navigation";
 import { LiveTables } from "@/components/live-tables";
 import { OrderBoard } from "@/components/order-board";
+import { PauseOrders } from "@/components/pause-orders";
 import { Container, EmptyState, PageHeader } from "@/components/ui";
+import { myBusinesses } from "@/lib/business";
 import { createClient } from "@/lib/supabase/server";
 
 export const instant = false;
@@ -13,12 +15,8 @@ export default async function OrdersPage() {
   } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  const { data: businesses } = await supabase
-    .from("business_profiles")
-    .select("id")
-    .eq("owner_user_id", user.id)
-    .eq("business_type", "food_vendor");
-  const ids = (businesses ?? []).map((b) => b.id);
+  const kitchens = (await myBusinesses(supabase, user.id)).filter((b) => b.business_type === "food_vendor");
+  const ids = kitchens.map((b) => b.id);
   if (!ids.length) {
     return (
       <Container>
@@ -32,7 +30,7 @@ export default async function OrdersPage() {
   const { data: orders } = await supabase
     .from("food_orders")
     .select(
-      "id, status, total, notes, created_at, prep_minutes, decline_reason, student_id, food_order_items(name, quantity, unit_price)",
+      "id, status, total, notes, created_at, prep_minutes, decline_reason, student_id, fulfilment, delivery_address, delivery_fee, discount, promo_code, payment_method, payment_status, food_order_items(name, quantity, unit_price, options)",
     )
     .in("business_id", ids)
     .order("created_at", { ascending: false })
@@ -57,12 +55,12 @@ export default async function OrdersPage() {
   return (
     <Container>
       <div className="space-y-8 py-8 sm:py-12">
-        <PageHeader
-          title="Food orders"
-          description="Kitchen board for CampusOS pickup orders."
-        />
+        <PageHeader title="Food orders" description="Kitchen board for CampusOS pickup and delivery orders." />
+        {kitchens.map((k) => (
+          <PauseOrders key={k.id} businessId={k.id} name={k.display_name} accepting={k.accepting_orders} />
+        ))}
         {!orders?.length ? (
-          <EmptyState title="No orders yet" description="Student pickup orders will appear here." />
+          <EmptyState title="No orders yet" description="Student orders will appear here." />
         ) : (
           <OrderBoard orders={orders} students={students} />
         )}

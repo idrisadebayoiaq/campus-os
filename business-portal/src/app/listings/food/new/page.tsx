@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { CampusScene } from "@/components/campus-3d/campus-scene";
 import { MenuItemForm } from "@/components/menu-item-form";
 import { Container, PageHeader } from "@/components/ui";
+import { canManage, myBusinesses } from "@/lib/business";
 import { createClient } from "@/lib/supabase/server";
 
 export const instant = false;
@@ -18,14 +19,9 @@ export default async function NewMenuItemPage({
   } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  const { data: biz } = await supabase
-    .from("business_profiles")
-    .select("id, display_name, setup_complete")
-    .eq("id", business || "")
-    .eq("owner_user_id", user.id)
-    .eq("business_type", "food_vendor")
-    .eq("setup_complete", true)
-    .maybeSingle();
+  const biz = (await myBusinesses(supabase, user.id)).find(
+    (b) => b.id === business && b.business_type === "food_vendor" && b.setup_complete && canManage(b.role),
+  );
   if (!biz) redirect("/listings");
 
   return (

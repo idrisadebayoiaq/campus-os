@@ -15,6 +15,7 @@ import { useAuth } from "@/src/lib/auth";
 import { formatNaira } from "@/src/lib/campus";
 import { startBusinessChat, startDirectChat } from "@/src/lib/messaging";
 import { supabase } from "@/src/lib/supabase";
+import { levelLabel, loadBizMeta, metaLine, trackEvent, type BizMeta } from "@/src/lib/trust";
 import {
   isStudentVerified,
   verificationGateMessage,
@@ -34,6 +35,7 @@ type Listing = {
   image_url: string | null;
   seller_user_id: string | null;
   business_id: string | null;
+  pickup_point_id: string | null;
 };
 
 export default function MarketplaceDetailScreen() {
@@ -48,6 +50,12 @@ export default function MarketplaceDetailScreen() {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState<string | null>(null);
+  const [pickup, setPickup] = useState<string | null>(null);
+  const [bizMeta, setBizMeta] = useState<BizMeta | null>(null);
+
+  useEffect(() => {
+    if (id && user) trackEvent(supabase, user.id, "view", "marketplace_listing", id);
+  }, [id, user]);
 
   useEffect(() => {
     if (!id) return;
@@ -56,7 +64,7 @@ export default function MarketplaceDetailScreen() {
       const { data, error } = await supabase
         .from("marketplace_listings")
         .select(
-          "id, title, description, kind, category, condition, price, image_url, seller_user_id, business_id",
+          "id, title, description, kind, category, condition, price, image_url, seller_user_id, business_id, pickup_point_id",
         )
         .eq("id", id)
         .maybeSingle();
@@ -78,6 +86,14 @@ export default function MarketplaceDetailScreen() {
         .map((m) => ({ url: m.url as string, kind: m.kind === "video" ? "video" : "image" }));
       if (!gallery.length && data.image_url) gallery.push({ url: data.image_url, kind: "image" });
       if (!cancelled) setMedia(gallery);
+      if (data.pickup_point_id) {
+        const { data: pp } = await supabase.from("pickup_points").select("name").eq("id", data.pickup_point_id).maybeSingle();
+        if (!cancelled) setPickup(pp?.name ?? null);
+      }
+      if (data.business_id) {
+        const m = await loadBizMeta(supabase, [data.business_id]);
+        if (!cancelled) setBizMeta(m[data.business_id] ?? null);
+      }
       if (data.business_id) {
         const { data: biz } = await supabase
           .from("business_profiles")
@@ -121,13 +137,18 @@ export default function MarketplaceDetailScreen() {
         return;
       }
       // Best-effort enquiry row for marketplace tracking
-      await supabase.from("listing_enquiries").insert({
-        marketplace_listing_id: item.id,
-        business_id: item.business_id,
-        student_id: user.id,
-        subject: item.title,
-        message: `Hi — interested in ${item.title}.`,
-      });
+      const { data: enquiry } = await supabase
+        .from("listing_enquiries")
+        .insert({
+          marketplace_listing_id: item.id,
+          business_id: item.business_id,
+          student_id: user.id,
+          subject: item.title,
+          message: `Hi — interested in ${item.title}.`,
+        })
+        .select("id")
+        .maybeSingle();
+      trackEvent(supabase, user.id, "start_chat", "marketplace_listing", item.id);
 
       let conversationId: string;
       if (item.business_id) {
@@ -136,6 +157,7 @@ export default function MarketplaceDetailScreen() {
           businessId: item.business_id,
           subject: item.title,
           message: `Hi — interested in ${item.title}. Is it still available?`,
+          listingEnquiryId: enquiry?.id ?? null,
         });
       } else if (item.seller_user_id) {
         conversationId = await startDirectChat(supabase, {
@@ -238,7 +260,22 @@ export default function MarketplaceDetailScreen() {
           </View>
           <AppText muted size={13}>
             {sellerName}
+            {bizMeta && levelLabel(bizMeta.level) ? ` · ${levelLabel(bizMeta.level)}` : ""}
+            {bizMeta?.endorsed ? " · School-approved" : ""}
           </AppText>
+          {bizMeta && metaLine(bizMeta) ? (
+            <AppText size={12} weight="600">
+              {metaLine(bizMeta)}
+            </AppText>
+          ) : null}
+          {pickup ? (
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+              <Ionicons name="location-outline" size={15} color={colors.fg} />
+              <AppText size={13} weight="600">
+                Pickup point: {pickup}
+              </AppText>
+            </View>
+          ) : null}
           {item.description ? (
             <AppText size={14} style={{ marginTop: 4 }}>
               {item.description}
@@ -249,6 +286,15 @@ export default function MarketplaceDetailScreen() {
               {status}
             </AppText>
           ) : null}
+          <Pressable
+            onPress={() => router.push({ pathname: "/report", params: { type: "marketplace_listing", id: item.id, title: item.title } })}
+            hitSlop={8}
+            style={{ marginTop: 12 }}
+          >
+            <AppText size={13} muted>
+              Report this listing
+            </AppText>
+          </Pressable>
         </View>
       </ScrollView>
 

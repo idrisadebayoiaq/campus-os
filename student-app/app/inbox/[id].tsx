@@ -3,6 +3,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   FlatList,
+  Image,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -15,6 +16,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { AppText, Avatar } from "@/src/components/ui";
 import { AiAvatar } from "@/src/lib/ai-avatars";
 import { useAuth } from "@/src/lib/auth";
+import { formatNaira } from "@/src/lib/campus";
 import {
   conversationTitle,
   kindLabel,
@@ -69,6 +71,7 @@ export default function ChatThreadScreen() {
   const [aiAvatar, setAiAvatar] = useState<string | null>(null);
   const [ticket, setTicket] = useState<SupportTicketInfo | null>(null);
   const [rated, setRated] = useState(false);
+  const [listing, setListing] = useState<{ title: string; price: number | null; image: string | null; href: string } | null>(null);
 
   const isAi = kind === "ai";
   const isSupport = kind === "support";
@@ -78,7 +81,7 @@ export default function ChatThreadScreen() {
     const [{ data: conv }, { data: msgs }] = await Promise.all([
       supabase
         .from("conversations")
-        .select("kind, subject")
+        .select("kind, subject, listing_enquiry_id")
         .eq("id", id)
         .maybeSingle(),
       supabase
@@ -105,6 +108,24 @@ export default function ChatThreadScreen() {
             ? "CampusOS team · usually replies within a day"
             : kindLabel(conv.kind),
       );
+      if (conv.listing_enquiry_id) {
+        const { data: enq } = await supabase
+          .from("listing_enquiries")
+          .select("marketplace_listing_id, unit_id")
+          .eq("id", conv.listing_enquiry_id)
+          .maybeSingle();
+        if (enq?.marketplace_listing_id) {
+          const { data: m } = await supabase
+            .from("marketplace_listings")
+            .select("title, price, image_url")
+            .eq("id", enq.marketplace_listing_id)
+            .maybeSingle();
+          if (m) setListing({ title: m.title, price: m.price, image: m.image_url, href: `/explore/marketplace/${enq.marketplace_listing_id}` });
+        } else if (enq?.unit_id) {
+          const { data: u } = await supabase.from("property_units").select("title, rent_base").eq("id", enq.unit_id).maybeSingle();
+          if (u) setListing({ title: u.title, price: u.rent_base, image: null, href: `/housing/${enq.unit_id}` });
+        }
+      }
       if (conv.kind === "support") {
         const { data: t } = await supabase
           .from("support_tickets")
@@ -308,6 +329,32 @@ export default function ChatThreadScreen() {
           </Pressable>
         )}
       </View>
+
+      {listing ? (
+        <Pressable
+          onPress={() => router.push(listing.href as never)}
+          style={[styles.listingCard, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}
+        >
+          {listing.image ? (
+            <Image source={{ uri: listing.image }} style={styles.listingThumb} />
+          ) : (
+            <View style={[styles.listingThumb, { backgroundColor: colors.heroBg, alignItems: "center", justifyContent: "center" }]}>
+              <Ionicons name="pricetag-outline" size={18} color={colors.heroMuted} />
+            </View>
+          )}
+          <View style={{ flex: 1 }}>
+            <AppText weight="700" size={13} numberOfLines={1}>
+              {listing.title}
+            </AppText>
+            {listing.price != null ? (
+              <AppText size={12} muted>
+                {formatNaira(listing.price)}
+              </AppText>
+            ) : null}
+          </View>
+          <Ionicons name="chevron-forward" size={16} color={colors.muted} />
+        </Pressable>
+      ) : null}
 
       <KeyboardAvoidingView
         style={{ flex: 1 }}
@@ -515,6 +562,8 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
+  listingCard: { flexDirection: "row", alignItems: "center", gap: 10, paddingHorizontal: 14, paddingVertical: 8, borderBottomWidth: StyleSheet.hairlineWidth },
+  listingThumb: { width: 40, height: 40, borderRadius: 8 },
   headerMain: {
     flex: 1,
     flexDirection: "row",

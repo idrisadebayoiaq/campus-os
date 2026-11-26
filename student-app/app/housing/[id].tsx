@@ -24,6 +24,7 @@ import { useAuth } from "@/src/lib/auth";
 import { formatNaira, unitTotal } from "@/src/lib/campus";
 import { startHousingChat } from "@/src/lib/messaging";
 import { supabase } from "@/src/lib/supabase";
+import { levelLabel, loadBizMeta, metaLine, trackEvent, type BizMeta } from "@/src/lib/trust";
 import {
   isStudentVerified,
   verificationGateMessage,
@@ -106,8 +107,7 @@ export default function HousingDetailScreen() {
     kind: "ok" | "error";
     text: string;
   } | null>(null);
-  const [reportOpen, setReportOpen] = useState(false);
-  const [reportReason, setReportReason] = useState("");
+  const [bizMeta, setBizMeta] = useState<BizMeta | null>(null);
   const [descExpanded, setDescExpanded] = useState(false);
   const [heroIndex, setHeroIndex] = useState(0);
   const [slots, setSlots] = useState<Slot[]>([]);
@@ -144,6 +144,14 @@ export default function HousingDetailScreen() {
       if (res.error) setError(res.error.message);
       const row = (res.data as unknown as DetailUnit) || null;
       setUnit(row);
+      if (row) {
+        const p0 = Array.isArray(row.properties) ? row.properties[0] : row.properties;
+        if (p0?.business_id) {
+          void loadBizMeta(supabase, [p0.business_id]).then((m) => {
+            if (!cancelled) setBizMeta(m[p0.business_id as string] ?? null);
+          });
+        }
+      }
 
       if (row) {
         const property = Array.isArray(row.properties)
@@ -178,6 +186,10 @@ export default function HousingDetailScreen() {
       cancelled = true;
     };
   }, [id]);
+
+  useEffect(() => {
+    if (id && user) trackEvent(supabase, user.id, "view", "property_unit", id);
+  }, [id, user]);
 
   useEffect(() => {
     if (!id || !user) {
@@ -232,7 +244,10 @@ export default function HousingDetailScreen() {
     const { error: e } = await supabase
       .from("saved_units")
       .upsert({ user_id: user.id, unit_id: unit.id });
-    if (finish(e, "Saved to your list.")) setSaved(true);
+    if (finish(e, "Saved to your list.")) {
+      setSaved(true);
+      trackEvent(supabase, user.id, "save", "property_unit", unit.id);
+    }
   }
 
   async function onBook() {
@@ -297,6 +312,7 @@ export default function HousingDetailScreen() {
         subject: `Housing: ${unit.title}`,
         message: `Hi — I'm interested in ${unit.title}. Is it still available?`,
       });
+      trackEvent(supabase, user.id, "start_chat", "property_unit", unit.id);
       setBusy(null);
       router.push(`/inbox/${conversationId}`);
     } catch (e) {
@@ -304,24 +320,6 @@ export default function HousingDetailScreen() {
         { message: e instanceof Error ? e.message : "Could not start chat." },
         "",
       );
-    }
-  }
-
-  async function submitReport() {
-    if (!requireAuth() || !user || !unit) return;
-    const reason = reportReason.trim();
-    if (!reason) return;
-    setBusy("report");
-    setActionStatus(null);
-    const { error: e } = await supabase.from("reports").insert({
-      reporter_id: user.id,
-      entity_type: "property_unit",
-      entity_id: unit.id,
-      reason,
-    });
-    if (finish(e, "Report submitted. Your identity stays private.")) {
-      setReportOpen(false);
-      setReportReason("");
     }
   }
 
@@ -453,6 +451,11 @@ export default function HousingDetailScreen() {
               <AppText size={22} weight="700">
                 {property?.title || unit.title}
               </AppText>
+              {bizMeta && (metaLine(bizMeta) || levelLabel(bizMeta.level) || bizMeta.endorsed) ? (
+                <AppText size={12} weight="600">
+                  {[metaLine(bizMeta), levelLabel(bizMeta.level), bizMeta.endorsed ? "School-approved" : null].filter(Boolean).join(" · ")}
+                </AppText>
+              ) : null}
               <AppText muted size={13}>
                 {areaName(unit.properties)}
                 {property?.verification_label
@@ -619,49 +622,14 @@ export default function HousingDetailScreen() {
             title="Report listing"
             variant="ghost"
             onPress={() => {
-              if (requireAuth()) setReportOpen(true);
+              if (requireAuth())
+                router.push({ pathname: "/report", params: { type: "property_unit", id: unit.id, title: unit.title } });
             }}
           />
         </View>
       </ScrollView>
 
-      <Modal
-        visible={reportOpen}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setReportOpen(false)}
-      >
-        <View style={styles.modalBackdrop}>
-          <View style={[styles.modalCard, { backgroundColor: colors.bg }]}>
-            <AppText weight="700" size={18}>
-              Report this listing
-            </AppText>
-            <Input
-              value={reportReason}
-              onChangeText={setReportReason}
-              placeholder="Reason"
-              multiline
-              style={{
-                backgroundColor: colors.surface,
-                height: 96,
-                paddingTop: 14,
-                textAlignVertical: "top",
-              }}
-            />
-            <Button
-              title="Submit report"
-              onPress={submitReport}
-              loading={busy === "report"}
-              disabled={!reportReason.trim()}
-            />
-            <Button
-              title="Cancel"
-              variant="ghost"
-              onPress={() => setReportOpen(false)}
-            />
-          </View>
-        </View>
-      </Modal>
+
 
       <View
         style={[

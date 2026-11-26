@@ -9,12 +9,14 @@ export function MarketForm({
   businessId,
   campusId,
   sellerUserId,
+  pickupPoints,
   isCommercial,
   defaultKind,
 }: {
   businessId: string;
   campusId: string;
   sellerUserId: string;
+  pickupPoints: { id: string; name: string }[];
   isCommercial: boolean;
   defaultKind: "goods" | "service";
 }) {
@@ -35,6 +37,7 @@ export function MarketForm({
       price: Number(form.get("price") || 0) || null,
       category: String(form.get("category")),
       condition: String(form.get("condition") || "") || null,
+      pickup_point_id: String(form.get("pickup_point") || "") || null,
       is_commercial: isCommercial,
       status: "active",
       expires_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
@@ -59,6 +62,18 @@ export function MarketForm({
       <Field label="Category"><Input name="category" required placeholder="laundry / books / repairs" /></Field>
       <Field label="Price (₦)"><Input name="price" type="number" /></Field>
       <Field label="Condition"><Input name="condition" placeholder="used / new" /></Field>
+      {pickupPoints.length ? (
+        <Field label="Campus pickup point">
+          <select name="pickup_point" defaultValue="" className="h-11 w-full rounded-md border border-border bg-bg px-3 text-sm">
+            <option value="">No fixed spot, agree in chat</option>
+            {pickupPoints.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.name}
+              </option>
+            ))}
+          </select>
+        </Field>
+      ) : null}
       <Field label="Description">
         <textarea name="description" rows={3} className="w-full rounded-md border border-border bg-bg px-3 py-2 text-sm" />
       </Field>

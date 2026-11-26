@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { CampusScene } from "@/components/campus-3d/campus-scene";
 import { ButtonLink, Container, EmptyState, PageHeader } from "@/components/ui";
+import { canManage, myBusinesses } from "@/lib/business";
 import { createClient } from "@/lib/supabase/server";
 
 export const metadata = { title: "Listings" };
@@ -14,10 +15,8 @@ export default async function ListingsPage() {
   } = await supabase.auth.getUser();
   if (!user) redirect("/login?next=/listings");
 
-  const { data: businesses } = await supabase
-    .from("business_profiles")
-    .select("id, display_name, business_type, setup_complete, slug")
-    .eq("owner_user_id", user.id);
+  const businesses = await myBusinesses(supabase, user.id);
+  const isManager = businesses.some((b) => canManage(b.role));
 
   const housing = (businesses ?? []).filter((b) => b.business_type === "housing_provider");
   const food = (businesses ?? []).filter((b) => b.business_type === "food_vendor");
@@ -26,7 +25,8 @@ export default async function ListingsPage() {
   );
 
   const readyHousing = housing.filter((b) => b.setup_complete);
-  if (!businesses?.length) {
+  void isManager;
+  if (!businesses.length) {
     return (
       <Container>
         <div className="space-y-6 py-8 sm:py-12">
@@ -211,10 +211,28 @@ export default async function ListingsPage() {
               Inspection requests
             </ButtonLink>
           ) : null}
+          {housing.length || services.length ? (
+            <ButtonLink href="/listings/enquiries" variant="secondary">
+              Enquiries
+            </ButtonLink>
+          ) : null}
           {food.length ? (
             <ButtonLink href="/listings/orders" variant="secondary">
               Food orders
             </ButtonLink>
+          ) : null}
+          {food.some((b) => canManage(b.role)) ? (
+            <>
+              <ButtonLink href="/listings/menu" variant="secondary">
+                Manage menu
+              </ButtonLink>
+              <ButtonLink href="/listings/deals" variant="secondary">
+                Deals
+              </ButtonLink>
+              <ButtonLink href="/listings/delivery" variant="secondary">
+                Delivery
+              </ButtonLink>
+            </>
           ) : null}
           <ButtonLink href="/billing" variant="ghost">
             Billing

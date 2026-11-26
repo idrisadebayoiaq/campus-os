@@ -27,6 +27,13 @@ export default async function NewMarketPage({
     .maybeSingle();
   if (!biz) redirect("/listings");
 
+  const { data: pickupPoints } = await supabase
+    .from("pickup_points")
+    .select("id, name")
+    .eq("campus_id", biz.campus_id)
+    .eq("is_active", true)
+    .order("name");
+
   return (
     <Container>
       <div className="mx-auto max-w-xl space-y-8 py-8 sm:py-12">
@@ -41,6 +48,7 @@ export default async function NewMarketPage({
           businessId={biz.id}
           campusId={biz.campus_id}
           sellerUserId={user.id}
+          pickupPoints={pickupPoints ?? []}
           isCommercial={biz.business_type !== "campus_service"}
           defaultKind={biz.business_type === "campus_service" ? "service" : "goods"}
         />

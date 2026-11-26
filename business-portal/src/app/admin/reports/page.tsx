@@ -33,11 +33,15 @@ export default async function AdminReportsPage() {
     );
   }
 
-  const { data: reports } = await supabase
+  const { data: rawReports } = await supabase
     .from("reports")
-    .select("*")
+    .select("*, business_profiles(display_name)")
     .order("created_at", { ascending: false })
     .limit(100);
+  const reports = (rawReports ?? []).map((r) => {
+    const biz = Array.isArray(r.business_profiles) ? r.business_profiles[0] : r.business_profiles;
+    return { ...r, business_name: biz?.display_name ?? null };
+  });
 
   return (
     <Container>

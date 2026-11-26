@@ -15,6 +15,7 @@ import {
   TAB_BAR_CLEARANCE,
 } from "@/src/components/ui";
 import { useAuth } from "@/src/lib/auth";
+import { formatNaira, getStudentCampus } from "@/src/lib/campus";
 import {
   DAYS,
   STUDY_TOOLS,
@@ -33,6 +34,15 @@ type CalendarEvent = {
   title: string;
   starts_at: string;
   ends_at?: string | null;
+};
+
+type Deal = {
+  id: string;
+  title: string;
+  special_price: number | null;
+  business_id: string;
+  business_profiles: { display_name: string } | { display_name: string }[] | null;
+  menu_items: { name: string; price: number } | { name: string; price: number }[] | null;
 };
 
 type QuickAction = {
@@ -143,6 +153,26 @@ export default function HomeScreen() {
   const [courseCount, setCourseCount] = useState(0);
   const [assignmentCount, setAssignmentCount] = useState(0);
   const [unreadNotifications, setUnreadNotifications] = useState(0);
+  const [deals, setDeals] = useState<Deal[]>([]);
+
+  useFocusEffect(
+    useCallback(() => {
+      if (!user) return;
+      void (async () => {
+        const campus = await getStudentCampus(supabase, user.id);
+        if (!campus) return;
+        const { data } = await supabase
+          .from("promotions")
+          .select(
+            "id, title, special_price, business_id, business_profiles!inner(display_name, campus_id), menu_items(name, price)",
+          )
+          .eq("kind", "special")
+          .eq("business_profiles.campus_id", campus.campusId)
+          .limit(10);
+        setDeals((data as unknown as Deal[]) ?? []);
+      })();
+    }, [user]),
+  );
 
   useFocusEffect(
     useCallback(() => {
@@ -531,6 +561,48 @@ export default function HomeScreen() {
           ))}
         </View>
 
+        {deals.length ? (
+          <View style={{ gap: 8 }}>
+            <AppText weight="700" size={16} style={{ paddingHorizontal: 20 }}>
+              Deals near you
+            </AppText>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 20, gap: 10 }}>
+              {deals.map((d) => {
+                const biz = Array.isArray(d.business_profiles) ? d.business_profiles[0] : d.business_profiles;
+                const item = Array.isArray(d.menu_items) ? d.menu_items[0] : d.menu_items;
+                return (
+                  <Pressable
+                    key={d.id}
+                    onPress={() => router.push(`/explore/business/${d.business_id}`)}
+                    style={[styles.dealCard, { backgroundColor: colors.surface }]}
+                  >
+                    <AppText size={11} weight="700" muted>
+                      TODAY'S SPECIAL
+                    </AppText>
+                    <AppText weight="700" size={14} numberOfLines={1}>
+                      {item?.name ?? d.title}
+                    </AppText>
+                    <AppText size={12} muted numberOfLines={1}>
+                      {biz?.display_name}
+                    </AppText>
+                    <AppText weight="700" size={14}>
+                      {formatNaira(Number(d.special_price ?? 0))}
+                      {item ? (
+                        <AppText size={12} muted>
+                          {"  "}
+                          <AppText size={12} muted style={{ textDecorationLine: "line-through" }}>
+                            {formatNaira(Number(item.price))}
+                          </AppText>
+                        </AppText>
+                      ) : null}
+                    </AppText>
+                  </Pressable>
+                );
+              })}
+            </ScrollView>
+          </View>
+        ) : null}
+
         {/* Promo / task card — AI Study */}
         <Pressable
           onPress={() => router.push("/(tabs)/ai")}
@@ -708,6 +780,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
+  dealCard: { width: 170, borderRadius: radii.md, padding: 12, gap: 3 },
   claimBtn: {
     paddingHorizontal: 14,
     paddingVertical: 8,
