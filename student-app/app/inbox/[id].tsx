@@ -18,6 +18,7 @@ import { AiAvatar } from "@/src/lib/ai-avatars";
 import { PremiumBadge } from "@/src/components/premium-badge";
 import { useAuth } from "@/src/lib/auth";
 import { loadPremiumIds } from "@/src/lib/premium";
+import { useStudyLock } from "@/src/lib/study-lock";
 import { formatNaira } from "@/src/lib/campus";
 import {
   conversationTitle,
@@ -74,6 +75,7 @@ export default function ChatThreadScreen() {
   const [ticket, setTicket] = useState<SupportTicketInfo | null>(null);
   const [rated, setRated] = useState(false);
   const [peerPremium, setPeerPremium] = useState(false);
+  const { allowPath } = useStudyLock();
   const [listing, setListing] = useState<{ title: string; price: number | null; image: string | null; href: string } | null>(null);
 
   const isAi = kind === "ai";
@@ -97,6 +99,7 @@ export default function ChatThreadScreen() {
         .order("created_at", { ascending: true }),
     ]);
     if (conv) {
+      if (conv.kind === "ai") allowPath(`/inbox/${id}`);
       setKind(conv.kind);
       setTitle(
         conversationTitle({
@@ -163,7 +166,7 @@ export default function ChatThreadScreen() {
     setMessages((msgs as ChatMessage[]) || []);
     await markConversationRead(supabase, id, user.id);
     setLoading(false);
-  }, [id, user]);
+  }, [id, user, allowPath]);
 
   useFocusEffect(
     useCallback(() => {

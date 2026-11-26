@@ -154,6 +154,7 @@ export default function HomeScreen() {
   const [assignmentCount, setAssignmentCount] = useState(0);
   const [unreadNotifications, setUnreadNotifications] = useState(0);
   const [deals, setDeals] = useState<Deal[]>([]);
+  const [walletBalance, setWalletBalance] = useState<number | null>(null);
 
   useFocusEffect(
     useCallback(() => {
@@ -171,6 +172,18 @@ export default function HomeScreen() {
           .limit(10);
         setDeals((data as unknown as Deal[]) ?? []);
       })();
+    }, [user]),
+  );
+
+  useFocusEffect(
+    useCallback(() => {
+      if (!user) return;
+      void supabase
+        .from("wallets")
+        .select("balance")
+        .eq("user_id", user.id)
+        .maybeSingle()
+        .then(({ data }) => setWalletBalance(Number(data?.balance ?? 0)));
     }, [user]),
   );
 
@@ -444,6 +457,26 @@ export default function HomeScreen() {
               <Ionicons name="add" size={18} color={colors.accent} />
             </View>
           </View>
+        </Pressable>
+
+        {/* Small wallet card — balance only, opens the wallet */}
+        <Pressable
+          onPress={() => router.push("/wallet")}
+          style={[styles.slimCard, { backgroundColor: colors.surface, minHeight: 56 }]}
+          accessibilityLabel="Open wallet"
+        >
+          <View style={[styles.slimIcon, { backgroundColor: colors.soft }]}>
+            <Ionicons name="wallet-outline" size={18} color={colors.fg} />
+          </View>
+          <View style={{ flex: 1, gap: 1 }}>
+            <AppText muted size={11} weight="600">
+              WALLET BALANCE
+            </AppText>
+            <AppText weight="700" size={18}>
+              {walletBalance == null ? "—" : formatNaira(walletBalance)}
+            </AppText>
+          </View>
+          <Ionicons name="chevron-forward" size={18} color={colors.muted} />
         </Pressable>
 
         {/* 2) Slim card — next class from timetable */}

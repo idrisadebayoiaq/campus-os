@@ -65,6 +65,8 @@ function RootNavigator() {
         <Stack.Screen name="orders" options={{ headerShown: false }} />
         <Stack.Screen name="wallet" options={{ headerShown: false }} />
         <Stack.Screen name="premium" options={{ headerShown: false }} />
+        <Stack.Screen name="transactions" options={{ headerShown: false }} />
+        <Stack.Screen name="payout" options={{ headerShown: false }} />
         <Stack.Screen name="study-lock" options={{ headerShown: false }} />
         <Stack.Screen name="market-orders" options={{ headerShown: false }} />
         <Stack.Screen name="payments" options={{ headerShown: false }} />

@@ -5,6 +5,7 @@ import { AppText, Button } from "@/src/components/ui";
 import { StudyShell } from "@/src/components/study";
 import { useAuth } from "@/src/lib/auth";
 import { ensureAiConversation } from "@/src/lib/messaging";
+import { useStudyLock } from "@/src/lib/study-lock";
 import { supabase } from "@/src/lib/supabase";
 import { useTheme } from "@/src/theme/ThemeProvider";
 
@@ -17,6 +18,7 @@ export function AiConversationRedirect({
   subtitle?: string;
 }) {
   const { user } = useAuth();
+  const { allowPath } = useStudyLock();
   const colors = useTheme();
   const [href, setHref] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -31,6 +33,7 @@ export function AiConversationRedirect({
     setHref(null);
     try {
       const { conversationId } = await ensureAiConversation(supabase, user.id);
+      allowPath(`/inbox/${conversationId}`);
       setHref(`/inbox/${conversationId}`);
     } catch (e) {
       const message =
@@ -41,7 +44,7 @@ export function AiConversationRedirect({
             : "Could not open AI tutor.";
       setError(message);
     }
-  }, [user]);
+  }, [user, allowPath]);
 
   useEffect(() => {
     void open();

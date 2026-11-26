@@ -1,6 +1,6 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Ionicons } from "@expo/vector-icons";
-import { router } from "expo-router";
+import { router, usePathname } from "expo-router";
 import {
   createContext,
   useCallback,
@@ -11,7 +11,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { AppState, BackHandler, StyleSheet, View } from "react-native";
+import { AppState, BackHandler, Pressable, StyleSheet, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { AppText, Button } from "@/src/components/ui";
 import { useAuth } from "@/src/lib/auth";
@@ -47,6 +47,8 @@ type Ctx = {
   ready: boolean;
   start: (minutes: number, label: string) => Promise<string | null>;
   refresh: () => Promise<boolean>;
+  /** Marks one screen path (like the AI tutor chat) as open during the lock */
+  allowPath: (path: string) => void;
 };
 
 const StudyLockContext = createContext<Ctx>({
@@ -55,11 +57,22 @@ const StudyLockContext = createContext<Ctx>({
   ready: true,
   start: async () => "Not ready",
   refresh: async () => false,
+  allowPath: () => undefined,
 });
 
 export const useStudyLock = () => useContext(StudyLockContext);
 
 const cacheKey = (uid: string) => `study-lock:${uid}`;
+
+/**
+ * While the lock is on, study tools stay open and everything that can distract
+ * (chat, marketplace, housing, food, wallet, notifications, profile...) is covered.
+ */
+const OPEN_PATHS = new Set(["/", "/ai", "/settings", "/study-lock", "/inbox/ai-profile", "/inbox/ai-avatar", "/login", "/signup", "/onboarding"]);
+
+function isStudyPath(path: string) {
+  return OPEN_PATHS.has(path) || path === "/study" || path.startsWith("/study/");
+}
 
 type Active = { id: string; label: string | null; minutes: number; started_at: string; ends_at: string };
 
@@ -80,6 +93,8 @@ export function StudyLockProvider({ children }: { children: ReactNode }) {
   const [ready, setReady] = useState(false);
   const [now, setNow] = useState(Date.now());
   const [summary, setSummary] = useState<LockSummary | null>(null);
+  const pathname = usePathname();
+  const [allowed, setAllowed] = useState<string[]>([]);
   const offset = useRef(0);
   const checking = useRef(false);
 
@@ -168,12 +183,21 @@ export function StudyLockProvider({ children }: { children: ReactNode }) {
       });
   }, [lock, remainingMs, refresh, apply]);
 
-  // Nothing can be opened or backed out of while locked.
+  const allowPath = useCallback((path: string) => {
+    setAllowed((prev) => (prev.includes(path) ? prev : [...prev.slice(-9), path]));
+  }, []);
+
+  const blocked = !!lock && !isStudyPath(pathname) && !allowed.includes(pathname);
+
+  // On a locked screen, back takes you to the study tools instead of out of the lock.
   useEffect(() => {
-    if (!lock) return;
-    const sub = BackHandler.addEventListener("hardwareBackPress", () => true);
+    if (!blocked) return;
+    const sub = BackHandler.addEventListener("hardwareBackPress", () => {
+      router.replace("/(tabs)/study");
+      return true;
+    });
     return () => sub.remove();
-  }, [lock]);
+  }, [blocked]);
 
   const start = useCallback(
     async (minutes: number, label: string) => {
@@ -187,12 +211,12 @@ export function StudyLockProvider({ children }: { children: ReactNode }) {
     [apply],
   );
 
-  const value = useMemo<Ctx>(() => ({ lock, remainingMs, ready, start, refresh }), [lock, remainingMs, ready, start, refresh]);
+  const value = useMemo<Ctx>(() => ({ lock, remainingMs, ready, start, refresh, allowPath }), [lock, remainingMs, ready, start, refresh, allowPath]);
 
   return (
     <StudyLockContext.Provider value={value}>
       {children}
-      <LockOverlay lock={lock} remainingMs={remainingMs} ready={ready} signedIn={!!uid} summary={summary} onDismiss={() => setSummary(null)} />
+      <LockOverlay lock={lock} blocked={blocked} onTimerScreen={pathname === "/study-lock"} remainingMs={remainingMs} ready={ready} signedIn={!!uid} summary={summary} onDismiss={() => setSummary(null)} />
     </StudyLockContext.Provider>
   );
 }
@@ -218,6 +242,8 @@ export function formatMinutes(min: number) {
 
 function LockOverlay({
   lock,
+  blocked,
+  onTimerScreen,
   remainingMs,
   ready,
   signedIn,
@@ -225,6 +251,8 @@ function LockOverlay({
   onDismiss,
 }: {
   lock: StudyLock | null;
+  blocked: boolean;
+  onTimerScreen: boolean;
   remainingMs: number;
   ready: boolean;
   signedIn: boolean;
@@ -235,6 +263,23 @@ function LockOverlay({
   const insets = useSafeAreaInsets();
 
   if (signedIn && !ready) return <View style={[styles.fill, { backgroundColor: colors.bg }]} pointerEvents="auto" />;
+
+  if (lock && !blocked) {
+    // Study screens stay open: just a small timer chip that opens the lock screen.
+    if (onTimerScreen) return null;
+    return (
+      <Pressable
+        onPress={() => router.push("/study-lock")}
+        style={[styles.chip, { backgroundColor: colors.heroBg, bottom: insets.bottom + 96 }]}
+        accessibilityLabel="Study lock timer"
+      >
+        <Ionicons name="lock-closed" size={13} color={colors.heroFg} />
+        <AppText size={12} weight="700" style={{ color: colors.heroFg }}>
+          {formatClock(remainingMs)}
+        </AppText>
+      </Pressable>
+    );
+  }
 
   if (lock) {
     const total = Math.max(1, lock.endsAt - lock.startedAt);
@@ -259,13 +304,15 @@ function LockOverlay({
             Unlocks at {endsAt}
           </AppText>
         </View>
-        <AppText size={13} style={{ color: colors.heroMuted, textAlign: "center", paddingHorizontal: 12 }}>
-          Chat, notifications and the rest of CampusOS are paused so you can focus. Everything will be waiting for you when the timer ends.
-        </AppText>
+        <View style={{ gap: 12, paddingHorizontal: 8 }}>
+          <AppText size={13} style={{ color: colors.heroMuted, textAlign: "center" }}>
+            This screen can distract you, so it's locked until the timer ends. Your study tools are still open.
+          </AppText>
+          <Button title="Open study tools" onPress={() => router.replace("/(tabs)/study")} />
+        </View>
       </View>
     );
   }
-
   if (summary) {
     const missed = summary.messages + summary.notifications;
     return (
@@ -309,6 +356,7 @@ function LockOverlay({
 
 const styles = StyleSheet.create({
   fill: { position: "absolute", top: 0, left: 0, right: 0, bottom: 0, zIndex: 9999, elevation: 9999 },
+  chip: { position: "absolute", right: 14, zIndex: 9000, elevation: 9000, flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 12, height: 32, borderRadius: 16 },
   center: { flex: 1, alignItems: "center", justifyContent: "center", gap: 14 },
   lockIcon: { width: 72, height: 72, borderRadius: 36, alignItems: "center", justifyContent: "center", marginBottom: 6 },
   track: { width: "80%", height: 8, borderRadius: 4, overflow: "hidden", marginTop: 10 },

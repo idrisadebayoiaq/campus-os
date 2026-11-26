@@ -1,9 +1,10 @@
+import { router } from "expo-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Alert } from "react-native";
 import { Button, Field, Input } from "@/src/components/ui";
 import { ChipRow, Group, Hero, ListRow, Notice, PageShell, Section } from "@/src/components/page";
 import { useAuth } from "@/src/lib/auth";
-import { formatMinutes, useStudyLock } from "@/src/lib/study-lock";
+import { formatClock, formatMinutes, useStudyLock } from "@/src/lib/study-lock";
 import { supabase } from "@/src/lib/supabase";
 
 type Past = { id: string; label: string | null; minutes: number; started_at: string; ends_at: string };
@@ -19,7 +20,7 @@ const PRESETS = [
 
 export default function StudyLockScreen() {
   const { user } = useAuth();
-  const { start } = useStudyLock();
+  const { start, lock, remainingMs } = useStudyLock();
   const [choice, setChoice] = useState("120");
   const [custom, setCustom] = useState("90");
   const [label, setLabel] = useState("");
@@ -59,7 +60,7 @@ export default function StudyLockScreen() {
     if (problem) return;
     Alert.alert(
       `Lock CampusOS for ${formatMinutes(minutes)}?`,
-      `You won't be able to open chat, notifications or anything else in CampusOS until ${endsAt}. You can't end it early. Everything will be waiting when the timer ends.`,
+      `Chat, the marketplace, housing, food, your wallet and notifications will be locked until ${endsAt}. Your study tools stay open. You can't end it early. Everything will be waiting when the timer ends.`,
       [
         { text: "Not now", style: "cancel" },
         {
@@ -77,6 +78,24 @@ export default function StudyLockScreen() {
     );
   }
 
+  if (lock) {
+    const total = Math.max(1, lock.endsAt - lock.startedAt);
+    const pct = Math.min(100, Math.max(0, Math.round((1 - remainingMs / total) * 100)));
+    const until = new Date(lock.endsAt).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
+    return (
+      <PageShell title="Study lock" subtitle={lock.label ? `Studying: ${lock.label}` : "You're in study time"}>
+        <Hero label="Time left" value={formatClock(remainingMs)} note={`Unlocks at ${until} · ${pct}% done`} />
+        <Notice tone="success" icon="school-outline">
+          Your study tools are open: calendar, timetable, classes, assignments, courses, CGPA, flashcards, library, past questions and your AI tutor.
+        </Notice>
+        <Notice icon="lock-closed-outline">
+          Chat, marketplace, housing, food, your wallet and notifications are locked until the timer ends. Anything that comes in will be waiting for you.
+        </Notice>
+        <Button title="Open study tools" onPress={() => router.replace("/(tabs)/study")} />
+      </PageShell>
+    );
+  }
+
   return (
     <PageShell
       title="Study lock"
@@ -87,7 +106,7 @@ export default function StudyLockScreen() {
       <Hero label="Studied this week with the lock" value={formatMinutes(weekMinutes)} note="Finished sessions are added to your study log." />
 
       <Notice icon="lock-closed-outline">
-        While the lock is on, CampusOS shows only a countdown. Chat, notifications and every other screen are paused, and you can't unlock it early. When the time ends, everything comes back.
+        While the lock is on, only your study tools stay open: calendar, timetable, classes, assignments, courses, CGPA, flashcards, library, past questions and your AI tutor. Chat, marketplace, housing, food, wallet and notifications are paused, and you can't unlock early. When the time ends, everything comes back.
       </Notice>
 
       <Section title="How long do you want to study?">
