@@ -25,7 +25,7 @@ export function MarketForm({
     event.preventDefault();
     const form = new FormData(event.currentTarget);
     const supabase = createClient();
-    const { error: insertError } = await supabase.from("marketplace_listings").insert({
+    const { data: created, error: insertError } = await supabase.from("marketplace_listings").insert({
       business_id: businessId,
       seller_user_id: sellerUserId,
       campus_id: campusId,
@@ -38,12 +38,12 @@ export function MarketForm({
       is_commercial: isCommercial,
       status: "active",
       expires_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
-    });
+    }).select("id").single();
     if (insertError) {
       setError(insertError.message);
       return;
     }
-    router.push("/listings");
+    router.push(created?.id ? `/listings/market/${created.id}` : "/listings");
     router.refresh();
   }
 

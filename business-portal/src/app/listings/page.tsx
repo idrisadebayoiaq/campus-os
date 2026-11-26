@@ -30,8 +30,8 @@ export default async function ListingsPage() {
     return (
       <Container>
         <div className="space-y-6 py-12">
-          <PageHeader title="Listings" description="Apply and get approved first." />
-          <ButtonLink href="/apply">Apply as business</ButtonLink>
+          <PageHeader title="Listings" description="Your listings unlock once your application is approved." />
+          <ButtonLink href="/dashboard">Back to overview</ButtonLink>
         </div>
       </Container>
     );
@@ -85,9 +85,10 @@ export default async function ListingsPage() {
           defaultOpen={false}
         />
 
+        {housing.length ? (
         <section className="space-y-4">
           <div className="flex items-center justify-between gap-3">
-            <h2 className="text-lg font-medium">Housing</h2>
+            <h2 className="text-lg font-medium">Properties</h2>
             {readyHousing[0] ? (
               <ButtonLink href={`/listings/housing/new?business=${readyHousing[0].id}`}>
                 Add property
@@ -114,14 +115,16 @@ export default async function ListingsPage() {
                     href={`/listings/housing/${property.id}`}
                     className="mt-2 inline-block underline underline-offset-2"
                   >
-                    Manage units
+                    Manage photos, videos & units
                   </Link>
                 </div>
               ))}
             </div>
           )}
         </section>
+        ) : null}
 
+        {food.length ? (
         <section className="space-y-4">
           <div className="flex items-center justify-between gap-3">
             <h2 className="text-lg font-medium">Food menu</h2>
@@ -140,15 +143,25 @@ export default async function ListingsPage() {
           ) : (
             <div className="divide-y divide-border rounded-md border border-border">
               {menu.map((item) => (
-                <div key={item.id} className="flex justify-between px-4 py-3 text-sm">
+                <div key={item.id} className="flex items-center justify-between gap-3 px-4 py-3 text-sm">
                   <span>{item.name}</span>
-                  <span className="text-muted">₦{Number(item.price).toLocaleString()}</span>
+                  <span className="flex items-center gap-4">
+                    <span className="text-muted">₦{Number(item.price).toLocaleString()}</span>
+                    <Link
+                      href={`/listings/food/${item.id}`}
+                      className="underline underline-offset-2"
+                    >
+                      Photos & videos
+                    </Link>
+                  </span>
                 </div>
               ))}
             </div>
           )}
         </section>
+        ) : null}
 
+        {services.length ? (
         <section className="space-y-4">
           <div className="flex items-center justify-between gap-3">
             <h2 className="text-lg font-medium">Services / goods</h2>
@@ -168,9 +181,14 @@ export default async function ListingsPage() {
           ) : (
             <div className="divide-y divide-border rounded-md border border-border">
               {market.map((item) => (
-                <div key={item.id} className="flex justify-between px-4 py-3 text-sm">
+                <div key={item.id} className="flex items-center justify-between gap-3 px-4 py-3 text-sm">
                   <span>
-                    {item.title}
+                    <Link
+                      href={`/listings/market/${item.id}`}
+                      className="font-medium underline underline-offset-2"
+                    >
+                      {item.title}
+                    </Link>
                     <span className="text-muted">
                       {" "}
                       · {item.kind} · {item.category}
@@ -185,14 +203,19 @@ export default async function ListingsPage() {
             </div>
           )}
         </section>
+        ) : null}
 
         <section className="flex flex-wrap gap-3">
-          <ButtonLink href="/listings/inspections" variant="secondary">
-            Inspection requests
-          </ButtonLink>
-          <ButtonLink href="/listings/orders" variant="secondary">
-            Food orders
-          </ButtonLink>
+          {housing.length ? (
+            <ButtonLink href="/listings/inspections" variant="secondary">
+              Inspection requests
+            </ButtonLink>
+          ) : null}
+          {food.length ? (
+            <ButtonLink href="/listings/orders" variant="secondary">
+              Food orders
+            </ButtonLink>
+          ) : null}
           <ButtonLink href="/billing" variant="ghost">
             Billing
           </ButtonLink>

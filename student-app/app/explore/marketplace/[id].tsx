@@ -21,6 +21,7 @@ import {
 } from "@/src/lib/verification";
 import { useTheme } from "@/src/theme/ThemeProvider";
 import { radii } from "@/src/theme/tokens";
+import { MediaGallery, type GalleryItem } from "@/src/components/media-gallery";
 
 type Listing = {
   id: string;
@@ -41,6 +42,8 @@ export default function MarketplaceDetailScreen() {
   const colors = useTheme();
   const insets = useSafeAreaInsets();
   const [item, setItem] = useState<Listing | null>(null);
+  const [media, setMedia] = useState<GalleryItem[]>([]);
+  const [mediaIndex, setMediaIndex] = useState(0);
   const [sellerName, setSellerName] = useState("Seller");
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -64,6 +67,17 @@ export default function MarketplaceDetailScreen() {
         return;
       }
       setItem(data as Listing);
+      const { data: mediaRows } = await supabase
+        .from("listing_media")
+        .select("url, kind, is_cover, sort_order")
+        .eq("market_listing_id", data.id)
+        .order("is_cover", { ascending: false })
+        .order("sort_order", { ascending: true });
+      const gallery: GalleryItem[] = (mediaRows || [])
+        .filter((m) => Boolean(m.url))
+        .map((m) => ({ url: m.url as string, kind: m.kind === "video" ? "video" : "image" }));
+      if (!gallery.length && data.image_url) gallery.push({ url: data.image_url, kind: "image" });
+      if (!cancelled) setMedia(gallery);
       if (data.business_id) {
         const { data: biz } = await supabase
           .from("business_profiles")
@@ -162,8 +176,14 @@ export default function MarketplaceDetailScreen() {
     <View style={[styles.root, { backgroundColor: colors.bg }]}>
       <ScrollView contentContainerStyle={{ paddingBottom: 120 }}>
         <View style={styles.hero}>
-          {item.image_url ? (
-            <Image source={{ uri: item.image_url }} style={styles.heroImg} />
+          {media.length ? (
+            <MediaGallery
+              items={media}
+              height={300}
+              index={mediaIndex}
+              onIndexChange={setMediaIndex}
+              placeholderColor={colors.heroBg}
+            />
           ) : (
             <View
               style={[

@@ -43,6 +43,7 @@ type HousingUnit = {
   saved?: boolean;
   properties:
     | {
+        id?: string;
         title: string;
         campus_id: string;
         verification_label: string | null;
@@ -52,6 +53,7 @@ type HousingUnit = {
           | null;
       }
     | {
+        id?: string;
         title: string;
         campus_id: string;
         verification_label: string | null;
@@ -95,7 +97,7 @@ export default function HousingScreen() {
       const { data, error: queryError } = await supabase
         .from("property_units")
         .select(
-          "id, title, unit_type, rent_base, fee_agent, fee_agreement, fee_caution, fee_service, rent_period, properties!inner(title, campus_id, verification_label, is_published, campus_areas(name))",
+          "id, title, unit_type, rent_base, fee_agent, fee_agreement, fee_caution, fee_service, rent_period, properties!inner(id, title, campus_id, verification_label, is_published, campus_areas(name))",
         )
         .eq("is_published", true)
         .eq("status", "available")
@@ -120,13 +122,24 @@ export default function HousingScreen() {
       const ids = filtered.map((u) => u.id);
       const coverByUnit: Record<string, string> = {};
       const savedSet = new Set<string>();
+      const propertyIds = Array.from(
+        new Set(
+          filtered
+            .map((u) => (Array.isArray(u.properties) ? u.properties[0]?.id : u.properties?.id))
+            .filter((v): v is string => Boolean(v)),
+        ),
+      );
 
       if (ids.length) {
         const [{ data: mediaRows }, { data: savedRows }] = await Promise.all([
           supabase
             .from("listing_media")
-            .select("unit_id, url, sort_order")
-            .in("unit_id", ids)
+            .select("unit_id, property_id, url, kind, is_cover, sort_order")
+            .or(
+              `unit_id.in.(${ids.join(",")})${propertyIds.length ? `,property_id.in.(${propertyIds.join(",")})` : ""}`,
+            )
+            .eq("kind", "image")
+            .order("is_cover", { ascending: false })
             .order("sort_order", { ascending: true }),
           supabase
             .from("saved_units")
@@ -134,9 +147,19 @@ export default function HousingScreen() {
             .eq("user_id", user.id)
             .in("unit_id", ids),
         ]);
+        const coverByProperty: Record<string, string> = {};
         for (const row of mediaRows || []) {
-          if (row.unit_id && row.url && !coverByUnit[row.unit_id]) {
-            coverByUnit[row.unit_id] = row.url;
+          if (!row.url) continue;
+          if (row.unit_id && !coverByUnit[row.unit_id]) coverByUnit[row.unit_id] = row.url;
+          if (row.property_id && !row.unit_id && !coverByProperty[row.property_id]) {
+            coverByProperty[row.property_id] = row.url;
+          }
+        }
+        // Rooms without their own photo use the property cover.
+        for (const u of filtered) {
+          const pid = Array.isArray(u.properties) ? u.properties[0]?.id : u.properties?.id;
+          if (!coverByUnit[u.id] && pid && coverByProperty[pid]) {
+            coverByUnit[u.id] = coverByProperty[pid];
           }
         }
         for (const row of savedRows || []) {

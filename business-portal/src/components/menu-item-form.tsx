@@ -13,7 +13,7 @@ export function MenuItemForm({ businessId }: { businessId: string }) {
     event.preventDefault();
     const form = new FormData(event.currentTarget);
     const supabase = createClient();
-    const { error: insertError } = await supabase.from("menu_items").insert({
+    const { data: created, error: insertError } = await supabase.from("menu_items").insert({
       business_id: businessId,
       name: String(form.get("name")),
       description: String(form.get("description") || "") || null,
@@ -22,12 +22,12 @@ export function MenuItemForm({ businessId }: { businessId: string }) {
       prep_minutes: Number(form.get("prep_minutes") || 20),
       is_published: true,
       in_stock: true,
-    });
+    }).select("id").single();
     if (insertError) {
       setError(insertError.message);
       return;
     }
-    router.push("/listings");
+    router.push(created?.id ? `/listings/food/${created.id}` : "/listings");
     router.refresh();
   }
 

@@ -30,6 +30,7 @@ import {
 } from "@/src/lib/verification";
 import { useTheme } from "@/src/theme/ThemeProvider";
 import { radii } from "@/src/theme/tokens";
+import { MediaGallery, type GalleryItem } from "@/src/components/media-gallery";
 
 type DetailUnit = {
   id: string;
@@ -79,7 +80,7 @@ export default function HousingDetailScreen() {
   const insets = useSafeAreaInsets();
   const { user } = useAuth();
   const [unit, setUnit] = useState<DetailUnit | null>(null);
-  const [media, setMedia] = useState<string[]>([]);
+  const [media, setMedia] = useState<GalleryItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
@@ -120,14 +121,24 @@ export default function HousingDetailScreen() {
           : row.properties;
         const { data: mediaRows } = await supabase
           .from("listing_media")
-          .select("url, unit_id, property_id, sort_order")
+          .select("url, kind, is_cover, unit_id, property_id, sort_order")
           .or(
             `unit_id.eq.${row.id}${property?.id ? `,property_id.eq.${property.id}` : ""}`,
           )
           .order("sort_order", { ascending: true });
-        const urls = (mediaRows || [])
-          .map((m) => m.url)
-          .filter(Boolean) as string[];
+        const ordered = [...(mediaRows || [])]
+          .filter((m) => Boolean(m.url))
+          .sort((a, b) => {
+            const aUnit = a.unit_id === row.id ? 0 : 1;
+            const bUnit = b.unit_id === row.id ? 0 : 1;
+            if (aUnit !== bUnit) return aUnit - bUnit;
+            if (Boolean(a.is_cover) !== Boolean(b.is_cover)) return a.is_cover ? -1 : 1;
+            return (a.sort_order ?? 0) - (b.sort_order ?? 0);
+          });
+        const urls: GalleryItem[] = ordered.map((m) => ({
+          url: m.url as string,
+          kind: m.kind === "video" ? "video" : "image",
+        }));
         if (!cancelled) setMedia(urls);
       }
       setLoading(false);
@@ -313,7 +324,6 @@ export default function HousingDetailScreen() {
     ? unit.properties[0]
     : unit.properties;
   const total = unitTotal(unit);
-  const hero = media[heroIndex] || media[0];
   const description =
     property?.description || "No description provided for this listing.";
   const shortDesc =
@@ -328,13 +338,13 @@ export default function HousingDetailScreen() {
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.hero}>
-          {hero ? (
-            <Image source={{ uri: hero }} style={styles.heroImage} />
-          ) : (
-            <View
-              style={[styles.heroImage, { backgroundColor: colors.heroBg }]}
-            />
-          )}
+          <MediaGallery
+            items={media}
+            height={320}
+            index={heroIndex}
+            onIndexChange={setHeroIndex}
+            placeholderColor={colors.heroBg}
+          />
           <View style={[styles.heroActions, { paddingTop: insets.top + 8 }]}>
             <Pressable
               onPress={() => router.back()}
@@ -418,9 +428,16 @@ export default function HousingDetailScreen() {
               showsHorizontalScrollIndicator={false}
               contentContainerStyle={{ gap: 10 }}
             >
-              {media.slice(0, 8).map((url, i) => (
+              {media.slice(0, 8).map((item, i) => { const url = item.url; return (
                 <Pressable key={`${url}-${i}`} onPress={() => setHeroIndex(i)}>
-                  <Image source={{ uri: url }} style={styles.thumb} />
+                  <View>
+                    <Image source={{ uri: media[i].kind === "video" ? undefined : url }} style={[styles.thumb, media[i].kind === "video" && { backgroundColor: "#1a1428" }]} />
+                    {media[i].kind === "video" ? (
+                      <View style={styles.thumbPlay}>
+                        <Ionicons name="play" size={22} color="#fff" />
+                      </View>
+                    ) : null}
+                  </View>
                   {i === 7 && media.length > 8 ? (
                     <View style={styles.moreOverlay}>
                       <AppText
@@ -433,7 +450,7 @@ export default function HousingDetailScreen() {
                     </View>
                   ) : null}
                 </Pressable>
-              ))}
+              ); })}
             </ScrollView>
           ) : null}
 
@@ -681,6 +698,15 @@ const styles = StyleSheet.create({
     width: 72,
     height: 72,
     borderRadius: 14,
+  },
+  thumbPlay: {
+    position: "absolute",
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
+    alignItems: "center",
+    justifyContent: "center",
   },
   moreOverlay: {
     position: "absolute",
