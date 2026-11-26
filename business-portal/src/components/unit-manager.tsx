@@ -13,6 +13,13 @@ type Unit = {
   rent_base: number;
 };
 
+const STATES = [
+  { value: "available", label: "Available", hint: "Shown to students and can be booked" },
+  { value: "reserved", label: "Reserved", hint: "Someone has paid or is holding it; students see it as taken" },
+  { value: "occupied", label: "Occupied", hint: "Hidden from students" },
+  { value: "paused", label: "Paused", hint: "Hidden for now, e.g. renovation" },
+] as const;
+
 export function UnitManager({
   propertyId,
   units,
@@ -48,6 +55,13 @@ export function UnitManager({
     router.refresh();
   }
 
+  async function setAllStatus(next: string) {
+    const supabase = createClient();
+    const { error } = await supabase.from("property_units").update({ status: next }).eq("property_id", propertyId);
+    setStatus(error ? error.message : `All units set to ${next}.`);
+    router.refresh();
+  }
+
   async function addUnit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const form = new FormData(event.currentTarget);
@@ -77,6 +91,17 @@ export function UnitManager({
         {isPublished ? "Unpublish property" : "Publish property"}
       </Button>
 
+      {units.length > 1 ? (
+        <div className="flex flex-wrap items-center gap-2 text-sm">
+          <span className="text-muted">Set every unit:</span>
+          {STATES.map((s) => (
+            <Button key={s.value} type="button" variant="secondary" className="!h-9 !px-3.5 text-xs" onClick={() => setAllStatus(s.value)}>
+              {s.label}
+            </Button>
+          ))}
+        </div>
+      ) : null}
+
       <div className="divide-y divide-border rounded-md border border-border">
         {units.map((unit) => (
           <div key={unit.id} className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 text-sm">
@@ -86,16 +111,20 @@ export function UnitManager({
                 ₦{Number(unit.rent_base).toLocaleString()} · {unit.status}
               </p>
             </div>
-            <div className="flex gap-2">
-              <Button type="button" variant="secondary" onClick={() => setUnitStatus(unit.id, "available")}>
-                Available
-              </Button>
-              <Button type="button" variant="ghost" onClick={() => setUnitStatus(unit.id, "occupied")}>
-                Occupied
-              </Button>
-              <Button type="button" variant="ghost" onClick={() => setUnitStatus(unit.id, "paused")}>
-                Pause
-              </Button>
+            <div className="flex flex-wrap gap-1.5">
+              {STATES.map((s) => (
+                <button
+                  key={s.value}
+                  type="button"
+                  title={s.hint}
+                  onClick={() => setUnitStatus(unit.id, s.value)}
+                  className={`h-9 rounded-full px-3.5 text-xs font-medium transition ${
+                    unit.status === s.value ? "bg-accent text-on-accent" : "border border-border hover:bg-surface"
+                  }`}
+                >
+                  {s.label}
+                </button>
+              ))}
             </div>
           </div>
         ))}

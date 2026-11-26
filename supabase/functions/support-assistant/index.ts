@@ -1,11 +1,11 @@
 // CampusOS Assistant: answers support questions from the knowledge base and the
 // asker's own account, and hands the chat to the support team when it can't.
 //
-// Optional secrets (Supabase › Edge Functions › Secrets):
-//   GEMINI_API_KEY                       – use Google Gemini
-//   OPENAI_API_KEY [+ AI_BASE_URL]       – any OpenAI-compatible API
-//   AI_MODEL                             – override the model name
-// Without a key the assistant answers with the best-matching help article.
+// Secrets (Supabase › Edge Functions › Secrets):
+//   OPENROUTER_API_KEY                   – recommended; uses SUPPORT_MODEL below
+//   SUPPORT_MODEL / SUPPORT_FALLBACK_MODEL – optional overrides
+//   GEMINI_API_KEY, or OPENAI_API_KEY [+ AI_BASE_URL] – alternatives; AI_MODEL overrides
+// Without any key the assistant answers with the best-matching help article.
 
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient, type SupabaseClient } from "npm:@supabase/supabase-js@2";
@@ -202,9 +202,10 @@ async function askModel(input: {
   userId: string;
   question: string;
 }): Promise<{ decision: Decision; model: string } | null> {
+  const openrouter = Deno.env.get("OPENROUTER_API_KEY");
   const gemini = Deno.env.get("GEMINI_API_KEY");
   const openai = Deno.env.get("OPENAI_API_KEY");
-  if (!gemini && !openai) return null;
+  if (!openrouter && !gemini && !openai) return null;
 
   const system = [
     `You are the CampusOS Assistant, the first line of customer support for CampusOS, a campus app in Nigeria.`,
@@ -229,6 +230,37 @@ async function askModel(input: {
     .map((m) => ({ role: m.sender_id === input.userId ? "user" : "assistant", text: m.body }));
 
   try {
+    if (openrouter) {
+      const model = Deno.env.get("SUPPORT_MODEL") || "mistralai/mistral-small-3.2-24b-instruct";
+      const fallback = Deno.env.get("SUPPORT_FALLBACK_MODEL") || "google/gemini-2.5-flash-lite";
+      const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${openrouter}`,
+          "HTTP-Referer": "https://campusos-app.vercel.app",
+          "X-Title": "CampusOS Support",
+        },
+        body: JSON.stringify({
+          model,
+          models: [model, fallback],
+          temperature: 0.2,
+          max_tokens: 600,
+          response_format: { type: "json_object" },
+          provider: { sort: "price", allow_fallbacks: true, require_parameters: true },
+          messages: [
+            { role: "system", content: system },
+            ...turns.map((t) => ({ role: t.role, content: t.text })),
+          ],
+        }),
+      });
+      if (!res.ok) return null;
+      const data = await res.json();
+      const text: string | undefined = data?.choices?.[0]?.message?.content;
+      if (!text) return null;
+      const cleaned = text.replace(/^```(?:json)?\s*/i, "").replace(/```\s*$/, "").trim();
+      return { decision: JSON.parse(cleaned) as Decision, model: (data?.model as string) || model };
+    }
     if (gemini) {
       const model = Deno.env.get("AI_MODEL") || "gemini-2.5-flash";
       const res = await fetch(

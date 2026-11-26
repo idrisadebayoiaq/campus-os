@@ -45,8 +45,25 @@ type DetailUnit = {
   capacity: number | null;
   furnished: boolean | null;
   amenities: string[] | null;
+  status?: string | null;
   properties: PropertyRow | PropertyRow[] | null;
 };
+
+type Slot = {
+  id: string;
+  starts_at: string;
+  ends_at: string;
+  note: string | null;
+  spots_left: number;
+};
+
+function slotDay(iso: string) {
+  return new Date(iso).toLocaleDateString(undefined, { weekday: "short", day: "numeric", month: "short" });
+}
+
+function slotTime(iso: string) {
+  return new Date(iso).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
+}
 
 type PropertyRow = {
   id?: string;
@@ -61,9 +78,9 @@ type PropertyRow = {
 };
 
 const SELECT_WITH_BUSINESS =
-  "id, title, unit_type, rent_base, fee_agent, fee_agreement, fee_caution, fee_service, rent_period, capacity, furnished, amenities, properties(id, title, description, verification_label, business_id, campus_areas(name))";
+  "id, title, unit_type, rent_base, fee_agent, fee_agreement, fee_caution, fee_service, rent_period, capacity, furnished, amenities, status, properties(id, title, description, verification_label, business_id, campus_areas(name))";
 const SELECT_NO_BUSINESS =
-  "id, title, unit_type, rent_base, fee_agent, fee_agreement, fee_caution, fee_service, rent_period, capacity, furnished, amenities, properties(id, title, description, verification_label, campus_areas(name))";
+  "id, title, unit_type, rent_base, fee_agent, fee_agreement, fee_caution, fee_service, rent_period, capacity, furnished, amenities, status, properties(id, title, description, verification_label, campus_areas(name))";
 
 const { width: SCREEN_W } = Dimensions.get("window");
 
@@ -93,6 +110,19 @@ export default function HousingDetailScreen() {
   const [reportReason, setReportReason] = useState("");
   const [descExpanded, setDescExpanded] = useState(false);
   const [heroIndex, setHeroIndex] = useState(0);
+  const [slots, setSlots] = useState<Slot[]>([]);
+  const [slotId, setSlotId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!id) return;
+    let cancelled = false;
+    void supabase.rpc("inspection_slots_for_unit", { p_unit: id }).then(({ data }) => {
+      if (!cancelled) setSlots(((data as Slot[]) ?? []).filter((s) => s.spots_left > 0));
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [id]);
 
   useEffect(() => {
     let cancelled = false;
@@ -207,18 +237,36 @@ export default function HousingDetailScreen() {
 
   async function onBook() {
     if (!requireAuth() || !user || !unit) return;
+    if (unit.status && unit.status !== "available") {
+      setActionStatus({ kind: "error", text: "This room isn't available right now." });
+      return;
+    }
+    if (slots.length && !slotId) {
+      setActionStatus({ kind: "error", text: "Pick a viewing time first." });
+      return;
+    }
     setBusy("book");
     setActionStatus(null);
+    const chosen = slots.find((s) => s.id === slotId);
     const { error: e } = await supabase.from("inspection_requests").insert({
       unit_id: unit.id,
       student_id: user.id,
+      slot_id: chosen?.id ?? null,
       message: "I would like to book / inspect this unit.",
-      preferred_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+      preferred_at: chosen?.starts_at ?? new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
     });
-    finish(
-      e,
-      "Booking request sent. The agent will confirm an inspection time.",
-    );
+    if (
+      finish(
+        e,
+        chosen
+          ? `Requested for ${slotDay(chosen.starts_at)}, ${slotTime(chosen.starts_at)}. You'll be notified when the agent confirms.`
+          : "Booking request sent. The agent will confirm an inspection time.",
+      ) &&
+      chosen
+    ) {
+      setSlots((prev) => prev.filter((s) => s.id !== chosen.id));
+      setSlotId(null);
+    }
   }
 
   async function onMessage() {
@@ -508,6 +556,53 @@ export default function HousingDetailScreen() {
             </AppText>
           </View>
 
+          {unit.status && unit.status !== "available" ? (
+            <View style={[styles.panel, { backgroundColor: colors.surface }]}>
+              <AppText weight="700" size={15}>
+                {unit.status === "reserved" ? "Reserved" : "Not available right now"}
+              </AppText>
+              <AppText muted size={13}>
+                {unit.status === "reserved"
+                  ? "Someone is holding this room. Save it and check back, or message the agent."
+                  : "This room isn't taking viewings at the moment."}
+              </AppText>
+            </View>
+          ) : slots.length ? (
+            <View style={[styles.panel, { backgroundColor: colors.surface }]}>
+              <AppText weight="700" size={16}>
+                Pick a viewing time
+              </AppText>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
+                {slots.slice(0, 20).map((s) => {
+                  const active = s.id === slotId;
+                  return (
+                    <Pressable
+                      key={s.id}
+                      onPress={() => setSlotId(active ? null : s.id)}
+                      style={[
+                        styles.slotChip,
+                        {
+                          backgroundColor: active ? colors.inverseBg : colors.bg,
+                          borderColor: active ? colors.inverseBg : colors.border,
+                        },
+                      ]}
+                    >
+                      <AppText size={12} weight="600" style={{ color: active ? colors.inverseFg : colors.fg }}>
+                        {slotDay(s.starts_at)}
+                      </AppText>
+                      <AppText size={14} weight="700" style={{ color: active ? colors.inverseFg : colors.fg }}>
+                        {slotTime(s.starts_at)}
+                      </AppText>
+                    </Pressable>
+                  );
+                })}
+              </ScrollView>
+              <AppText muted size={12}>
+                The agent confirms your time after you tap Book.
+              </AppText>
+            </View>
+          ) : null}
+
           {actionStatus ? (
             <AppText
               size={13}
@@ -647,6 +742,15 @@ function FeeRow({
 const styles = StyleSheet.create({
   root: { flex: 1 },
   center: { flex: 1, alignItems: "center", justifyContent: "center" },
+  slotChip: {
+    minWidth: 88,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: 14,
+    borderWidth: 1,
+    alignItems: "center",
+    gap: 2,
+  },
   hero: {
     width: SCREEN_W,
     height: 320,

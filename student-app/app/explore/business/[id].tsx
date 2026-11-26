@@ -7,6 +7,7 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
+  TextInput,
   View,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
@@ -68,6 +69,46 @@ export default function BusinessDetailScreen() {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState<string | null>(null);
+  const [cart, setCart] = useState<Record<string, number>>({});
+  const [orderNote, setOrderNote] = useState("");
+  const [ordering, setOrdering] = useState(false);
+
+  const cartLines = menu.filter((m) => (cart[m.id] ?? 0) > 0);
+  const cartCount = cartLines.reduce((n, m) => n + cart[m.id], 0);
+  const cartTotal = cartLines.reduce((n, m) => n + (m.price ?? 0) * cart[m.id], 0);
+
+  function bump(itemId: string, delta: number) {
+    setCart((prev) => {
+      const next = Math.max(0, Math.min(20, (prev[itemId] ?? 0) + delta));
+      const copy = { ...prev };
+      if (next === 0) delete copy[itemId];
+      else copy[itemId] = next;
+      return copy;
+    });
+  }
+
+  async function placeOrder() {
+    if (!biz) return;
+    if (!user) {
+      router.push("/(auth)/login");
+      return;
+    }
+    setOrdering(true);
+    setStatus(null);
+    const { error } = await supabase.rpc("place_food_order", {
+      p_business: biz.id,
+      p_items: cartLines.map((m) => ({ menu_item_id: m.id, quantity: cart[m.id] })),
+      p_notes: orderNote.trim() || null,
+    });
+    setOrdering(false);
+    if (error) {
+      setStatus(error.message);
+      return;
+    }
+    setCart({});
+    setOrderNote("");
+    router.push("/orders");
+  }
 
   useEffect(() => {
     if (!id) return;
@@ -280,9 +321,34 @@ export default function BusinessDetailScreen() {
                 <AppText weight="600" style={{ flex: 1 }} numberOfLines={1}>
                   {m.name}
                 </AppText>
-                <AppText weight="700" size={13}>
-                  {formatNaira(m.price)}
-                </AppText>
+                <View style={{ alignItems: "flex-end", gap: 4 }}>
+                  <AppText weight="700" size={13}>
+                    {formatNaira(m.price)}
+                  </AppText>
+                  {m.in_stock === false ? (
+                    <AppText size={11} muted>
+                      Sold out
+                    </AppText>
+                  ) : (cart[m.id] ?? 0) > 0 ? (
+                    <View style={styles.stepper}>
+                      <Pressable onPress={() => bump(m.id, -1)} hitSlop={8} style={[styles.stepBtn, { backgroundColor: colors.bg }]}>
+                        <Ionicons name="remove" size={16} color={colors.fg} />
+                      </Pressable>
+                      <AppText weight="700" size={14} style={{ minWidth: 18, textAlign: "center" }}>
+                        {cart[m.id]}
+                      </AppText>
+                      <Pressable onPress={() => bump(m.id, 1)} hitSlop={8} style={[styles.stepBtn, { backgroundColor: colors.inverseBg }]}>
+                        <Ionicons name="add" size={16} color={colors.inverseFg} />
+                      </Pressable>
+                    </View>
+                  ) : (
+                    <Pressable onPress={() => bump(m.id, 1)} hitSlop={6} style={[styles.addBtn, { backgroundColor: colors.inverseBg }]}>
+                      <AppText size={12} weight="700" style={{ color: colors.inverseFg }}>
+                        Add
+                      </AppText>
+                    </Pressable>
+                  )}
+                </View>
               </View>
             ))
           ) : (
@@ -312,6 +378,28 @@ export default function BusinessDetailScreen() {
             ))
           )}
 
+          {isFood && cartCount > 0 ? (
+            <View style={{ gap: 8 }}>
+              <AppText weight="700" size={14}>
+                Note for the kitchen
+              </AppText>
+              <TextInput
+                value={orderNote}
+                onChangeText={setOrderNote}
+                maxLength={300}
+                placeholder="e.g. No pepper, I'll pick up at the gate"
+                placeholderTextColor={colors.muted}
+                style={[
+                  styles.noteInput,
+                  { color: colors.fg, borderColor: colors.border, backgroundColor: colors.surface },
+                ]}
+              />
+              <AppText size={12} muted>
+                Pickup only. You pay the kitchen when you collect.
+              </AppText>
+            </View>
+          ) : null}
+
           {status ? (
             <AppText size={13} style={{ color: colors.danger }}>
               {status}
@@ -330,21 +418,46 @@ export default function BusinessDetailScreen() {
           },
         ]}
       >
-        <Pressable
-          onPress={() => void onMessage()}
-          disabled={busy}
-          style={[
-            styles.msgBtn,
-            {
-              backgroundColor: colors.inverseBg,
-              opacity: busy ? 0.6 : 1,
-            },
-          ]}
-        >
-          <AppText weight="700" style={{ color: colors.inverseFg }}>
-            {busy ? "…" : "Message"}
-          </AppText>
-        </Pressable>
+        {isFood && cartCount > 0 ? (
+          <View style={{ flexDirection: "row", gap: 10 }}>
+            <Pressable
+              onPress={() => void onMessage()}
+              disabled={busy}
+              style={[styles.msgBtn, { width: 56, backgroundColor: colors.surface }]}
+              accessibilityLabel="Message the kitchen"
+            >
+              <Ionicons name="chatbubble-outline" size={20} color={colors.fg} />
+            </Pressable>
+            <Pressable
+              onPress={() => void placeOrder()}
+              disabled={ordering}
+              style={[
+                styles.msgBtn,
+                { flex: 1, backgroundColor: colors.inverseBg, opacity: ordering ? 0.6 : 1 },
+              ]}
+            >
+              <AppText weight="700" style={{ color: colors.inverseFg }}>
+                {ordering ? "Placing…" : `Place order · ${cartCount} item${cartCount === 1 ? "" : "s"} · ${formatNaira(cartTotal)}`}
+              </AppText>
+            </Pressable>
+          </View>
+        ) : (
+          <Pressable
+            onPress={() => void onMessage()}
+            disabled={busy}
+            style={[
+              styles.msgBtn,
+              {
+                backgroundColor: colors.inverseBg,
+                opacity: busy ? 0.6 : 1,
+              },
+            ]}
+          >
+            <AppText weight="700" style={{ color: colors.inverseFg }}>
+              {busy ? "…" : "Message"}
+            </AppText>
+          </Pressable>
+        )}
       </View>
     </View>
   );
@@ -385,6 +498,10 @@ const styles = StyleSheet.create({
     borderRadius: radii.md,
   },
   offerThumb: { width: 44, height: 44, borderRadius: 10 },
+  stepper: { flexDirection: "row", alignItems: "center", gap: 6 },
+  stepBtn: { width: 26, height: 26, borderRadius: 13, alignItems: "center", justifyContent: "center" },
+  addBtn: { paddingHorizontal: 14, height: 28, borderRadius: 14, alignItems: "center", justifyContent: "center" },
+  noteInput: { height: 46, borderWidth: 1, borderRadius: radii.md, paddingHorizontal: 12, fontSize: 14 },
   footer: {
     position: "absolute",
     left: 0,

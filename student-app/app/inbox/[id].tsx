@@ -28,11 +28,6 @@ import { supabase } from "@/src/lib/supabase";
 import { useTheme } from "@/src/theme/ThemeProvider";
 import { radii } from "@/src/theme/tokens";
 
-const WEB_URL = (process.env.EXPO_PUBLIC_STUDENT_WEB_URL ?? "").replace(
-  /\/+$/,
-  "",
-);
-
 function dayKey(iso: string) {
   const d = new Date(iso);
   return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
@@ -57,7 +52,7 @@ export default function ChatThreadScreen() {
     id: string;
     draft?: string;
   }>();
-  const { user, session } = useAuth();
+  const { user } = useAuth();
   const colors = useTheme();
   const insets = useSafeAreaInsets();
   const listRef = useRef<FlatList<ChatMessage>>(null);
@@ -176,32 +171,33 @@ export default function ChatThreadScreen() {
   }, [messages.length, aiThinking]);
 
   async function requestAiReply(userText: string) {
-    if (!WEB_URL || !id) return;
+    if (!id) return;
     setAiThinking(true);
     setError(null);
     try {
-      const { data: sessionData } = await supabase.auth.getSession();
-      const token =
-        sessionData.session?.access_token || session?.access_token || null;
-      if (!token) {
-        setError("Session expired. Sign in again to chat with AI.");
-        return;
-      }
-      const res = await fetch(`${WEB_URL}/api/study/ai/chat`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ conversationId: id, message: userText }),
+      const { data, error: fnError } = await supabase.functions.invoke("study-tutor", {
+        body: { conversationId: id, message: userText },
       });
-      const json = (await res.json().catch(() => ({}))) as {
+      let json = (data ?? {}) as {
         error?: string;
         message?: ChatMessage;
         speakLocally?: string;
       };
-      if (!res.ok) {
-        setError(json.error || "AI could not reply.");
+      if (fnError) {
+        json = {};
+        const ctx = (fnError as { context?: Response }).context;
+        if (ctx && typeof ctx.json === "function") {
+          try {
+            json = (await ctx.json()) as typeof json;
+          } catch {
+            // fall through to the generic message
+          }
+        }
+        setError(json.error || "The tutor couldn't reply. Try again.");
+        return;
+      }
+      if (json.error) {
+        setError(json.error);
         return;
       }
       if (json.message) {
