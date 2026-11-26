@@ -2,6 +2,7 @@ import { router, useLocalSearchParams } from "expo-router";
 import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
+  Alert,
   Image,
   Pressable,
   ScrollView,
@@ -130,6 +131,47 @@ export default function MarketplaceDetailScreen() {
       cancelled = true;
     };
   }, [id]);
+
+  async function onBuy() {
+    if (!user || !item) {
+      router.push("/(auth)/login");
+      return;
+    }
+    const verified = await isStudentVerified(supabase, user.id);
+    if (!verified) {
+      setStatus(verificationGateMessage());
+      router.push("/verify");
+      return;
+    }
+    Alert.alert(
+      "Buy with your wallet?",
+      `${formatNaira(item.price)} will be taken from your wallet and held safely by CampusOS. The seller is paid only after you receive the item, and you can report a problem before that.`,
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Pay and hold",
+          onPress: async () => {
+            setBusy(true);
+            setStatus(null);
+            const { error } = await supabase.rpc("market_place_order", { p_listing: item.id });
+            setBusy(false);
+            if (error) {
+              if (error.message.includes("Not enough wallet")) {
+                Alert.alert("Not enough in your wallet", "Add money to your wallet, then try again.", [
+                  { text: "Later", style: "cancel" },
+                  { text: "Add money", onPress: () => router.push("/wallet") },
+                ]);
+              } else {
+                setStatus(error.message);
+              }
+              return;
+            }
+            router.push("/market-orders");
+          },
+        },
+      ],
+    );
+  }
 
   async function onMessage() {
     if (!user || !item) {
@@ -317,21 +359,35 @@ export default function MarketplaceDetailScreen() {
           },
         ]}
       >
-        <Pressable
-          onPress={() => void onMessage()}
-          disabled={busy}
-          style={[
-            styles.msgBtn,
-            {
-              backgroundColor: colors.inverseBg,
-              opacity: busy ? 0.6 : 1,
-            },
-          ]}
-        >
-          <AppText weight="700" style={{ color: colors.inverseFg }}>
-            {busy ? "…" : "Message seller"}
-          </AppText>
-        </Pressable>
+        <View style={{ flexDirection: "row", gap: 10 }}>
+          <Pressable
+            onPress={() => void onMessage()}
+            disabled={busy}
+            style={[
+              styles.msgBtn,
+              {
+                flex: 1,
+                backgroundColor: Number(item.price) > 0 ? colors.surface : colors.inverseBg,
+                opacity: busy ? 0.6 : 1,
+              },
+            ]}
+          >
+            <AppText weight="700" style={{ color: Number(item.price) > 0 ? colors.fg : colors.inverseFg }}>
+              {busy ? "…" : "Message seller"}
+            </AppText>
+          </Pressable>
+          {Number(item.price) > 0 && item.seller_user_id !== user?.id ? (
+            <Pressable
+              onPress={() => void onBuy()}
+              disabled={busy}
+              style={[styles.msgBtn, { flex: 1, backgroundColor: colors.inverseBg, opacity: busy ? 0.6 : 1 }]}
+            >
+              <AppText weight="700" style={{ color: colors.inverseFg }}>
+                {busy ? "…" : "Buy with wallet"}
+              </AppText>
+            </Pressable>
+          ) : null}
+        </View>
       </View>
     </View>
   );

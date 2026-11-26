@@ -2,12 +2,15 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import {
   BalancePanel,
+  PaymentRequestsPanel,
   PayoutForm,
+  PlanPanel,
   RefundList,
   VerificationPanel,
   type PayoutAccount,
   type PayoutRow,
   type RefundRow,
+  type RequestRow,
 } from "@/components/billing-panels";
 import { Container, EmptyState, PageHeader } from "@/components/ui";
 import { myBusinesses } from "@/lib/business";
@@ -46,7 +49,7 @@ export default async function BillingPage() {
 
   const [balances, { data: payoutRows }, { data: minSetting }] = await Promise.all([
     Promise.all(
-      kitchens.map(async (k) => {
+      owned.map(async (k) => {
         const { data } = await supabase.rpc('business_balance', { p_business: k.id });
         return [k.id, Number(data ?? 0)] as const;
       }),
@@ -54,6 +57,27 @@ export default async function BillingPage() {
     supabase.from('payouts').select('id, business_id, amount, status, failure_reason, created_at').in('business_id', ids).order('created_at', { ascending: false }).limit(40),
     supabase.rpc('setting_num', { p_key: 'payout_min', p_default: 5000 }),
   ]);
+  const { data: planPrice } = await supabase.rpc('setting_num', { p_key: 'business_plan_price', p_default: 3000 });
+  const requesters = owned.filter((b) => b.business_type === 'housing_provider' || b.business_type === 'campus_service');
+  const requesterIds = requesters.map((r) => r.id);
+  const { data: requestRows } = requesterIds.length
+    ? await supabase
+        .from('payment_requests')
+        .select('id, business_id, student_id, kind, title, amount, status, created_at')
+        .in('business_id', requesterIds)
+        .order('created_at', { ascending: false })
+        .limit(60)
+    : { data: [] };
+  const { data: tenancyRows } = requesterIds.length
+    ? await supabase
+        .from('tenancies')
+        .select('id, business_id, student_id, property_units(title)')
+        .in('business_id', requesterIds)
+        .in('status', ['active', 'upcoming'])
+    : { data: [] };
+  const nameIds = [...new Set([...(requestRows ?? []).map((r) => r.student_id), ...(tenancyRows ?? []).map((r) => r.student_id)])];
+  const { data: nameRows } = nameIds.length ? await supabase.rpc('student_first_names', { p_ids: nameIds }) : { data: [] };
+  const nameOf = (id: string) => ((nameRows ?? []) as { id: string; first_name: string }[]).find((n) => n.id === id)?.first_name || 'Student';
   const balanceOf = new Map(balances);
   const payoutMin = Number(minSetting ?? 5000);
 
@@ -114,7 +138,7 @@ export default async function BillingPage() {
           <section key={b.id} className="space-y-4 rounded-2xl border border-border p-5">
             <h2 className="text-lg font-medium">{b.display_name}</h2>
             <div className="space-y-6">
-              {b.business_type === "food_vendor" ? (
+              {true ? (
                 <div className="space-y-2">
                   <h3 className="text-sm font-semibold uppercase tracking-wider text-muted">Balance & withdrawals</h3>
                   <BalancePanel
@@ -126,12 +150,49 @@ export default async function BillingPage() {
                   />
                 </div>
               ) : null}
-              {b.business_type === "food_vendor" ? (
+              <div className="space-y-2">
+                <h3 className="text-sm font-semibold uppercase tracking-wider text-muted">Payout account</h3>
+                <PayoutForm businessId={b.id} current={paymentMethod(b.id)} />
+              </div>
+              {b.business_type === "housing_provider" || b.business_type === "campus_service" ? (
                 <div className="space-y-2">
-                  <h3 className="text-sm font-semibold uppercase tracking-wider text-muted">Payout account</h3>
-                  <PayoutForm businessId={b.id} current={paymentMethod(b.id)} />
+                  <h3 className="text-sm font-semibold uppercase tracking-wider text-muted">Payment requests</h3>
+                  <PaymentRequestsPanel
+                    businessId={b.id}
+                    housing={b.business_type === "housing_provider"}
+                    isOwner
+                    requests={(requestRows ?? [])
+                      .filter((r) => r.business_id === b.id)
+                      .map((r) => ({
+                        id: r.id,
+                        student: nameOf(r.student_id),
+                        kind: r.kind,
+                        title: r.title,
+                        amount: Number(r.amount),
+                        status: r.status,
+                        created_at: r.created_at,
+                      })) as RequestRow[]}
+                    tenancies={(tenancyRows ?? [])
+                      .filter((t) => t.business_id === b.id)
+                      .map((t) => {
+                        const u = Array.isArray(t.property_units) ? t.property_units[0] : t.property_units;
+                        return { id: t.id, label: `${nameOf(t.student_id)} · ${u?.title ?? "Room"}` };
+                      })}
+                  />
                 </div>
               ) : null}
+              <div className="space-y-2">
+                <h3 className="text-sm font-semibold uppercase tracking-wider text-muted">CampusOS plan</h3>
+                <PlanPanel
+                  businessId={b.id}
+                  plan={{
+                    active: (plans ?? []).some((pl) => pl.business_id === b.id && pl.status === "active" && (!pl.ends_at || new Date(pl.ends_at) > new Date())),
+                    endsAt: (plans ?? []).find((pl) => pl.business_id === b.id && pl.status === "active")?.ends_at ?? null,
+                  }}
+                  price={Number(planPrice ?? 3000)}
+                  balance={balanceOf.get(b.id) ?? 0}
+                />
+              </div>
               <div className="space-y-2">
                 <h3 className="text-sm font-semibold uppercase tracking-wider text-muted">Verification</h3>
                 <VerificationPanel

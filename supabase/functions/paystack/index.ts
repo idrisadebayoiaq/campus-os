@@ -3,8 +3,9 @@
 // Secrets (Supabase > Edge Functions > Secrets):
 //   PAYSTACK_SECRET_KEY  - required (sk_live_... or sk_test_...). Everything else is set up through the API.
 //
-// Actions: status, banks, resolve-bank, verify-bank, init-topup, init-order, init-boost,
+// Actions: status, banks, resolve-bank, verify-bank, init-topup, init-order, init-boost, init-plan,
 //          verify, verify-mine, payout, refund, platform-balance
+// resolve-bank, verify-bank and payout work for a business (business_id) or, without it, for the signed-in student.
 
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
@@ -130,7 +131,7 @@ Deno.serve(async (req) => {
       const bankCode = String(body.bank_code ?? "");
       const account = String(body.account_number ?? "").replace(/\D/g, "");
       if (account.length !== 10) throw new Fail("Account numbers have 10 digits.");
-      await requireOwner(businessId);
+      if (businessId) await requireOwner(businessId);
       const resolved = await paystack(`/bank/resolve?account_number=${account}&bank_code=${encodeURIComponent(bankCode)}`);
       const banks = await paystack("/bank?country=nigeria&perPage=200&use_cursor=false");
       const bankName = (banks as { name: string; code: string }[]).find((b) => b.code === bankCode)?.name ?? null;
@@ -143,6 +144,32 @@ Deno.serve(async (req) => {
       const bankCode = String(body.bank_code ?? "");
       const account = String(body.account_number ?? "").replace(/\D/g, "");
       if (account.length !== 10) throw new Fail("Account numbers have 10 digits.");
+      if (!businessId) {
+        // A student saving the bank account their earnings are paid to.
+        const { data: openMine } = await admin.from("payouts").select("id").eq("user_id", user.id).in("status", ["requested", "processing"]).limit(1);
+        if (openMine?.length) throw new Fail("Wait for your current withdrawal to finish before changing your bank.");
+        const resolvedMe = await paystack(`/bank/resolve?account_number=${account}&bank_code=${encodeURIComponent(bankCode)}`);
+        const banksMe = await paystack("/bank?country=nigeria&perPage=200&use_cursor=false");
+        const bankNameMe = (banksMe as { name: string; code: string }[]).find((b) => b.code === bankCode)?.name ?? null;
+        const recipientMe = await paystack("/transferrecipient", "POST", {
+          type: "nuban",
+          name: resolvedMe.account_name,
+          account_number: account,
+          bank_code: bankCode,
+          currency: "NGN",
+        });
+        await admin.from("user_payout_accounts").upsert({
+          user_id: user.id,
+          account_name: resolvedMe.account_name,
+          bank_name: bankNameMe,
+          account_number: account,
+          bank_code: bankCode,
+          paystack_recipient_code: recipientMe.recipient_code,
+          is_verified: true,
+          updated_at: new Date().toISOString(),
+        });
+        return json({ ok: true, account_name: resolvedMe.account_name, bank_name: bankNameMe });
+      }
       const biz = await requireOwner(businessId);
 
       const { data: open } = await admin
@@ -339,6 +366,34 @@ Deno.serve(async (req) => {
       return json({ authorization_url: init.authorization_url, reference });
     }
 
+    if (action === "init-plan") {
+      const businessId = String(body.business_id ?? "");
+      const callback = typeof body.callback_url === "string" ? body.callback_url : undefined;
+      await requireOwner(businessId);
+      const price = await num("business_plan_price", 3000);
+      const reference = `plan_${businessId.replaceAll("-", "").slice(0, 16)}_${Date.now().toString(36)}`;
+      const init = await paystack("/transaction/initialize", "POST", {
+        email,
+        amount: kobo(price),
+        reference,
+        callback_url: callback,
+        channels: ["card"],
+        metadata: { purpose: "subscription", business_id: businessId, user_id: user.id },
+      });
+      await admin.from("payment_ledger").insert({
+        business_id: businessId,
+        user_id: user.id,
+        provider: "paystack",
+        reference,
+        amount: price,
+        currency: "NGN",
+        status: "pending",
+        purpose: "subscription",
+        meta: { business_id: businessId },
+      });
+      return json({ authorization_url: init.authorization_url, reference });
+    }
+
     if (action === "verify") {
       const orderId = String(body.order_id ?? "");
       let query = admin.from("payment_ledger").select("reference, status").eq("user_id", user.id);
@@ -376,18 +431,26 @@ Deno.serve(async (req) => {
 
     if (action === "payout") {
       const businessId = String(body.business_id ?? "");
-      await requireOwner(businessId);
-      const { data: began, error: beginErr } = await admin.rpc("payout_begin", { p_business: businessId, p_user: user.id });
+      if (businessId) await requireOwner(businessId);
+      const { data: began, error: beginErr } = businessId
+        ? await admin.rpc("payout_begin", { p_business: businessId, p_user: user.id })
+        : await admin.rpc("user_payout_begin", { p_user: user.id });
       if (beginErr) throw new Fail(beginErr.message.replace(/^.*?: /, ""));
       const payout = began as { id: string; reference: string; amount: number };
 
       try {
-        const { data: pm } = await admin
-          .from("business_payment_methods")
-          .select("id, account_name, account_number, bank_code, paystack_recipient_code")
-          .eq("business_id", businessId)
-          .eq("provider", "paystack")
-          .maybeSingle();
+        const { data: pm } = businessId
+          ? await admin
+              .from("business_payment_methods")
+              .select("id, account_name, account_number, bank_code, paystack_recipient_code")
+              .eq("business_id", businessId)
+              .eq("provider", "paystack")
+              .maybeSingle()
+          : await admin
+              .from("user_payout_accounts")
+              .select("user_id, account_name, account_number, bank_code, paystack_recipient_code")
+              .eq("user_id", user.id)
+              .maybeSingle();
         if (!pm) throw new Fail("Add your bank account first.");
         let recipient = pm.paystack_recipient_code as string | null;
         if (!recipient) {
@@ -399,7 +462,8 @@ Deno.serve(async (req) => {
             currency: "NGN",
           });
           recipient = created.recipient_code as string;
-          await admin.from("business_payment_methods").update({ paystack_recipient_code: recipient }).eq("id", pm.id);
+          if (businessId) await admin.from("business_payment_methods").update({ paystack_recipient_code: recipient }).eq("id", (pm as { id: string }).id);
+          else await admin.from("user_payout_accounts").update({ paystack_recipient_code: recipient }).eq("user_id", user.id);
         }
         const transfer = await paystack("/transfer", "POST", {
           source: "balance",

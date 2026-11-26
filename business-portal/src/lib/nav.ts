@@ -29,6 +29,7 @@ const ADMIN_NAV: NavItem[] = [
   { href: "/admin/verifications", label: "CAC badges", icon: "shield", group: "Reviews" },
   { href: "/admin/boosts", label: "Boosts", icon: "budget", group: "Moderation" },
   { href: "/admin/payments", label: "Money", icon: "budget", group: "Platform" },
+  { href: "/admin/disputes", label: "Disputes", icon: "shield", group: "Moderation" },
   { href: "/school/verifications", label: "Student IDs", icon: "shield", group: "Reviews" },
   { href: "/admin/listings", label: "Listings", icon: "market", group: "Moderation" },
   { href: "/admin/reports", label: "Reports", icon: "bell", group: "Moderation" },
@@ -70,6 +71,7 @@ const NAV_BY_PERSONA: Record<Exclude<Persona, "admin">, NavItem[]> = {
   service: [
     HOME,
     { href: "/listings", label: "My listings", icon: "market", group: "Services" },
+    { href: "/listings/market-orders", label: "Paid orders", icon: "assignments", group: "Services" },
     { href: "/listings/enquiries", label: "Enquiries", icon: "inbox", group: "Services" },
     MESSAGES,
     INSIGHTS,
@@ -82,6 +84,7 @@ const NAV_BY_PERSONA: Record<Exclude<Persona, "admin">, NavItem[]> = {
   seller: [
     HOME,
     { href: "/listings", label: "My listings", icon: "market", group: "Marketplace" },
+    { href: "/listings/market-orders", label: "Paid orders", icon: "assignments", group: "Marketplace" },
     { href: "/listings/enquiries", label: "Enquiries", icon: "inbox", group: "Marketplace" },
     MESSAGES,
     INSIGHTS,

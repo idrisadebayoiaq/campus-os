@@ -22,6 +22,10 @@ const LABELS: Record<string, string> = {
   paystack_fee_flat: "Paystack flat fee (₦)",
   paystack_fee_threshold: "Flat fee applies from (₦)",
   paystack_fee_cap: "Paystack fee cap (₦)",
+  market_accept_hours: "Seller must accept within (hours)",
+  market_handover_days: "Handover must finish within (days)",
+  market_release_hours: "Auto-release after seller proof (hours)",
+  market_min: "Smallest marketplace order (₦)",
 };
 
 export function PaymentSettings({ rows, canEdit }: { rows: SettingRow[]; canEdit: boolean }) {

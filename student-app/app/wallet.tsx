@@ -14,6 +14,7 @@ import { radii } from "@/src/theme/tokens";
 type Entry = { id: string; kind: string; amount: number; note: string | null; purpose: string | null; created_at: string };
 type Quote = { credit: number; fee: number; total: number };
 type Info = { enabled: boolean; min: number; max: number; cap: number };
+type Premium = { active: boolean; endsAt: string | null; autoRenew: boolean; price: number };
 
 const PRESETS = [1000, 2000, 5000, 10000];
 
@@ -44,10 +45,12 @@ export default function WalletScreen() {
   const [waiting, setWaiting] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const waitUntil = useRef(0);
+  const [premium, setPremium] = useState<Premium>({ active: false, endsAt: null, autoRenew: true, price: 1000 });
+  const [premiumBusy, setPremiumBusy] = useState(false);
 
   const load = useCallback(async () => {
     if (!user) return;
-    const [w, e, s] = await Promise.all([
+    const [w, e, s, sub, price] = await Promise.all([
       supabase.from("wallets").select("balance, status").eq("user_id", user.id).maybeSingle(),
       supabase
         .from("wallet_entries")
@@ -56,7 +59,15 @@ export default function WalletScreen() {
         .order("created_at", { ascending: false })
         .limit(40),
       callPaystack(supabase, { action: "status" }),
+      supabase.from("student_subscriptions").select("status, ends_at, auto_renew").eq("user_id", user.id).maybeSingle(),
+      supabase.rpc("setting_num", { p_key: "student_plan_price", p_default: 1000 }),
     ]);
+    setPremium({
+      active: sub.data?.status === "active" && new Date(sub.data.ends_at).getTime() > Date.now(),
+      endsAt: sub.data?.ends_at ?? null,
+      autoRenew: sub.data?.auto_renew ?? true,
+      price: Number(price.data ?? 1000),
+    });
     setBalance(Number(w.data?.balance ?? 0));
     setFrozen(w.data?.status === "frozen");
     setEntries((e.data as Entry[]) ?? []);
@@ -129,6 +140,21 @@ export default function WalletScreen() {
           ? `Your wallet can hold up to ${formatNaira(info.cap)}.`
           : null;
 
+  async function subscribe() {
+    setPremiumBusy(true);
+    const { error } = await supabase.rpc("subscribe_premium");
+    setPremiumBusy(false);
+    if (error) setMessage(error.message);
+    void load();
+  }
+
+  async function toggleRenew() {
+    setPremiumBusy(true);
+    await supabase.rpc("set_premium_auto_renew", { p_on: !premium.autoRenew });
+    setPremiumBusy(false);
+    void load();
+  }
+
   async function topUp() {
     if (problem || busy) return;
     setBusy(true);
@@ -183,6 +209,49 @@ export default function WalletScreen() {
             <AppText size={12} style={{ color: colors.inverseFg, opacity: 0.7 }}>
               Spend it on food, subscriptions and more in CampusOS. Refunds come back here.
             </AppText>
+          </View>
+
+          <View style={{ gap: 8 }}>
+            {[
+              { title: "Purchases & sales", icon: "bag-handle-outline", href: "/market-orders" },
+              { title: "Payment requests", icon: "receipt-outline", href: "/payments" },
+              { title: "My earnings", icon: "cash-outline", href: "/earnings" },
+            ].map((l) => (
+              <Pressable key={l.href} onPress={() => router.push(l.href as never)} style={[styles.entry, { backgroundColor: colors.surface }]}>
+                <Ionicons name={l.icon as keyof typeof Ionicons.glyphMap} size={20} color={colors.fg} />
+                <AppText weight="600" style={{ flex: 1 }}>
+                  {l.title}
+                </AppText>
+                <Ionicons name="chevron-forward" size={16} color={colors.muted} />
+              </Pressable>
+            ))}
+          </View>
+
+          <View style={[styles.quote, { backgroundColor: colors.surface }]}>
+            <View style={styles.rowBetween}>
+              <AppText weight="700">CampusOS Premium</AppText>
+              <AppText weight="700">{formatNaira(premium.price)}/month</AppText>
+            </View>
+            {premium.active ? (
+              <>
+                <AppText size={13}>Active until {premium.endsAt ? new Date(premium.endsAt).toLocaleDateString() : ""}.</AppText>
+                <Pressable onPress={() => void toggleRenew()} disabled={premiumBusy} hitSlop={8}>
+                  <AppText size={13} weight="700">
+                    {premium.autoRenew ? "Renews from your wallet. Tap to stop renewing" : "Not renewing. Tap to renew automatically"}
+                  </AppText>
+                </Pressable>
+              </>
+            ) : (
+              <Pressable
+                onPress={() => void subscribe()}
+                disabled={premiumBusy || balance < premium.price}
+                style={[styles.cta, { backgroundColor: colors.inverseBg, opacity: premiumBusy || balance < premium.price ? 0.5 : 1 }]}
+              >
+                <AppText weight="700" style={{ color: colors.inverseFg }}>
+                  {balance < premium.price ? `Add ${formatNaira(premium.price)} to subscribe` : "Subscribe from wallet"}
+                </AppText>
+              </Pressable>
+            )}
           </View>
 
           {frozen ? (

@@ -1,6 +1,6 @@
 import { router } from "expo-router";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ActivityIndicator, Alert, Linking, Pressable, ScrollView, StyleSheet, TextInput, View } from "react-native";
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, TextInput, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { AppText, EmptyState } from "@/src/components/ui";
@@ -8,7 +8,6 @@ import { useAuth } from "@/src/lib/auth";
 import { formatNaira } from "@/src/lib/campus";
 import { cartSubtotal, clearCart, lineTotal, setLineQuantity, useCart } from "@/src/lib/cart";
 import { loadSavedLocation, searchPlaces, type Place, type SavedLocation } from "@/src/lib/location";
-import { callPaystack } from "@/src/lib/payments";
 import { supabase } from "@/src/lib/supabase";
 import { useTheme } from "@/src/theme/ThemeProvider";
 import { radii } from "@/src/theme/tokens";
@@ -29,8 +28,7 @@ export default function CheckoutScreen() {
   const [detail, setDetail] = useState("");
   const [quote, setQuote] = useState<Quote | null>(null);
   const [promo, setPromo] = useState("");
-  const [method, setMethod] = useState<"cash" | "card" | "wallet">("cash");
-  const [cards, setCards] = useState(false);
+  const method = "wallet";
   const [walletOn, setWalletOn] = useState(false);
   const [walletBalance, setWalletBalance] = useState(0);
   const [open, setOpen] = useState<boolean | null>(null);
@@ -46,15 +44,13 @@ export default function CheckoutScreen() {
   useEffect(() => {
     if (!user || !businessId) return;
     void (async () => {
-      const [saved, accepts, openNow, wallet, enabled] = await Promise.all([
+      const [saved, openNow, wallet, enabled] = await Promise.all([
         loadSavedLocation(supabase, user.id),
-        supabase.rpc("business_accepts_cards", { p_business: businessId }),
         supabase.rpc("business_open_now", { p_business: businessId }),
         supabase.from("wallets").select("balance").eq("user_id", user.id).maybeSingle(),
         supabase.rpc("setting_bool", { p_key: "wallet_enabled", p_default: true }),
       ]);
       if (saved) setPlace(saved);
-      setCards(accepts.data === true);
       setWalletOn(enabled.data !== false);
       setWalletBalance(Number(wallet.data?.balance ?? 0));
       setOpen(typeof openNow.data === "boolean" ? openNow.data : null);
@@ -99,11 +95,12 @@ export default function CheckoutScreen() {
       if (!quote.deliverable) return quote.reason || "This kitchen doesn't deliver to you.";
       if (subtotal < Number(quote.min_order)) return `Minimum order for delivery is ${formatNaira(Number(quote.min_order))}.`;
     }
-    if (method === "wallet" && walletBalance < estimate) {
+    if (!walletOn) return "The wallet is not available right now.";
+    if (walletBalance < estimate) {
       return `Your wallet has ${formatNaira(walletBalance)}. Add money to pay for this order.`;
     }
     return null;
-  }, [open, delivery, place, quote, subtotal, method, walletBalance, estimate]);
+  }, [open, delivery, place, quote, subtotal, walletOn, walletBalance, estimate]);
 
   async function submit() {
     if (!user || !businessId || blocked) return;
@@ -126,20 +123,8 @@ export default function CheckoutScreen() {
       setError(e.message);
       return;
     }
-    const order = (Array.isArray(data) ? data[0] : data) as { id: string } | null;
+    void data;
     clearCart();
-    if (method === "card" && order?.id) {
-      const res = await callPaystack(supabase, { action: "init-order", order_id: order.id });
-      setPlacing(false);
-      if (res.ok && typeof res.data.authorization_url === "string") {
-        router.replace("/orders");
-        void Linking.openURL(res.data.authorization_url);
-        return;
-      }
-      Alert.alert("Order placed", res.ok ? "Open My orders to pay." : `${res.message} You can pay from My orders.`);
-      router.replace("/orders");
-      return;
-    }
     setPlacing(false);
     router.replace("/orders");
   }
@@ -290,34 +275,20 @@ export default function CheckoutScreen() {
 
         <View style={{ gap: 8 }}>
           <AppText weight="700">Payment</AppText>
-          <View style={[styles.segment, { backgroundColor: colors.surface }]}>
-            <Pressable style={seg(method === "cash")} onPress={() => setMethod("cash")}>
-              <AppText weight="700" size={13} style={segText(method === "cash")}>
-                {delivery ? "On delivery" : "On collection"}
-              </AppText>
-            </Pressable>
-            <Pressable
-              style={[...seg(method === "card"), { opacity: cards ? 1 : 0.45 }]}
-              onPress={() => (cards ? setMethod("card") : Alert.alert("Card not available", "This kitchen hasn't set up card payments yet."))}
-            >
-              <AppText weight="700" size={13} style={segText(method === "card")}>
-                Card
-              </AppText>
-            </Pressable>
-            {walletOn ? (
-              <Pressable style={seg(method === "wallet")} onPress={() => setMethod("wallet")}>
-                <AppText weight="700" size={13} style={segText(method === "wallet")}>
-                  Wallet
-                </AppText>
-              </Pressable>
-            ) : null}
-          </View>
-          {method === "wallet" ? (
-            <Pressable onPress={() => router.push("/wallet")} hitSlop={8}>
+          <Pressable onPress={() => router.push("/wallet")} style={[styles.line, { backgroundColor: colors.surface }]}>
+            <Ionicons name="wallet-outline" size={20} color={colors.fg} />
+            <View style={{ flex: 1, gap: 2 }}>
+              <AppText weight="600">CampusOS wallet</AppText>
               <AppText size={12} muted>
-                Wallet balance {formatNaira(walletBalance)} · tap to add money
+                Balance {formatNaira(walletBalance)} · tap to add money
               </AppText>
-            </Pressable>
+            </View>
+            <Ionicons name="chevron-forward" size={16} color={colors.muted} />
+          </Pressable>
+          {!walletOn ? (
+            <AppText size={12} style={{ color: colors.danger }}>
+              The wallet is not available right now, so orders can't be paid.
+            </AppText>
           ) : null}
         </View>
 
@@ -372,13 +343,7 @@ export default function CheckoutScreen() {
           style={[styles.cta, { backgroundColor: colors.inverseBg, opacity: placing || blocked ? 0.5 : 1 }]}
         >
           <AppText weight="700" style={{ color: colors.inverseFg }}>
-            {placing
-              ? "Placing…"
-              : method === "card"
-                ? `Place order & pay · ${formatNaira(estimate)}`
-                : method === "wallet"
-                  ? `Pay from wallet · ${formatNaira(estimate)}`
-                  : `Place order · ${formatNaira(estimate)}`}
+            {placing ? "Placing…" : `Pay from wallet · ${formatNaira(estimate)}`}
           </AppText>
         </Pressable>
       </View>

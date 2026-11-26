@@ -28,6 +28,19 @@ export default async function AdminPaymentsPage() {
     );
   }
 
+  const [{ data: commBiz }, { data: commUser }, { data: subs }, { data: held }, { data: userAll }] = await Promise.all([
+    supabase.from("business_entries").select("amount").eq("kind", "commission"),
+    supabase.from("user_entries").select("amount").eq("kind", "commission"),
+    supabase.from("wallet_entries").select("amount").eq("kind", "subscription"),
+    supabase.from("market_orders").select("amount").in("status", ["awaiting_seller", "accepted", "seller_confirmed", "disputed"]),
+    supabase.from("user_entries").select("amount"),
+  ]);
+  const sum = (rows: { amount: number | string }[] | null) => (rows ?? []).reduce((s, r) => s + Number(r.amount), 0);
+  const commissionEarned = -(sum(commBiz) + sum(commUser));
+  const subscriptionIncome = -sum(subs);
+  const inEscrow = sum(held);
+  const studentEarnings = sum(userAll);
+
   const [{ data: settings }, { data: wallets }, { data: entries }, { data: payouts }, { data: problems }] = await Promise.all([
     supabase.from("platform_settings").select("key, value, description").order("key"),
     supabase.from("wallets").select("balance"),
@@ -67,7 +80,23 @@ export default async function AdminPaymentsPage() {
             <p className="text-2xl font-semibold">{naira(kitchenTotal)}</p>
           </div>
         </section>
-        <p className="-mt-6 text-sm text-muted">Keep your Paystack balance above these two numbers combined so every withdrawal can be paid.</p>
+        <section className="grid gap-3 sm:grid-cols-3">
+          <div className="rounded-2xl border border-border p-4">
+            <p className="text-xs uppercase tracking-wider text-muted">Held in marketplace escrow</p>
+            <p className="text-2xl font-semibold">{naira(inEscrow)}</p>
+          </div>
+          <div className="rounded-2xl border border-border p-4">
+            <p className="text-xs uppercase tracking-wider text-muted">Commission earned (net)</p>
+            <p className="text-2xl font-semibold">{naira(commissionEarned)}</p>
+          </div>
+          <div className="rounded-2xl border border-border p-4">
+            <p className="text-xs uppercase tracking-wider text-muted">Student premium income</p>
+            <p className="text-2xl font-semibold">{naira(subscriptionIncome)}</p>
+          </div>
+        </section>
+        <p className="-mt-6 text-sm text-muted">
+          Keep your Paystack balance above wallets, kitchen balances, student earnings and escrow combined (₦{Math.round(walletTotal + kitchenTotal + studentEarnings + inEscrow).toLocaleString()}) so every withdrawal and refund can be paid.
+        </p>
 
         <section className="space-y-3">
           <h2 className="text-lg font-medium">Settings</h2>

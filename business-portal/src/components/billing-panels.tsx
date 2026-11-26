@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 import { Button, Input } from "@/components/ui";
 import { createClient } from "@/lib/supabase/client";
 
-async function callPaystack(body: Record<string, unknown>) {
+export async function callPaystack(body: Record<string, unknown>) {
   const supabase = createClient();
   const { data, error } = await supabase.functions.invoke("paystack", { body });
   if (error) {
@@ -404,6 +404,204 @@ export function VerificationPanel({
         </form>
       )}
       {message ? <p className="text-muted">{message}</p> : null}
+    </div>
+  );
+}
+
+export type PlanState = { active: boolean; endsAt: string | null };
+
+export function PlanPanel({
+  businessId,
+  plan,
+  price,
+  balance,
+}: {
+  businessId: string;
+  plan: PlanState;
+  price: number;
+  balance: number;
+}) {
+  const router = useRouter();
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState<string | null>(null);
+
+  async function fromBalance() {
+    setBusy(true);
+    setMessage(null);
+    const supabase = createClient();
+    const { error } = await supabase.rpc("pay_business_plan_from_balance", { p_business: businessId });
+    setBusy(false);
+    setMessage(error ? error.message : "Plan paid. Thank you.");
+    router.refresh();
+  }
+
+  async function byCard() {
+    setBusy(true);
+    setMessage(null);
+    const res = await callPaystack({ action: "init-plan", business_id: businessId, callback_url: `${window.location.origin}/billing` });
+    setBusy(false);
+    if (!res.ok) {
+      setMessage(res.message);
+      return;
+    }
+    window.location.href = String(res.data.authorization_url);
+  }
+
+  return (
+    <div className="space-y-3 text-sm">
+      <p>
+        {plan.active ? (
+          <>
+            Plan active until <span className="font-medium">{plan.endsAt ? new Date(plan.endsAt).toLocaleDateString() : "further notice"}</span>.
+          </>
+        ) : (
+          <span className="text-muted">No active plan.</span>
+        )}{" "}
+        <span className="text-muted">₦{price.toLocaleString()} per month.</span>
+      </p>
+      <div className="flex flex-wrap gap-2">
+        <Button type="button" disabled={busy || balance < price} onClick={() => void fromBalance()}>
+          {plan.active ? "Extend" : "Pay"} from balance
+        </Button>
+        <Button type="button" variant="secondary" disabled={busy} onClick={() => void byCard()}>
+          Pay by card
+        </Button>
+      </div>
+      {balance < price ? <p className="text-muted">Your balance (₦{balance.toLocaleString()}) is below the plan price, so use a card.</p> : null}
+      {message ? <p className="text-muted">{message}</p> : null}
+    </div>
+  );
+}
+
+export type RequestRow = {
+  id: string;
+  student: string;
+  kind: string;
+  title: string;
+  amount: number;
+  status: string;
+  created_at: string;
+};
+export type TenancyOption = { id: string; label: string };
+
+const KINDS: [string, string][] = [
+  ["rent", "Rent"],
+  ["deposit", "Deposit / caution fee"],
+  ["agent_fee", "Agent fee"],
+  ["agreement_fee", "Agreement fee"],
+  ["service_fee", "Service fee"],
+  ["other", "Other"],
+];
+
+export function PaymentRequestsPanel({
+  businessId,
+  requests,
+  tenancies,
+  isOwner,
+  housing,
+}: {
+  businessId: string;
+  requests: RequestRow[];
+  tenancies: TenancyOption[];
+  isOwner: boolean;
+  housing: boolean;
+}) {
+  const router = useRouter();
+  const [busy, setBusy] = useState<string | null>(null);
+  const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
+  const [tenancy, setTenancy] = useState("");
+
+  async function create(form: FormData) {
+    setBusy("new");
+    setMessage(null);
+    const supabase = createClient();
+    const { error } = await supabase.rpc("create_payment_request", {
+      p_business: businessId,
+      p_email: tenancy ? null : String(form.get("email") ?? ""),
+      p_kind: String(form.get("kind")),
+      p_title: String(form.get("title")),
+      p_amount: Number(form.get("amount")),
+      p_due: String(form.get("due") ?? "") || null,
+      p_tenancy: tenancy || null,
+    });
+    setBusy(null);
+    setMessage(error ? { ok: false, text: error.message } : { ok: true, text: "Request sent. The student can pay it from their wallet." });
+    if (!error) router.refresh();
+  }
+
+  async function act(id: string, fn: "cancel_payment_request" | "refund_payment_request") {
+    setBusy(id);
+    setMessage(null);
+    const supabase = createClient();
+    const { error } = await supabase.rpc(fn, { p_request: id });
+    setBusy(null);
+    if (error) setMessage({ ok: false, text: error.message });
+    router.refresh();
+  }
+
+  return (
+    <div className="space-y-4">
+      <form
+        className="grid gap-3 sm:grid-cols-2"
+        onSubmit={(e) => {
+          e.preventDefault();
+          void create(new FormData(e.currentTarget));
+        }}
+      >
+        {housing && tenancies.length ? (
+          <select value={tenancy} onChange={(e) => setTenancy(e.target.value)} className="h-11 rounded-2xl border border-border bg-bg px-3 text-sm">
+            <option value="">Someone else (use email)</option>
+            {tenancies.map((t) => (
+              <option key={t.id} value={t.id}>
+                {t.label}
+              </option>
+            ))}
+          </select>
+        ) : null}
+        {!tenancy ? <Input name="email" type="email" placeholder="Student's CampusOS email" required /> : null}
+        <select name="kind" className="h-11 rounded-2xl border border-border bg-bg px-3 text-sm" defaultValue={housing ? "rent" : "service_fee"}>
+          {KINDS.filter(([k]) => housing || k === "service_fee" || k === "other").map(([k, label]) => (
+            <option key={k} value={k}>
+              {label}
+            </option>
+          ))}
+        </select>
+        <Input name="title" placeholder="What is it for? e.g. Rent for 2026/27" required minLength={3} maxLength={120} />
+        <Input name="amount" type="number" min={1} step="any" placeholder="Amount (₦)" required />
+        <Input name="due" type="date" />
+        <Button type="submit" disabled={busy === "new"}>
+          {busy === "new" ? "Sending…" : "Send payment request"}
+        </Button>
+      </form>
+      {message ? <p className={`text-sm ${message.ok ? "text-muted" : "text-red-600"}`}>{message.text}</p> : null}
+      {requests.length ? (
+        <div className="divide-y divide-border rounded-md border border-border text-sm">
+          {requests.map((r) => (
+            <div key={r.id} className="flex flex-wrap items-center justify-between gap-3 px-4 py-3">
+              <div>
+                <p className="font-medium">
+                  {r.title} <span className="text-muted">· ₦{Number(r.amount).toLocaleString()}</span>
+                </p>
+                <p className="text-muted">
+                  {r.student} · {r.kind.replace("_", " ")} · {new Date(r.created_at).toLocaleDateString()} · {r.status}
+                </p>
+              </div>
+              {r.status === "pending" ? (
+                <Button type="button" variant="secondary" className="!h-9 !px-4" disabled={busy === r.id} onClick={() => void act(r.id, "cancel_payment_request")}>
+                  Cancel
+                </Button>
+              ) : null}
+              {r.status === "paid" && isOwner ? (
+                <Button type="button" variant="secondary" className="!h-9 !px-4" disabled={busy === r.id} onClick={() => void act(r.id, "refund_payment_request")}>
+                  Refund to wallet
+                </Button>
+              ) : null}
+            </div>
+          ))}
+        </div>
+      ) : (
+        <p className="text-sm text-muted">No payment requests yet.</p>
+      )}
     </div>
   );
 }
