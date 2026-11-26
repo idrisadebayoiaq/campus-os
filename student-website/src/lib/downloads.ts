@@ -25,5 +25,8 @@ export const PLAY_STORE_HREF =
 export const APP_STORE_HREF =
   process.env.NEXT_PUBLIC_APP_STORE_URL?.trim() || "";
 
+/** CampusOS Portal (businesses, lecturers, schools). Set NEXT_PUBLIC_PORTAL_URL on Vercel. */
+export const PORTAL_URL = process.env.NEXT_PUBLIC_PORTAL_URL?.trim() || "";
+
 export const PLAY_STORE_READY = PLAY_STORE_HREF.length > 0;
 export const APP_STORE_READY = APP_STORE_HREF.length > 0;

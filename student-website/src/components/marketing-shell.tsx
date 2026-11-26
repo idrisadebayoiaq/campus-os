@@ -26,12 +26,19 @@ export function MarketingShell({ children }: { children: ReactNode }) {
         <div className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-4 px-4 sm:px-6">
           <CampusLogo href="/" size={36} />
           <nav className="flex items-center gap-2 sm:gap-3">
-            <Link
-              href="/#about"
-              className="hidden rounded-full px-3 py-2 text-sm text-muted transition hover:text-fg sm:inline"
-            >
-              About
-            </Link>
+            {[
+              { href: "/#features", label: "Features" },
+              { href: "/#how", label: "How it works" },
+              { href: "/#faq", label: "FAQ" },
+            ].map((link) => (
+              <Link
+                key={link.href}
+                href={link.href}
+                className="hidden rounded-full px-3 py-2 text-sm text-muted transition hover:text-fg md:inline"
+              >
+                {link.label}
+              </Link>
+            ))}
             <Link
               href="/#download"
               className="rounded-full bg-accent px-4 py-2 text-sm font-semibold text-on-accent transition hover:opacity-90"
@@ -43,28 +50,38 @@ export function MarketingShell({ children }: { children: ReactNode }) {
         </div>
       </header>
       <main>{children}</main>
-      <footer className="border-t border-border">
-        <div className="mx-auto flex max-w-6xl flex-col gap-4 px-4 py-10 sm:flex-row sm:items-center sm:justify-between sm:px-6">
-          <div>
-            <p className="text-sm font-semibold text-fg">CampusOS</p>
-            <p className="mt-1 text-sm text-muted">
-              Campus life, study tools, and housing — built for Nigerian students.
+      <footer className="border-t border-border bg-surface">
+        <div className="mx-auto grid max-w-6xl gap-10 px-4 py-14 sm:px-6 md:grid-cols-[1.4fr_1fr_1fr_1fr]">
+          <div className="space-y-3">
+            <CampusLogo href="/" size={36} />
+            <p className="max-w-xs text-sm leading-6 text-muted">
+              Housing, study tools, food, marketplace and AI tutoring — built for
+              Nigerian students.
             </p>
           </div>
-          <div className="flex flex-wrap gap-4 text-sm text-muted">
-            <Link href="/#download" className="hover:text-fg">
-              Download
-            </Link>
-            <Link href="/privacy" className="hover:text-fg">
-              Privacy
-            </Link>
-            <Link href="/terms" className="hover:text-fg">
-              Terms
-            </Link>
-            <Link href="/login" className="hover:text-fg">
-              Sign in
-            </Link>
+          <div className="space-y-3 text-sm">
+            <p className="font-semibold text-fg">Product</p>
+            <Link href="/#features" className="block text-muted hover:text-fg">Features</Link>
+            <Link href="/#how" className="block text-muted hover:text-fg">How it works</Link>
+            <Link href="/#faq" className="block text-muted hover:text-fg">FAQ</Link>
           </div>
+          <div className="space-y-3 text-sm">
+            <p className="font-semibold text-fg">Get the app</p>
+            <Link href="/#download" className="block text-muted hover:text-fg">Google Play</Link>
+            <Link href="/#download" className="block text-muted hover:text-fg">App Store</Link>
+            <Link href="/#download" className="block text-muted hover:text-fg">Android APK</Link>
+          </div>
+          <div className="space-y-3 text-sm">
+            <p className="font-semibold text-fg">Company</p>
+            <Link href="/privacy" className="block text-muted hover:text-fg">Privacy</Link>
+            <Link href="/terms" className="block text-muted hover:text-fg">Terms</Link>
+            <Link href="/login" className="block text-muted hover:text-fg">Sign in</Link>
+          </div>
+        </div>
+        <div className="border-t border-border">
+          <p className="mx-auto max-w-6xl px-4 py-5 text-xs text-muted sm:px-6">
+            © {new Date().getFullYear()} CampusOS. All rights reserved.
+          </p>
         </div>
       </footer>
     </div>
