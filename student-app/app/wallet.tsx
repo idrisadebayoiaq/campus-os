@@ -1,15 +1,13 @@
 import { router } from "expo-router";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ActivityIndicator, AppState, Linking, Pressable, RefreshControl, ScrollView, StyleSheet, TextInput, View } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { AppText, EmptyState } from "@/src/components/ui";
+import { ActivityIndicator, AppState, Linking, View } from "react-native";
+import { AppText, Button, EmptyState, Input } from "@/src/components/ui";
+import { ChipRow, Group, Hero, KeyValue, ListRow, Notice, Panel, Pill, Section, PageShell } from "@/src/components/page";
 import { useAuth } from "@/src/lib/auth";
 import { formatNaira } from "@/src/lib/campus";
 import { callPaystack } from "@/src/lib/payments";
 import { supabase } from "@/src/lib/supabase";
 import { useTheme } from "@/src/theme/ThemeProvider";
-import { radii } from "@/src/theme/tokens";
 
 type Entry = { id: string; kind: string; amount: number; note: string | null; purpose: string | null; created_at: string };
 type Quote = { credit: number; fee: number; total: number };
@@ -32,7 +30,6 @@ const KIND_LABEL: Record<string, string> = {
 export default function WalletScreen() {
   const { user } = useAuth();
   const colors = useTheme();
-  const insets = useSafeAreaInsets();
   const [balance, setBalance] = useState(0);
   const [frozen, setFrozen] = useState(false);
   const [entries, setEntries] = useState<Entry[]>([]);
@@ -170,208 +167,135 @@ export default function WalletScreen() {
     setMessage(res.ok ? "Couldn't start the payment. Try again." : res.message);
   }
 
+  const canTopUp = info.enabled && !frozen;
+
   return (
-    <View style={{ flex: 1, backgroundColor: colors.bg, paddingTop: insets.top }}>
-      <View style={styles.top}>
-        <Pressable onPress={() => router.back()} style={[styles.back, { backgroundColor: colors.surface }]} accessibilityLabel="Back">
-          <Ionicons name="chevron-back" size={20} color={colors.fg} />
-        </Pressable>
-        <AppText size={18} weight="700">
-          My wallet
-        </AppText>
-        <View style={{ width: 40 }} />
-      </View>
+    <PageShell
+      title="My wallet"
+      subtitle="Pay for everything in CampusOS from here"
+      loading={loading}
+      refreshing={refreshing}
+      onRefresh={() => {
+        setRefreshing(true);
+        void confirmPayments();
+        void load();
+      }}
+    >
+      <Hero
+        label="Wallet balance"
+        value={formatNaira(balance)}
+        note="Food, marketplace, rent, fees and subscriptions are all paid from this balance. Refunds come back here."
+      />
 
-      {loading ? (
-        <ActivityIndicator color={colors.fg} style={{ marginTop: 40 }} />
-      ) : (
-        <ScrollView
-          contentContainerStyle={{ padding: 16, gap: 16, paddingBottom: insets.bottom + 40 }}
-          keyboardShouldPersistTaps="handled"
-          refreshControl={
-            <RefreshControl
-              refreshing={refreshing}
-              onRefresh={() => {
-                setRefreshing(true);
-                void confirmPayments();
-                void load();
-              }}
-            />
-          }
-        >
-          <View style={[styles.balanceCard, { backgroundColor: colors.inverseBg }]}>
-            <AppText size={12} style={{ color: colors.inverseFg, opacity: 0.7 }}>
-              Wallet balance
-            </AppText>
-            <AppText size={34} weight="700" style={{ color: colors.inverseFg }}>
-              {formatNaira(balance)}
-            </AppText>
-            <AppText size={12} style={{ color: colors.inverseFg, opacity: 0.7 }}>
-              Spend it on food, subscriptions and more in CampusOS. Refunds come back here.
-            </AppText>
-          </View>
+      {frozen ? <Notice tone="danger">Your wallet is on hold. Contact support to get it unlocked.</Notice> : null}
+      {!info.enabled ? <Notice tone="warn">Adding money is paused for now. You can still use your balance.</Notice> : null}
 
-          <View style={{ gap: 8 }}>
-            {[
-              { title: "Purchases & sales", icon: "bag-handle-outline", href: "/market-orders" },
-              { title: "Payment requests", icon: "receipt-outline", href: "/payments" },
-              { title: "My earnings", icon: "cash-outline", href: "/earnings" },
-            ].map((l) => (
-              <Pressable key={l.href} onPress={() => router.push(l.href as never)} style={[styles.entry, { backgroundColor: colors.surface }]}>
-                <Ionicons name={l.icon as keyof typeof Ionicons.glyphMap} size={20} color={colors.fg} />
-                <AppText weight="600" style={{ flex: 1 }}>
-                  {l.title}
-                </AppText>
-                <Ionicons name="chevron-forward" size={16} color={colors.muted} />
-              </Pressable>
-            ))}
-          </View>
-
-          <View style={[styles.quote, { backgroundColor: colors.surface }]}>
-            <View style={styles.rowBetween}>
-              <AppText weight="700">CampusOS Premium</AppText>
-              <AppText weight="700">{formatNaira(premium.price)}/month</AppText>
-            </View>
-            {premium.active ? (
-              <>
-                <AppText size={13}>Active until {premium.endsAt ? new Date(premium.endsAt).toLocaleDateString() : ""}.</AppText>
-                <Pressable onPress={() => void toggleRenew()} disabled={premiumBusy} hitSlop={8}>
-                  <AppText size={13} weight="700">
-                    {premium.autoRenew ? "Renews from your wallet. Tap to stop renewing" : "Not renewing. Tap to renew automatically"}
-                  </AppText>
-                </Pressable>
-              </>
-            ) : (
-              <Pressable
-                onPress={() => void subscribe()}
-                disabled={premiumBusy || balance < premium.price}
-                style={[styles.cta, { backgroundColor: colors.inverseBg, opacity: premiumBusy || balance < premium.price ? 0.5 : 1 }]}
-              >
-                <AppText weight="700" style={{ color: colors.inverseFg }}>
-                  {balance < premium.price ? `Add ${formatNaira(premium.price)} to subscribe` : "Subscribe from wallet"}
-                </AppText>
-              </Pressable>
-            )}
-          </View>
-
-          {frozen ? (
-            <AppText size={13} style={{ color: colors.danger }}>
-              Your wallet is on hold. Contact support to get it unlocked.
-            </AppText>
+      {canTopUp ? (
+        <Section title="Add money" hint="Cards only: Visa, Mastercard, Verve and others Paystack accepts">
+          <ChipRow
+            options={PRESETS.map((p) => ({ value: String(p), label: formatNaira(p) }))}
+            value={String(value)}
+            onChange={setAmount}
+          />
+          <Input
+            value={amount}
+            onChangeText={setAmount}
+            keyboardType="number-pad"
+            placeholder="Other amount"
+          />
+          {quote && !problem ? (
+            <Panel>
+              <KeyValue label="Added to wallet" value={formatNaira(quote.credit)} />
+              <KeyValue label="Card fee" value={formatNaira(quote.fee)} />
+              <KeyValue label="You pay" value={formatNaira(quote.total)} strong />
+            </Panel>
           ) : null}
-
-          {info.enabled && !frozen ? (
-            <View style={{ gap: 10 }}>
-              <AppText weight="700">Add money</AppText>
-              <View style={styles.presets}>
-                {PRESETS.map((p) => {
-                  const on = value === p;
-                  return (
-                    <Pressable
-                      key={p}
-                      onPress={() => setAmount(String(p))}
-                      style={[styles.preset, { backgroundColor: on ? colors.inverseBg : colors.surface }]}
-                    >
-                      <AppText weight="700" size={13} style={{ color: on ? colors.inverseFg : colors.fg }}>
-                        {formatNaira(p)}
-                      </AppText>
-                    </Pressable>
-                  );
-                })}
+          {problem ? <Notice tone="danger">{problem}</Notice> : null}
+          <Button
+            title={busy ? "Opening card page…" : quote && !problem ? `Pay ${formatNaira(quote.total)} by card` : "Add money by card"}
+            onPress={() => void topUp()}
+            disabled={!!problem}
+            loading={busy}
+          />
+          {waiting ? (
+            <Notice icon="time-outline">
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+                <ActivityIndicator color={colors.fg} />
+                <AppText size={13} style={{ flex: 1 }}>
+                  Waiting for your payment. This page updates as soon as it goes through.
+                </AppText>
               </View>
-              <TextInput
-                value={amount}
-                onChangeText={setAmount}
-                keyboardType="number-pad"
-                placeholder="Other amount"
-                placeholderTextColor={colors.muted}
-                style={[styles.input, { color: colors.fg, borderColor: colors.border, backgroundColor: colors.surface }]}
-              />
-              {quote && !problem ? (
-                <View style={[styles.quote, { backgroundColor: colors.surface }]}>
-                  <View style={styles.rowBetween}>
-                    <AppText muted>Added to wallet</AppText>
-                    <AppText>{formatNaira(quote.credit)}</AppText>
-                  </View>
-                  <View style={styles.rowBetween}>
-                    <AppText muted>Card fee</AppText>
-                    <AppText>{formatNaira(quote.fee)}</AppText>
-                  </View>
-                  <View style={styles.rowBetween}>
-                    <AppText weight="700">You pay</AppText>
-                    <AppText weight="700">{formatNaira(quote.total)}</AppText>
-                  </View>
-                </View>
-              ) : null}
-              {problem ? (
-                <AppText size={13} style={{ color: colors.danger }}>
-                  {problem}
-                </AppText>
-              ) : null}
-              <Pressable
-                onPress={() => void topUp()}
-                disabled={busy || !!problem}
-                style={[styles.cta, { backgroundColor: colors.inverseBg, opacity: busy || problem ? 0.5 : 1 }]}
-              >
-                <AppText weight="700" style={{ color: colors.inverseFg }}>
-                  {busy ? "Opening card page…" : quote ? `Pay ${formatNaira(quote.total)} by card` : "Add money by card"}
-                </AppText>
-              </Pressable>
-              <AppText size={11} muted>
-                Visa, Mastercard, Verve and other cards Paystack accepts. The card fee is shown before you pay. Wallet money can only be spent inside CampusOS and can't be withdrawn or sent to others.
-              </AppText>
-              {waiting ? (
-                <View style={[styles.quote, { backgroundColor: colors.surface, flexDirection: "row", alignItems: "center", gap: 10 }]}>
-                  <ActivityIndicator color={colors.fg} />
-                  <AppText size={13} style={{ flex: 1 }}>
-                    Waiting for your payment. This page updates as soon as it goes through.
-                  </AppText>
-                </View>
-              ) : null}
-              {message ? <AppText size={13}>{message}</AppText> : null}
-            </View>
+            </Notice>
           ) : null}
+          {message ? <Notice tone={message.startsWith("Payment received") ? "success" : "neutral"}>{message}</Notice> : null}
+          <AppText size={12} muted>
+            The card fee is shown before you pay. Wallet money can only be spent inside CampusOS. It can't be withdrawn or sent to others.
+          </AppText>
+        </Section>
+      ) : null}
 
-          <View style={{ gap: 8 }}>
-            <AppText weight="700">History</AppText>
-            {!entries.length ? (
-              <EmptyState title="No wallet activity yet" description="Top-ups, payments and refunds will show up here." />
-            ) : (
-              entries.map((e) => {
-                const credit = Number(e.amount) > 0;
-                return (
-                  <View key={e.id} style={[styles.entry, { backgroundColor: colors.surface }]}>
-                    <View style={{ flex: 1, gap: 2 }}>
-                      <AppText weight="600">{KIND_LABEL[e.kind] ?? e.kind}</AppText>
-                      <AppText size={12} muted numberOfLines={1}>
-                        {e.note ? `${e.note} · ` : ""}
-                        {new Date(e.created_at).toLocaleDateString()}
-                      </AppText>
-                    </View>
-                    <AppText weight="700" style={{ color: credit ? colors.fg : colors.muted }}>
-                      {credit ? "+" : "-"}
-                      {formatNaira(Math.abs(Number(e.amount)))}
-                    </AppText>
-                  </View>
-                );
-              })
-            )}
+      <Section title="CampusOS Premium">
+        <Panel>
+          <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
+            <View style={{ flex: 1 }}>
+              <AppText weight="700">Premium</AppText>
+              <AppText muted size={13}>
+                {formatNaira(premium.price)} per month, paid from your wallet
+              </AppText>
+            </View>
+            {premium.active ? <Pill label="Active" tone="success" /> : null}
           </View>
-        </ScrollView>
-      )}
-    </View>
+          {premium.active ? (
+            <>
+              <AppText size={13}>Active until {premium.endsAt ? new Date(premium.endsAt).toLocaleDateString() : ""}.</AppText>
+              <Button
+                compact
+                variant="secondary"
+                title={premium.autoRenew ? "Stop renewing" : "Renew automatically"}
+                onPress={() => void toggleRenew()}
+                loading={premiumBusy}
+              />
+            </>
+          ) : (
+            <Button
+              compact
+              title={balance < premium.price ? `Add ${formatNaira(premium.price)} first` : "Subscribe from wallet"}
+              onPress={() => void subscribe()}
+              disabled={balance < premium.price}
+              loading={premiumBusy}
+            />
+          )}
+        </Panel>
+      </Section>
+
+      <Section title="More">
+        <Group>
+          <ListRow icon="bag-handle-outline" title="Purchases & sales" subtitle="Marketplace orders, handovers and disputes" onPress={() => router.push("/market-orders")} />
+          <ListRow icon="receipt-outline" title="Payment requests" subtitle="Rent, deposits and fees sent to you" onPress={() => router.push("/payments")} />
+          <ListRow icon="cash-outline" title="My earnings" subtitle="Money from your sales, withdraw to your bank" onPress={() => router.push("/earnings")} />
+        </Group>
+      </Section>
+
+      <Section title="History">
+        {!entries.length ? (
+          <EmptyState title="No wallet activity yet" description="Top-ups, payments and refunds will show up here." />
+        ) : (
+          <Group>
+            {entries.map((e) => {
+              const credit = Number(e.amount) > 0;
+              return (
+                <ListRow
+                  key={e.id}
+                  title={KIND_LABEL[e.kind] ?? e.kind}
+                  subtitle={`${e.note ? `${e.note} · ` : ""}${new Date(e.created_at).toLocaleDateString()}`}
+                  value={`${credit ? "+" : "-"}${formatNaira(Math.abs(Number(e.amount)))}`}
+                  valueTone={credit ? "success" : "neutral"}
+                />
+              );
+            })}
+          </Group>
+        )}
+      </Section>
+    </PageShell>
   );
 }
-
-const styles = StyleSheet.create({
-  top: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 16, paddingVertical: 10 },
-  back: { width: 40, height: 40, borderRadius: 20, alignItems: "center", justifyContent: "center" },
-  balanceCard: { borderRadius: radii.lg ?? radii.md, padding: 20, gap: 6 },
-  presets: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
-  preset: { paddingHorizontal: 14, height: 38, borderRadius: radii.pill, alignItems: "center", justifyContent: "center" },
-  input: { height: 46, borderWidth: 1, borderRadius: radii.md, paddingHorizontal: 12, fontSize: 14 },
-  quote: { borderRadius: radii.md, padding: 14, gap: 8 },
-  rowBetween: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", gap: 10 },
-  cta: { height: 52, borderRadius: radii.md, alignItems: "center", justifyContent: "center" },
-  entry: { flexDirection: "row", alignItems: "center", gap: 10, padding: 12, borderRadius: radii.md },
-});

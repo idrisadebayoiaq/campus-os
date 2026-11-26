@@ -41,6 +41,24 @@ export default function StudyScreen() {
           </AppText>
         </View>
 
+        <Pressable
+          onPress={() => router.push("/study-lock" as Href)}
+          style={({ pressed }) => [styles.lockCard, { backgroundColor: colors.surface, opacity: pressed ? 0.85 : 1 }]}
+        >
+          <View style={[styles.icon, { backgroundColor: colors.inverseBg, marginBottom: 0 }]}>
+            <Ionicons name="lock-closed-outline" size={18} color={colors.inverseFg} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <AppText weight="700" size={15}>
+              Study lock
+            </AppText>
+            <AppText muted size={13}>
+              Pause chat and notifications until your timer ends
+            </AppText>
+          </View>
+          <Ionicons name="chevron-forward" size={16} color={colors.muted} />
+        </Pressable>
+
         <View style={styles.grid}>
           {STUDY_TOOLS.map((tool) => (
             <Pressable
@@ -88,6 +106,14 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     borderRadius: radii.pill,
     backgroundColor: "rgba(255,255,255,0.14)",
+  },
+  lockCard: {
+    marginHorizontal: 20,
+    borderRadius: radii.lg,
+    padding: 16,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
   },
   grid: {
     paddingHorizontal: 20,

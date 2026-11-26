@@ -98,6 +98,11 @@ export default function SettingsScreen() {
           href: "/housing-preferences",
         },
         {
+          title: "Study lock",
+          icon: "lock-closed-outline",
+          href: "/study-lock",
+        },
+        {
           title: "Study & alert preferences",
           icon: "options-outline",
           href: "/preferences",

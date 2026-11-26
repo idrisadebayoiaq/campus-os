@@ -17,6 +17,7 @@ import {
   Button,
   Field,
   Input,
+  PasswordInput,
 } from "@/src/components/ui";
 import { useAuth } from "@/src/lib/auth";
 import { supabase } from "@/src/lib/supabase";
@@ -31,13 +32,18 @@ function numOrNull(v: string) {
 }
 
 export default function ProfileEditScreen() {
-  const { user } = useAuth();
+  const { user, signOut } = useAuth();
   const colors = useTheme();
   const insets = useSafeAreaInsets();
 
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [preferredName, setPreferredName] = useState("");
+  const [phone, setPhone] = useState("");
+  const [blockers, setBlockers] = useState<string[]>([]);
+  const [closing, setClosing] = useState(false);
+  const [confirmText, setConfirmText] = useState("");
+  const [password, setPassword] = useState("");
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [level, setLevel] = useState("");
   const [department, setDepartment] = useState("");
@@ -60,7 +66,7 @@ export default function ProfileEditScreen() {
       const [profileRes, studentRes] = await Promise.all([
         supabase
           .from("profiles")
-          .select("first_name, last_name, preferred_name, full_name, avatar_url")
+          .select("first_name, last_name, preferred_name, full_name, avatar_url, phone")
           .eq("id", user!.id)
           .maybeSingle(),
         supabase
@@ -83,6 +89,9 @@ export default function ProfileEditScreen() {
       setFirstName(first);
       setLastName(last);
       setPreferredName(p?.preferred_name || "");
+      setPhone(p?.phone || "");
+      const b = await supabase.rpc("my_account_blockers");
+      if (!cancelled) setBlockers((b.data as string[] | null) ?? []);
       setAvatarUrl(p?.avatar_url || null);
       setLevel(String(s?.academic_level ?? ""));
       setDepartment(String(s?.department_name ?? ""));
@@ -149,6 +158,43 @@ export default function ProfileEditScreen() {
     }
   }
 
+  async function removeAvatar() {
+    if (!user) return;
+    setSaving("photo");
+    const { error } = await supabase.from("profiles").update({ avatar_url: null }).eq("id", user.id);
+    setSaving(null);
+    if (error) {
+      setSectionStatus("photo", { kind: "error", text: error.message });
+      return;
+    }
+    setAvatarUrl(null);
+    setSectionStatus("photo", { kind: "ok", text: "Photo removed." });
+  }
+
+  async function deleteAccount() {
+    if (!user?.email) return;
+    if (confirmText.trim() !== "DELETE") {
+      setSectionStatus("delete", { kind: "error", text: "Type DELETE to confirm." });
+      return;
+    }
+    setSaving("delete");
+    setSectionStatus("delete", null);
+    const auth = await supabase.auth.signInWithPassword({ email: user.email, password });
+    if (auth.error) {
+      setSaving(null);
+      setSectionStatus("delete", { kind: "error", text: "That password is not right." });
+      return;
+    }
+    const { error } = await supabase.rpc("delete_my_account", { p_confirm: "DELETE" });
+    if (error) {
+      setSaving(null);
+      setSectionStatus("delete", { kind: "error", text: error.message });
+      return;
+    }
+    await signOut();
+    router.replace("/(auth)/login");
+  }
+
   async function pickAvatarFromLibrary() {
     if (!user) return;
     const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -211,6 +257,7 @@ export default function ProfileEditScreen() {
       first_name: firstName.trim() || null,
       last_name: lastName.trim() || null,
       preferred_name: preferredName.trim() || null,
+      phone: phone.trim() || null,
       full_name: fullName || null,
     };
     let { error } = await supabase
@@ -319,6 +366,9 @@ export default function ProfileEditScreen() {
                   onPress={takeAvatarPhoto}
                   disabled={saving === "photo"}
                 />
+                {avatarUrl ? (
+                  <Button title="Remove photo" variant="ghost" onPress={removeAvatar} disabled={saving === "photo"} />
+                ) : null}
               </View>
             </View>
             {statusLine("photo")}
@@ -342,8 +392,14 @@ export default function ProfileEditScreen() {
                 style={inner}
               />
             </Field>
+            <Field label="Phone number" hint="Only used for your account and deliveries. Never shown publicly.">
+              <Input value={phone} onChangeText={setPhone} keyboardType="phone-pad" placeholder="e.g. 0801 234 5678" style={inner} />
+            </Field>
+            <Field label="Email" hint="Your sign-in email. Contact support to change it.">
+              <Input value={user?.email ?? ""} editable={false} style={inner} />
+            </Field>
             {statusLine("name")}
-            <Button title="Save name" onPress={saveName} loading={saving === "name"} />
+            <Button title="Save details" onPress={saveName} loading={saving === "name"} />
           </View>
 
           <View style={[styles.card, { backgroundColor: colors.surface }]}>
@@ -390,6 +446,47 @@ export default function ProfileEditScreen() {
               onPress={saveAcademic}
               loading={saving === "academic"}
             />
+          </View>
+          <View style={[styles.card, { backgroundColor: colors.surface }]}>
+            <AppText size={17} weight="700">
+              Password
+            </AppText>
+            <Button title="Change password" variant="secondary" onPress={() => router.push("/change-password")} />
+          </View>
+
+          <View style={[styles.card, { backgroundColor: colors.surface }]}>
+            <AppText size={17} weight="700" style={{ color: colors.danger }}>
+              Delete account
+            </AppText>
+            <AppText muted size={13}>
+              This closes your account and removes your name, photo and contact details. Anonymous payment records are kept for accounting. This can't be undone.
+            </AppText>
+            {blockers.length ? (
+              <View style={{ gap: 6 }}>
+                <AppText size={13} weight="600">
+                  Before you can delete your account:
+                </AppText>
+                {blockers.map((b) => (
+                  <AppText key={b} size={13} muted>
+                    • {b}
+                  </AppText>
+                ))}
+              </View>
+            ) : closing ? (
+              <View style={{ gap: 12 }}>
+                <Field label="Type DELETE to confirm">
+                  <Input value={confirmText} onChangeText={setConfirmText} autoCapitalize="characters" style={inner} />
+                </Field>
+                <Field label="Your password">
+                  <PasswordInput value={password} onChangeText={setPassword} style={inner} />
+                </Field>
+                {statusLine("delete")}
+                <Button title="Delete my account" variant="danger" onPress={deleteAccount} loading={saving === "delete"} />
+                <Button title="Keep my account" variant="ghost" onPress={() => setClosing(false)} />
+              </View>
+            ) : (
+              <Button title="Delete my account" variant="danger" onPress={() => setClosing(true)} />
+            )}
           </View>
         </ScrollView>
       </KeyboardAvoidingView>

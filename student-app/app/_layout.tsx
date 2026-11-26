@@ -6,6 +6,7 @@ import { StatusBar } from "expo-status-bar";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { AuthProvider } from "@/src/lib/auth";
+import { StudyLockProvider } from "@/src/lib/study-lock";
 import {
   ThemeProvider,
   useTheme,
@@ -26,7 +27,9 @@ export default function RootLayout() {
       <SafeAreaProvider>
         <ThemeProvider>
           <AuthProvider>
-            <RootNavigator />
+            <StudyLockProvider>
+              <RootNavigator />
+            </StudyLockProvider>
           </AuthProvider>
         </ThemeProvider>
       </SafeAreaProvider>
@@ -61,6 +64,7 @@ function RootNavigator() {
         <Stack.Screen name="support-new" options={{ headerShown: false }} />
         <Stack.Screen name="orders" options={{ headerShown: false }} />
         <Stack.Screen name="wallet" options={{ headerShown: false }} />
+        <Stack.Screen name="study-lock" options={{ headerShown: false }} />
         <Stack.Screen name="market-orders" options={{ headerShown: false }} />
         <Stack.Screen name="payments" options={{ headerShown: false }} />
         <Stack.Screen name="earnings" options={{ headerShown: false }} />

@@ -128,23 +128,25 @@ export function Button({
   variant = "primary",
   disabled,
   loading,
+  compact,
   style,
 }: {
   title: string;
   onPress?: () => void;
-  variant?: "primary" | "secondary" | "ghost";
+  variant?: "primary" | "secondary" | "ghost" | "danger";
   disabled?: boolean;
   loading?: boolean;
+  compact?: boolean;
   style?: object;
 }) {
   const colors = useTheme();
   const bg =
     variant === "primary"
       ? colors.accent
-      : variant === "secondary"
+      : variant === "secondary" || variant === "danger"
         ? colors.surface
         : "transparent";
-  const fg = variant === "primary" ? colors.onAccent : colors.fg;
+  const fg = variant === "primary" ? colors.onAccent : variant === "danger" ? colors.danger : colors.fg;
 
   return (
     <Pressable
@@ -152,6 +154,7 @@ export function Button({
       disabled={disabled || loading}
       style={({ pressed }) => [
         styles.button,
+        compact && { height: 44, paddingHorizontal: 16 },
         {
           backgroundColor: bg,
           opacity: disabled || loading ? 0.5 : pressed ? 0.88 : 1,
@@ -162,7 +165,7 @@ export function Button({
       {loading ? (
         <ActivityIndicator color={fg} />
       ) : (
-        <Text style={{ color: fg, fontSize: 16, fontWeight: "600" }}>{title}</Text>
+        <Text style={{ color: fg, fontSize: compact ? 14 : 16, fontWeight: "600" }}>{title}</Text>
       )}
     </Pressable>
   );

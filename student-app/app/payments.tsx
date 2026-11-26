@@ -1,14 +1,11 @@
 import { router } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
-import { ActivityIndicator, Alert, Pressable, RefreshControl, ScrollView, StyleSheet, View } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { AppText, EmptyState } from "@/src/components/ui";
+import { Alert, View } from "react-native";
+import { AppText, Button, EmptyState } from "@/src/components/ui";
+import { Hero, Notice, PageShell, Panel, Pill, Section, type Tone } from "@/src/components/page";
 import { useAuth } from "@/src/lib/auth";
 import { formatNaira } from "@/src/lib/campus";
 import { supabase } from "@/src/lib/supabase";
-import { useTheme } from "@/src/theme/ThemeProvider";
-import { radii } from "@/src/theme/tokens";
 
 type Request = {
   id: string;
@@ -30,10 +27,14 @@ const KIND: Record<string, string> = {
   other: "Payment",
 };
 
+const STATUS: Record<string, { label: string; tone: Tone }> = {
+  paid: { label: "Paid", tone: "success" },
+  refunded: { label: "Refunded", tone: "neutral" },
+  cancelled: { label: "Cancelled", tone: "neutral" },
+};
+
 export default function PaymentRequestsScreen() {
   const { user } = useAuth();
-  const colors = useTheme();
-  const insets = useSafeAreaInsets();
   const [rows, setRows] = useState<Request[]>([]);
   const [balance, setBalance] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -84,69 +85,69 @@ export default function PaymentRequestsScreen() {
     ]);
   }
 
-  return (
-    <View style={{ flex: 1, backgroundColor: colors.bg, paddingTop: insets.top }}>
-      <View style={styles.top}>
-        <Pressable onPress={() => router.back()} style={[styles.back, { backgroundColor: colors.surface }]} accessibilityLabel="Back">
-          <Ionicons name="chevron-back" size={20} color={colors.fg} />
-        </Pressable>
-        <AppText size={18} weight="700">
-          Payment requests
-        </AppText>
-        <View style={{ width: 40 }} />
-      </View>
-      {loading ? (
-        <ActivityIndicator color={colors.fg} style={{ marginTop: 40 }} />
-      ) : (
-        <ScrollView
-          contentContainerStyle={{ padding: 16, gap: 12, paddingBottom: insets.bottom + 40 }}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); void load(); }} />}
-        >
-          <AppText size={12} muted>
-            Wallet balance {formatNaira(balance)}
+  const pending = rows.filter((r) => r.status === "pending");
+  const done = rows.filter((r) => r.status !== "pending");
+  const owed = pending.reduce((sum, r) => sum + Number(r.amount), 0);
+
+  function card(r: Request) {
+    const biz = Array.isArray(r.business_profiles) ? r.business_profiles[0] : r.business_profiles;
+    const st = STATUS[r.status];
+    return (
+      <Panel key={r.id}>
+        <View style={{ flexDirection: "row", justifyContent: "space-between", gap: 12 }}>
+          <View style={{ flex: 1, gap: 2 }}>
+            <AppText weight="700">{r.title}</AppText>
+            <AppText muted size={13}>
+              {biz?.display_name ?? "Provider"} · {KIND[r.kind] ?? "Payment"}
+            </AppText>
+            {r.due_on ? (
+              <AppText muted size={12}>
+                Due {new Date(r.due_on).toLocaleDateString()}
+              </AppText>
+            ) : null}
+          </View>
+          <AppText weight="700" size={17}>
+            {formatNaira(r.amount)}
           </AppText>
-          {!rows.length ? (
-            <EmptyState title="No payment requests" description="Rent, deposits and fees your landlord or a service sends you appear here." />
-          ) : (
-            rows.map((r) => {
-              const biz = Array.isArray(r.business_profiles) ? r.business_profiles[0] : r.business_profiles;
-              return (
-                <View key={r.id} style={[styles.card, { backgroundColor: colors.surface }]}>
-                  <View style={styles.rowBetween}>
-                    <AppText weight="700" style={{ flex: 1 }}>
-                      {r.title}
-                    </AppText>
-                    <AppText weight="700">{formatNaira(r.amount)}</AppText>
-                  </View>
-                  <AppText size={12} muted>
-                    {biz?.display_name ?? "Provider"} · {KIND[r.kind] ?? "Payment"}
-                    {r.due_on ? ` · due ${new Date(r.due_on).toLocaleDateString()}` : ""}
-                  </AppText>
-                  {r.status === "pending" ? (
-                    <Pressable onPress={() => pay(r)} disabled={busy === r.id} style={[styles.cta, { backgroundColor: colors.inverseBg, opacity: busy === r.id ? 0.5 : 1 }]}>
-                      <AppText weight="700" size={13} style={{ color: colors.inverseFg }}>
-                        {busy === r.id ? "Paying…" : "Pay from wallet"}
-                      </AppText>
-                    </Pressable>
-                  ) : (
-                    <AppText size={13} weight="600">
-                      {r.status === "paid" ? "Paid" : r.status === "refunded" ? "Refunded to your wallet" : "Cancelled"}
-                    </AppText>
-                  )}
-                </View>
-              );
-            })
-          )}
-        </ScrollView>
-      )}
-    </View>
+        </View>
+        {r.status === "pending" ? (
+          <Button compact title="Pay from wallet" onPress={() => pay(r)} loading={busy === r.id} />
+        ) : st ? (
+          <Pill label={st.label} tone={st.tone} />
+        ) : null}
+      </Panel>
+    );
+  }
+
+  return (
+    <PageShell
+      title="Payment requests"
+      subtitle="Rent, deposits and fees sent to you"
+      loading={loading}
+      refreshing={refreshing}
+      onRefresh={() => {
+        setRefreshing(true);
+        void load();
+      }}
+    >
+      <Hero
+        label="Waiting for you"
+        value={formatNaira(owed)}
+        note={`Wallet balance ${formatNaira(balance)}${pending.length ? ` · ${pending.length} to pay` : ""}`}
+      />
+
+      {!rows.length ? (
+        <EmptyState title="No payment requests" description="Rent, deposits and fees your landlord or a service sends you appear here." />
+      ) : null}
+
+      {pending.length ? (
+        <Section title="To pay">
+          {owed > balance ? <Notice tone="warn">{`Your wallet is short by ${formatNaira(owed - balance)} for everything below.`}</Notice> : null}
+          {pending.map(card)}
+        </Section>
+      ) : null}
+
+      {done.length ? <Section title="Earlier">{done.map(card)}</Section> : null}
+    </PageShell>
   );
 }
-
-const styles = StyleSheet.create({
-  top: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 16, paddingVertical: 10 },
-  back: { width: 40, height: 40, borderRadius: 20, alignItems: "center", justifyContent: "center" },
-  card: { borderRadius: radii.md, padding: 14, gap: 8 },
-  rowBetween: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", gap: 10 },
-  cta: { height: 44, borderRadius: radii.md, alignItems: "center", justifyContent: "center" },
-});

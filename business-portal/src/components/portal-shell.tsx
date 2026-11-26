@@ -149,17 +149,26 @@ export function PortalShell({
         {renderNav(!collapsed)}
       </nav>
       <div className={`shrink-0 border-t border-border p-3 ${collapsed ? "flex justify-center" : ""}`}>
-        <div className={`flex items-center gap-3 ${collapsed ? "justify-center" : ""}`}>
-          <span className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-accent text-xs font-semibold text-on-accent">
-            {initialsFromName(user.displayName)}
-          </span>
+        <Link
+          href="/profile"
+          title="My profile"
+          className={`flex items-center gap-3 rounded-2xl p-1 transition hover:bg-surface ${collapsed ? "justify-center" : ""}`}
+        >
+          {user.avatarUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={user.avatarUrl} alt="" className="h-9 w-9 rounded-full border border-border object-cover" />
+          ) : (
+            <span className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-accent text-xs font-semibold text-on-accent">
+              {initialsFromName(user.displayName)}
+            </span>
+          )}
           {!collapsed ? (
             <div className="min-w-0">
               <p className="truncate text-sm font-medium">{user.displayName}</p>
-              <p className="truncate text-xs text-muted">@{user.username}</p>
+              <p className="truncate text-xs text-muted">My profile · @{user.username}</p>
             </div>
           ) : null}
-        </div>
+        </Link>
       </div>
     </>
   );
@@ -241,10 +250,10 @@ export function PortalShell({
                 <NavIcon name="panel" />
               </button>
             ) : null}
-            <div className="min-w-0">
+            <Link href="/profile" className="min-w-0 hover:opacity-80">
               <p className="truncate text-sm font-medium">{user.displayName}</p>
               <p className="truncate text-xs text-muted">{personaLabel}</p>
-            </div>
+            </Link>
           </div>
           <div className="flex items-center gap-2">
             <LiveAlerts userId={user.id} />

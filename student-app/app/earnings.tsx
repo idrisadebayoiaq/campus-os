@@ -1,27 +1,28 @@
-import { router } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
-import { ActivityIndicator, Alert, Pressable, RefreshControl, ScrollView, StyleSheet, TextInput, View } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { AppText } from "@/src/components/ui";
+import { Alert, View } from "react-native";
+import { AppText, Button, Input } from "@/src/components/ui";
+import { Group, Hero, ListRow, Notice, PageShell, Panel, Section, type Tone } from "@/src/components/page";
 import { useAuth } from "@/src/lib/auth";
 import { formatNaira } from "@/src/lib/campus";
 import { callPaystack } from "@/src/lib/payments";
 import { supabase } from "@/src/lib/supabase";
-import { useTheme } from "@/src/theme/ThemeProvider";
-import { radii } from "@/src/theme/tokens";
 
 type Account = { account_name: string; bank_name: string | null; account_number: string };
 type Payout = { id: string; amount: number; status: string; failure_reason: string | null; created_at: string };
 type Entry = { id: string; kind: string; amount: number; note: string | null; created_at: string };
 type Bank = { name: string; code: string };
 
-const KIND: Record<string, string> = { sale: "Sale", commission: "CampusOS commission", refund: "Refund", payout: "Withdrawal", payout_reversal: "Withdrawal returned", adjust: "Adjustment" };
+const KIND: Record<string, string> = {
+  sale: "Sale",
+  commission: "CampusOS commission",
+  refund: "Refund",
+  payout: "Withdrawal",
+  payout_reversal: "Withdrawal returned",
+  adjust: "Adjustment",
+};
 
 export default function EarningsScreen() {
   const { user } = useAuth();
-  const colors = useTheme();
-  const insets = useSafeAreaInsets();
   const [balance, setBalance] = useState(0);
   const [minimum, setMinimum] = useState(5000);
   const [account, setAccount] = useState<Account | null>(null);
@@ -117,201 +118,143 @@ export default function EarningsScreen() {
   }
 
   const open = payouts.some((p) => p.status === "requested" || p.status === "processing");
-  const canWithdraw = !!account && !open && balance >= minimum && !busy;
+  const canWithdraw = !!account && !open && balance >= minimum;
   const filtered = bankQuery.trim() ? banks.filter((b) => b.name.toLowerCase().includes(bankQuery.trim().toLowerCase())).slice(0, 6) : [];
 
+  const payoutTone = (s: string): Tone => (s === "paid" ? "success" : s === "failed" ? "danger" : "neutral");
+  const payoutLabel = (s: string) => (s === "paid" ? "Paid" : s === "failed" ? "Failed, returned" : "On its way");
+
   return (
-    <View style={{ flex: 1, backgroundColor: colors.bg, paddingTop: insets.top }}>
-      <View style={styles.top}>
-        <Pressable onPress={() => router.back()} style={[styles.back, { backgroundColor: colors.surface }]} accessibilityLabel="Back">
-          <Ionicons name="chevron-back" size={20} color={colors.fg} />
-        </Pressable>
-        <AppText size={18} weight="700">
-          My earnings
-        </AppText>
-        <View style={{ width: 40 }} />
-      </View>
-      {loading ? (
-        <ActivityIndicator color={colors.fg} style={{ marginTop: 40 }} />
-      ) : (
-        <ScrollView
-          contentContainerStyle={{ padding: 16, gap: 16, paddingBottom: insets.bottom + 40 }}
-          keyboardShouldPersistTaps="handled"
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); void load(); }} />}
-        >
-          <View style={[styles.balanceCard, { backgroundColor: colors.inverseBg }]}>
-            <AppText size={12} style={{ color: colors.inverseFg, opacity: 0.7 }}>
-              Money you earned selling
-            </AppText>
-            <AppText size={34} weight="700" style={{ color: colors.inverseFg }}>
-              {formatNaira(balance)}
-            </AppText>
-            <AppText size={12} style={{ color: colors.inverseFg, opacity: 0.7 }}>
-              Released after buyers confirm the handover. Withdraw to your own bank from {formatNaira(minimum)}.
-            </AppText>
-          </View>
+    <PageShell
+      title="My earnings"
+      subtitle="Money from your marketplace sales"
+      loading={loading}
+      refreshing={refreshing}
+      onRefresh={() => {
+        setRefreshing(true);
+        void load();
+      }}
+      footer={
+        <>
+          <Button
+            title={open ? "Withdrawal on its way" : `Withdraw ${formatNaira(balance)}`}
+            onPress={withdraw}
+            disabled={!canWithdraw}
+            loading={busy && !editing}
+          />
+          <AppText size={12} muted style={{ textAlign: "center", marginTop: 8 }}>
+            {!account
+              ? "Add your bank account to withdraw."
+              : balance < minimum
+                ? `You can withdraw once your earnings reach ${formatNaira(minimum)}.`
+                : "Paid to your own bank account."}
+          </AppText>
+        </>
+      }
+    >
+      <Hero
+        label="Available to withdraw"
+        value={formatNaira(balance)}
+        note="Released after buyers confirm the handover, after CampusOS takes its small commission."
+      />
 
-          <View style={{ gap: 8 }}>
-            <AppText weight="700">Bank account</AppText>
-            {account && !editing ? (
-              <View style={[styles.card, { backgroundColor: colors.surface }]}>
-                <AppText weight="600">{account.account_name}</AppText>
-                <AppText size={12} muted>
-                  {account.bank_name} · ••••{account.account_number.slice(-4)}
+      <Section title="Bank account" hint="Withdrawals only go to an account in your own name">
+        {account && !editing ? (
+          <Group>
+            <ListRow
+              icon="business-outline"
+              title={account.account_name}
+              subtitle={`${account.bank_name ?? "Bank"} · ••••${account.account_number.slice(-4)}`}
+              onPress={() => void startEditing()}
+              right={
+                <AppText size={13} weight="700">
+                  Change
                 </AppText>
-                <Pressable onPress={() => void startEditing()} hitSlop={8}>
-                  <AppText size={13} weight="700">
-                    Change account
-                  </AppText>
-                </Pressable>
-              </View>
+              }
+              chevron={false}
+            />
+          </Group>
+        ) : null}
+        {!account && !editing ? <Button title="Add bank account" onPress={() => void startEditing()} /> : null}
+        {editing ? (
+          <Panel>
+            <Input
+              value={bank ? bank.name : bankQuery}
+              onChangeText={(t) => {
+                setBank(null);
+                setBankQuery(t);
+                setFound(null);
+              }}
+              placeholder="Search your bank"
+            />
+            {!bank && filtered.length ? (
+              <Group>
+                {filtered.map((b) => (
+                  <ListRow key={b.code} title={b.name} onPress={() => setBank(b)} chevron={false} />
+                ))}
+              </Group>
             ) : null}
-            {!account && !editing ? (
-              <Pressable onPress={() => void startEditing()} style={[styles.cta, { backgroundColor: colors.inverseBg }]}>
-                <AppText weight="700" style={{ color: colors.inverseFg }}>
-                  Add bank account
-                </AppText>
-              </Pressable>
-            ) : null}
-            {editing ? (
-              <View style={{ gap: 8 }}>
-                <TextInput
-                  value={bank ? bank.name : bankQuery}
-                  onChangeText={(t) => {
-                    setBank(null);
-                    setBankQuery(t);
-                    setFound(null);
-                  }}
-                  placeholder="Search your bank"
-                  placeholderTextColor={colors.muted}
-                  style={[styles.input, { color: colors.fg, borderColor: colors.border, backgroundColor: colors.surface }]}
-                />
-                {!bank
-                  ? filtered.map((b) => (
-                      <Pressable key={b.code} onPress={() => setBank(b)} style={[styles.card, { backgroundColor: colors.surface }]}>
-                        <AppText>{b.name}</AppText>
-                      </Pressable>
-                    ))
-                  : null}
-                <TextInput
-                  value={number}
-                  onChangeText={(t) => {
-                    setNumber(t);
-                    setFound(null);
-                  }}
-                  keyboardType="number-pad"
-                  maxLength={10}
-                  placeholder="10-digit account number"
-                  placeholderTextColor={colors.muted}
-                  style={[styles.input, { color: colors.fg, borderColor: colors.border, backgroundColor: colors.surface }]}
-                />
-                {found ? (
-                  <View style={[styles.card, { backgroundColor: colors.surface }]}>
-                    <AppText>
-                      This account belongs to <AppText weight="700">{found}</AppText>. Is it yours?
-                    </AppText>
-                    <View style={{ flexDirection: "row", gap: 8 }}>
-                      <Pressable onPress={() => void confirm()} disabled={busy} style={[styles.btn, { backgroundColor: colors.inverseBg }]}>
-                        <AppText weight="700" size={13} style={{ color: colors.inverseFg }}>
-                          {busy ? "Saving…" : "Yes, save it"}
-                        </AppText>
-                      </Pressable>
-                      <Pressable onPress={() => setFound(null)} style={[styles.btn, { borderColor: colors.border, borderWidth: 1 }]}>
-                        <AppText weight="700" size={13}>
-                          No
-                        </AppText>
-                      </Pressable>
-                    </View>
-                  </View>
-                ) : (
-                  <View style={{ flexDirection: "row", gap: 8 }}>
-                    <Pressable onPress={() => void check()} disabled={busy} style={[styles.btn, { backgroundColor: colors.inverseBg, opacity: busy ? 0.5 : 1 }]}>
-                      <AppText weight="700" size={13} style={{ color: colors.inverseFg }}>
-                        {busy ? "Checking…" : "Check account"}
-                      </AppText>
-                    </Pressable>
-                    <Pressable onPress={() => setEditing(false)} style={[styles.btn, { borderColor: colors.border, borderWidth: 1 }]}>
-                      <AppText weight="700" size={13}>
-                        Cancel
-                      </AppText>
-                    </Pressable>
-                  </View>
-                )}
-              </View>
-            ) : null}
-          </View>
-
-          <Pressable onPress={withdraw} disabled={!canWithdraw} style={[styles.cta, { backgroundColor: colors.inverseBg, opacity: canWithdraw ? 1 : 0.4 }]}>
-            <AppText weight="700" style={{ color: colors.inverseFg }}>
-              {busy ? "Please wait…" : `Withdraw ${formatNaira(balance)}`}
-            </AppText>
-          </Pressable>
-          {!account ? (
-            <AppText size={12} muted>
-              Add your bank account to withdraw.
-            </AppText>
-          ) : open ? (
-            <AppText size={12} muted>
-              A withdrawal is on its way.
-            </AppText>
-          ) : balance < minimum ? (
-            <AppText size={12} muted>
-              You can withdraw once your earnings reach {formatNaira(minimum)}.
-            </AppText>
-          ) : null}
-
-          {payouts.length ? (
-            <View style={{ gap: 8 }}>
-              <AppText weight="700">Withdrawals</AppText>
-              {payouts.map((p) => (
-                <View key={p.id} style={[styles.row, { backgroundColor: colors.surface }]}>
-                  <View style={{ flex: 1 }}>
-                    <AppText weight="600">{formatNaira(p.amount)}</AppText>
-                    <AppText size={12} muted>
-                      {new Date(p.created_at).toLocaleDateString()}
-                    </AppText>
-                  </View>
-                  <AppText size={13} style={{ color: p.status === "failed" ? colors.danger : colors.muted }}>
-                    {p.status === "paid" ? "Paid" : p.status === "failed" ? "Failed, returned" : "On its way"}
-                  </AppText>
+            <Input
+              value={number}
+              onChangeText={(t) => {
+                setNumber(t);
+                setFound(null);
+              }}
+              keyboardType="number-pad"
+              maxLength={10}
+              placeholder="10-digit account number"
+            />
+            {found ? (
+              <>
+                <Notice tone="success" icon="person-circle-outline">
+                  {`This account belongs to ${found}. Is it yours?`}
+                </Notice>
+                <View style={{ flexDirection: "row", gap: 10 }}>
+                  <Button compact title="Yes, save it" onPress={() => void confirm()} loading={busy} style={{ flex: 1 }} />
+                  <Button compact variant="secondary" title="No" onPress={() => setFound(null)} style={{ flex: 1 }} />
                 </View>
-              ))}
-            </View>
-          ) : null}
+              </>
+            ) : (
+              <View style={{ flexDirection: "row", gap: 10 }}>
+                <Button compact title="Check account" onPress={() => void check()} loading={busy} style={{ flex: 1 }} />
+                <Button compact variant="secondary" title="Cancel" onPress={() => setEditing(false)} style={{ flex: 1 }} />
+              </View>
+            )}
+          </Panel>
+        ) : null}
+      </Section>
 
-          {entries.length ? (
-            <View style={{ gap: 8 }}>
-              <AppText weight="700">History</AppText>
-              {entries.map((e) => (
-                <View key={e.id} style={[styles.row, { backgroundColor: colors.surface }]}>
-                  <View style={{ flex: 1 }}>
-                    <AppText weight="600">{KIND[e.kind] ?? e.kind}</AppText>
-                    <AppText size={12} muted numberOfLines={1}>
-                      {e.note ? `${e.note} · ` : ""}
-                      {new Date(e.created_at).toLocaleDateString()}
-                    </AppText>
-                  </View>
-                  <AppText weight="700" style={{ color: Number(e.amount) > 0 ? colors.fg : colors.muted }}>
-                    {Number(e.amount) > 0 ? "+" : "-"}
-                    {formatNaira(Math.abs(Number(e.amount)))}
-                  </AppText>
-                </View>
-              ))}
-            </View>
-          ) : null}
-        </ScrollView>
-      )}
-    </View>
+      {payouts.length ? (
+        <Section title="Withdrawals">
+          <Group>
+            {payouts.map((p) => (
+              <ListRow
+                key={p.id}
+                title={formatNaira(p.amount)}
+                subtitle={new Date(p.created_at).toLocaleDateString()}
+                value={payoutLabel(p.status)}
+                valueTone={payoutTone(p.status)}
+              />
+            ))}
+          </Group>
+        </Section>
+      ) : null}
+
+      {entries.length ? (
+        <Section title="History">
+          <Group>
+            {entries.map((e) => (
+              <ListRow
+                key={e.id}
+                title={KIND[e.kind] ?? e.kind}
+                subtitle={`${e.note ? `${e.note} · ` : ""}${new Date(e.created_at).toLocaleDateString()}`}
+                value={`${Number(e.amount) > 0 ? "+" : "-"}${formatNaira(Math.abs(Number(e.amount)))}`}
+                valueTone={Number(e.amount) > 0 ? "success" : "neutral"}
+              />
+            ))}
+          </Group>
+        </Section>
+      ) : null}
+    </PageShell>
   );
 }
-
-const styles = StyleSheet.create({
-  top: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 16, paddingVertical: 10 },
-  back: { width: 40, height: 40, borderRadius: 20, alignItems: "center", justifyContent: "center" },
-  balanceCard: { borderRadius: radii.lg ?? radii.md, padding: 20, gap: 6 },
-  card: { borderRadius: radii.md, padding: 14, gap: 8 },
-  row: { flexDirection: "row", alignItems: "center", gap: 10, padding: 12, borderRadius: radii.md },
-  input: { height: 46, borderWidth: 1, borderRadius: radii.md, paddingHorizontal: 12, fontSize: 14 },
-  cta: { height: 52, borderRadius: radii.md, alignItems: "center", justifyContent: "center" },
-  btn: { height: 40, borderRadius: radii.pill, paddingHorizontal: 16, alignItems: "center", justifyContent: "center" },
-});
