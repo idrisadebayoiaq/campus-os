@@ -3,7 +3,7 @@ import { NavIcon } from "@/components/nav-icons";
 import { SignOutButton } from "@/components/sign-out-button";
 import { ButtonLink, Container, EmptyState } from "@/components/ui";
 import { businessTypeLabel } from "@/lib/business-types";
-import { dashboardLinks } from "@/lib/nav";
+import { dashboardLinks, isAdminOnly } from "@/lib/nav";
 import { createClient } from "@/lib/supabase/server";
 
 export const metadata = { title: "Dashboard" };
@@ -25,6 +25,9 @@ export default async function DashboardPage() {
     .eq("user_id", user.id);
 
   const roleNames = (roles ?? []).map((row) => String(row.role));
+  if (isAdminOnly(roleNames)) {
+    redirect("/admin");
+  }
   const roleList = roleNames.join(", ") || "student";
   const quickLinks = dashboardLinks(roleNames);
 

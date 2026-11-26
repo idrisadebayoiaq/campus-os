@@ -6,7 +6,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import { CampusLogo } from "@/components/campus-logo";
 import { NavIcon } from "@/components/nav-icons";
 import { useTheme } from "@/components/theme-provider";
-import { groupNav, initialsFromName, navForRoles } from "@/lib/nav";
+import { groupNav, initialsFromName, isAdminOnly, navForRoles } from "@/lib/nav";
 
 type ShellUser = {
   id: string;
@@ -80,9 +80,11 @@ export function PortalShell({
   }
 
   const isActive = (href: string) =>
-    pathname === href || (href !== "/dashboard" && pathname.startsWith(href));
+    pathname === href ||
+    (href !== "/dashboard" && href !== "/admin" && pathname.startsWith(href));
 
   const navGroups = groupNav(navForRoles(user.roles));
+  const home = isAdminOnly(user.roles) ? "/admin" : "/dashboard";
 
   const navClass = (active: boolean) =>
     `flex items-center gap-3 rounded-2xl px-3 py-2.5 text-sm transition ${
@@ -122,7 +124,7 @@ export function PortalShell({
           collapsed ? "justify-center" : "justify-between gap-2"
         }`}
       >
-        <CampusLogo href="/dashboard" size={collapsed ? 32 : 36} collapsed={collapsed} />
+        <CampusLogo href={home} size={collapsed ? 32 : 36} collapsed={collapsed} />
         {!collapsed ? (
           <button
             type="button"
@@ -177,7 +179,7 @@ export function PortalShell({
           />
           <div className="absolute inset-y-0 left-0 flex w-[min(20rem,88vw)] flex-col border-r border-border bg-bg shadow-xl">
             <div className="flex h-14 items-center justify-between border-b border-border px-3">
-              <CampusLogo href="/dashboard" />
+              <CampusLogo href={home} />
               <button
                 type="button"
                 onClick={() => setMobileOpen(false)}

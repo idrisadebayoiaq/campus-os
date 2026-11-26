@@ -22,7 +22,26 @@ function roleSet(roles: string[]): RoleSet {
 }
 
 /** Sidebar navigation for the signed-in user's roles. */
+/** True when the account is staff and not also a business owner: admin-only experience. */
+export function isAdminOnly(roles: string[]) {
+  const r = roleSet(roles);
+  return r.staff && !r.business;
+}
+
+const ADMIN_NAV: NavItem[] = [
+  { href: "/admin", label: "Overview", icon: "home", group: "Admin" },
+  { href: "/admin/users", label: "Users & roles", icon: "profile", group: "Admin" },
+  { href: "/admin/applications", label: "Businesses", icon: "assignments", group: "Reviews" },
+  { href: "/admin/lecturers", label: "Lecturers", icon: "groups", group: "Reviews" },
+  { href: "/school/verifications", label: "Student IDs", icon: "shield", group: "Reviews" },
+  { href: "/admin/listings", label: "Listings", icon: "market", group: "Moderation" },
+  { href: "/admin/reports", label: "Reports", icon: "bell", group: "Moderation" },
+  { href: "/admin/schools", label: "Schools", icon: "school", group: "Platform" },
+  { href: "/inbox", label: "Inbox", icon: "inbox", group: "Platform" },
+];
+
 export function navForRoles(roles: string[]): NavItem[] {
+  if (isAdminOnly(roles)) return ADMIN_NAV;
   const r = roleSet(roles);
   const items: NavItem[] = [
     { href: "/dashboard", label: "Home", icon: "home", group: "Workspace" },
