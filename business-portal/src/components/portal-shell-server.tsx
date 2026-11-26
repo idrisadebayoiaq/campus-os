@@ -13,11 +13,14 @@ export async function PortalShellServer({ children }: { children: React.ReactNod
 
   let shellUser = null;
   if (user) {
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("full_name, first_name, preferred_name, avatar_url")
-      .eq("id", user.id)
-      .maybeSingle();
+    const [{ data: profile }, { data: roleRows }] = await Promise.all([
+      supabase
+        .from("profiles")
+        .select("full_name, first_name, preferred_name, avatar_url")
+        .eq("id", user.id)
+        .maybeSingle(),
+      supabase.from("user_roles").select("role").eq("user_id", user.id),
+    ]);
 
     const displayName = displayNameFromProfile({
       preferred_name: profile?.preferred_name,
@@ -32,6 +35,7 @@ export async function PortalShellServer({ children }: { children: React.ReactNod
       displayName,
       username: usernameFromEmail(user.email),
       avatarUrl: profile?.avatar_url ?? null,
+      roles: (roleRows ?? []).map((row) => String(row.role)),
     };
   }
 

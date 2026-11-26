@@ -1,8 +1,9 @@
 import { redirect } from "next/navigation";
-import { CampusScene } from "@/components/campus-3d/campus-scene";
+import { NavIcon } from "@/components/nav-icons";
 import { SignOutButton } from "@/components/sign-out-button";
-import { ButtonLink, Container, EmptyState, PageHeader } from "@/components/ui";
+import { ButtonLink, Container, EmptyState } from "@/components/ui";
 import { businessTypeLabel } from "@/lib/business-types";
+import { dashboardLinks } from "@/lib/nav";
 import { createClient } from "@/lib/supabase/server";
 
 export const metadata = { title: "Dashboard" };
@@ -23,7 +24,9 @@ export default async function DashboardPage() {
     .select("role")
     .eq("user_id", user.id);
 
-  const roleList = (roles ?? []).map((row) => row.role).join(", ") || "student";
+  const roleNames = (roles ?? []).map((row) => String(row.role));
+  const roleList = roleNames.join(", ") || "student";
+  const quickLinks = dashboardLinks(roleNames);
 
   const { data: applications } = await supabase
     .from("business_applications")
@@ -47,41 +50,48 @@ export default async function DashboardPage() {
   return (
     <Container>
       <div className="space-y-8 py-12">
-        <PageHeader title="Dashboard" description="CampusOS Portal" />
+        <section className="overflow-hidden rounded-3xl bg-hero-bg p-6 text-hero-fg sm:p-8">
+          <p className="text-xs font-semibold uppercase tracking-wider text-hero-muted">
+            CampusOS Portal
+          </p>
+          <h1 className="mt-2 text-2xl font-semibold tracking-tight sm:text-3xl">
+            Welcome back
+          </h1>
+          <p className="mt-2 max-w-xl text-sm text-hero-muted">
+            {user.email} · {roleList}
+          </p>
+          <div className="mt-5 flex flex-wrap gap-2">
+            {quickLinks.slice(0, 4).map((item) => (
+              <a
+                key={item.href}
+                href={item.href}
+                className="rounded-full bg-accent px-4 py-2 text-sm font-semibold text-on-accent"
+              >
+                {item.label}
+              </a>
+            ))}
+          </div>
+        </section>
 
-        <CampusScene
-          mode="business"
-          title="Campus zones"
-          heightClass="h-44 sm:h-56"
-          defaultOpen={false}
-        />
-
-        <div className="rounded-md border border-border px-4 py-3 text-sm">
-          <p className="font-medium">{user.email}</p>
-          <p className="mt-1 text-muted">Roles: {roleList}</p>
-        </div>
-
-        <section className="grid grid-cols-3 gap-2 sm:grid-cols-6">
-          {[
-            { href: "/apply", title: "Apply" },
-            { href: "/listings", title: "Listings" },
-            { href: "/listings/orders", title: "Orders" },
-            { href: "/listings/inspections", title: "Inspections" },
-            { href: "/billing", title: "Billing" },
-            { href: "/admin", title: "Admin" },
-          ].map((item) => (
+        <section className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+          {quickLinks.map((item) => (
             <a
               key={item.href}
               href={item.href}
-              className="rounded-md border border-border px-2 py-3 text-center text-xs font-medium hover:bg-surface"
+              className="flex items-center gap-3 rounded-2xl border border-border bg-surface px-4 py-4 text-sm font-medium hover:border-accent"
             >
-              {item.title}
+              <span className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-accent-soft">
+                <NavIcon name={item.icon} />
+              </span>
+              <span className="min-w-0">
+                <span className="block truncate">{item.label}</span>
+                <span className="block text-[11px] font-normal text-muted">{item.group}</span>
+              </span>
             </a>
           ))}
         </section>
-
         {needsSetup ? (
-          <div className="rounded-md border border-border bg-surface p-5">
+          <div className="rounded-2xl border border-border bg-surface p-5">
             <p className="font-medium">Finish setup to unlock publishing</p>
             <p className="mt-2 text-sm text-muted">
               {needsSetup.display_name} still needs profile, hours, contact, payment,
@@ -101,7 +111,7 @@ export default async function DashboardPage() {
               description="Apply as a business to get reviewed by CampusOS admin."
             />
           ) : (
-            <div className="divide-y divide-border rounded-md border border-border">
+            <div className="divide-y divide-border overflow-hidden rounded-2xl border border-border">
               {applications.map((app) => (
                 <a
                   key={app.id}
@@ -130,7 +140,7 @@ export default async function DashboardPage() {
               description="After approval, your business profile appears here for setup and listing."
             />
           ) : (
-            <div className="divide-y divide-border rounded-md border border-border">
+            <div className="divide-y divide-border overflow-hidden rounded-2xl border border-border">
               {businesses.map((biz) => {
                 const canPublish = publishFlags[biz.id];
                 return (
@@ -167,14 +177,7 @@ export default async function DashboardPage() {
                           Manage listings
                         </ButtonLink>
                       ) : null}
-                      {biz.slug ? (
-                        <ButtonLink
-                          href={`${process.env.NEXT_PUBLIC_STUDENT_URL || "http://localhost:3000"}/businesses/${biz.slug}`}
-                          variant="ghost"
-                        >
-                          Public page
-                        </ButtonLink>
-                      ) : null}
+
                     </div>
                   </div>
                 );

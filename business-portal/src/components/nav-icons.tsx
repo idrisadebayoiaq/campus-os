@@ -164,6 +164,20 @@ export function NavIcon({ name, className = "h-4 w-4" }: { name: string; classNa
           <path d="M3 19a6 6 0 0 1 12 0M14 19a5 5 0 0 1 7 0" />
         </svg>
       );
+    case "school":
+      return (
+        <svg {...common}>
+          <path d="M3 9.5 12 5l9 4.5-9 4.5-9-4.5z" />
+          <path d="M7 12v4.5c0 1 2.2 2.5 5 2.5s5-1.5 5-2.5V12" />
+        </svg>
+      );
+    case "shield":
+      return (
+        <svg {...common}>
+          <path d="M12 3 5 6v5c0 4.5 3 8 7 10 4-2 7-5.5 7-10V6l-7-3z" />
+          <path d="m9 12 2 2 4-4" />
+        </svg>
+      );
     case "budget":
       return (
         <svg {...common}>

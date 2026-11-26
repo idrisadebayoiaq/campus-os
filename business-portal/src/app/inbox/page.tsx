@@ -5,6 +5,7 @@ import { displayNameFromProfile } from "@/lib/nav";
 import { createClient } from "@/lib/supabase/server";
 
 export const metadata = { title: "Inbox" };
+export const instant = false;
 
 export default async function BusinessInboxPage() {
   const supabase = await createClient();

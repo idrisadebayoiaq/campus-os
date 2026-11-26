@@ -95,7 +95,13 @@ export function LoginForm() {
   );
 }
 
-export function SignupForm() {
+export function SignupForm({
+  intent = "business",
+  redirectTo = "/dashboard",
+}: {
+  intent?: "business" | "lecturer";
+  redirectTo?: string;
+} = {}) {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
@@ -117,7 +123,7 @@ export function SignupForm() {
       email,
       password,
       options: {
-        data: { full_name: fullName },
+        data: { full_name: fullName, signup_intent: intent },
       },
     });
 
@@ -133,7 +139,7 @@ export function SignupForm() {
       return;
     }
 
-    router.push("/dashboard");
+    router.push(redirectTo);
     router.refresh();
   }
 

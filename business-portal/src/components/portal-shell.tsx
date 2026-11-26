@@ -6,7 +6,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import { CampusLogo } from "@/components/campus-logo";
 import { NavIcon } from "@/components/nav-icons";
 import { useTheme } from "@/components/theme-provider";
-import { PORTAL_NAV, initialsFromName } from "@/lib/nav";
+import { groupNav, initialsFromName, navForRoles } from "@/lib/nav";
 
 type ShellUser = {
   id: string;
@@ -14,6 +14,7 @@ type ShellUser = {
   displayName: string;
   username: string;
   avatarUrl: string | null;
+  roles: string[];
 };
 
 export function PortalShell({
@@ -81,10 +82,38 @@ export function PortalShell({
   const isActive = (href: string) =>
     pathname === href || (href !== "/dashboard" && pathname.startsWith(href));
 
+  const navGroups = groupNav(navForRoles(user.roles));
+
   const navClass = (active: boolean) =>
-    `flex items-center gap-3 rounded-md px-2.5 py-2 text-sm transition ${
-      active ? "bg-surface font-medium text-fg" : "text-muted hover:bg-surface hover:text-fg"
+    `flex items-center gap-3 rounded-2xl px-3 py-2.5 text-sm transition ${
+      active
+        ? "bg-accent-soft font-semibold text-fg"
+        : "text-muted hover:bg-surface hover:text-fg"
     } ${collapsed ? "justify-center" : ""}`;
+
+  const renderNav = (showLabels: boolean) =>
+    navGroups.map((section) => (
+      <div key={section.group} className="space-y-1">
+        {showLabels ? (
+          <p className="px-3 pb-1 pt-3 text-[11px] font-semibold uppercase tracking-wider text-muted">
+            {section.group}
+          </p>
+        ) : (
+          <div className="mx-2 my-2 border-t border-border first:hidden" />
+        )}
+        {section.items.map((item) => (
+          <Link
+            key={item.href}
+            href={item.href}
+            title={item.label}
+            className={navClass(isActive(item.href))}
+          >
+            <NavIcon name={item.icon} />
+            {showLabels ? <span className="truncate">{item.label}</span> : null}
+          </Link>
+        ))}
+      </div>
+    ));
 
   const sidebarInner = (
     <>
@@ -106,21 +135,11 @@ export function PortalShell({
         ) : null}
       </div>
       <nav className="min-h-0 flex-1 space-y-1 overflow-y-auto p-2">
-        {PORTAL_NAV.map((item) => (
-          <Link
-            key={item.href}
-            href={item.href}
-            title={item.label}
-            className={navClass(isActive(item.href))}
-          >
-            <NavIcon name={item.icon} />
-            {!collapsed ? <span className="truncate">{item.label}</span> : null}
-          </Link>
-        ))}
+        {renderNav(!collapsed)}
       </nav>
       <div className={`shrink-0 border-t border-border p-3 ${collapsed ? "flex justify-center" : ""}`}>
         <div className={`flex items-center gap-3 ${collapsed ? "justify-center" : ""}`}>
-          <span className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-inverse-bg text-xs font-medium text-inverse-fg">
+          <span className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-accent text-xs font-semibold text-on-accent">
             {initialsFromName(user.displayName)}
           </span>
           {!collapsed ? (
@@ -168,15 +187,22 @@ export function PortalShell({
               </button>
             </div>
             <nav className="flex-1 space-y-1 overflow-y-auto p-2">
-              {PORTAL_NAV.map((item) => (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  className={navClass(isActive(item.href)).replace("justify-center", "")}
-                >
-                  <NavIcon name={item.icon} />
-                  <span>{item.label}</span>
-                </Link>
+              {navGroups.map((section) => (
+                <div key={section.group} className="space-y-1">
+                  <p className="px-3 pb-1 pt-3 text-[11px] font-semibold uppercase tracking-wider text-muted">
+                    {section.group}
+                  </p>
+                  {section.items.map((item) => (
+                    <Link
+                      key={item.href}
+                      href={item.href}
+                      className={navClass(isActive(item.href)).replace("justify-center", "")}
+                    >
+                      <NavIcon name={item.icon} />
+                      <span>{item.label}</span>
+                    </Link>
+                  ))}
+                </div>
               ))}
             </nav>
           </div>

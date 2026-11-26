@@ -27,16 +27,16 @@ export function AuthFrame({
       />
 
       <div className="relative mx-auto grid min-h-[inherit] w-full max-w-6xl lg:grid-cols-2">
-        <aside className="hidden flex-col justify-between border-r border-border bg-surface/60 px-10 py-12 lg:flex">
+        <aside className="hidden flex-col justify-between border-r border-border bg-hero-bg px-10 py-12 text-hero-fg lg:flex">
           <CampusLogo href="/login" size={40} />
           <div className="space-y-4">
-            <p className="text-sm font-medium tracking-wide text-muted">CampusOS Portal</p>
-            <h2 className="max-w-sm text-3xl font-semibold tracking-tight text-fg">
+            <p className="text-sm font-medium tracking-wide text-hero-muted">CampusOS Portal</p>
+            <h2 className="max-w-sm text-3xl font-semibold tracking-tight text-hero-fg">
               {panelTitle}
             </h2>
-            <p className="max-w-sm text-sm leading-6 text-muted">{panelBody}</p>
+            <p className="max-w-sm text-sm leading-6 text-hero-muted">{panelBody}</p>
           </div>
-          <p className="text-xs text-muted">
+          <p className="text-xs text-hero-muted">
             Business portal ·{" "}
             <Link href="/business-rules" className="underline underline-offset-2">
               Business rules

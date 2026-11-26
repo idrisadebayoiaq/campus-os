@@ -1,8 +1,14 @@
 import Link from "next/link";
 import type { ButtonHTMLAttributes, InputHTMLAttributes, ReactNode } from "react";
 
-export function Container({ children }: { children: ReactNode }) {
-  return <div className="mx-auto w-full max-w-5xl px-4 sm:px-6">{children}</div>;
+export function Container({
+  children,
+  className = "",
+}: {
+  children: ReactNode;
+  className?: string;
+}) {
+  return <div className={`mx-auto w-full max-w-5xl px-4 sm:px-6 ${className}`}>{children}</div>;
 }
 
 export function Button({
@@ -89,10 +95,13 @@ export function Field({
 export function PageHeader({
   title,
   description,
+  subtitle,
 }: {
   title: string;
   description?: string;
+  subtitle?: string;
 }) {
+  description = description ?? subtitle;
   return (
     <div className="space-y-2 border-b border-border pb-6">
       <h1 className="text-2xl font-semibold tracking-tight text-fg sm:text-3xl">
@@ -113,7 +122,7 @@ export function EmptyState({
   description: string;
 }) {
   return (
-    <div className="rounded-md border border-dashed border-border bg-surface px-6 py-12 text-center">
+    <div className="rounded-2xl border border-dashed border-border bg-surface px-6 py-12 text-center">
       <p className="font-medium text-fg">{title}</p>
       <p className="mt-2 text-sm text-muted">{description}</p>
     </div>
