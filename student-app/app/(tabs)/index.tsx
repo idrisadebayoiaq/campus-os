@@ -91,6 +91,7 @@ const UTILITY_EXCLUDE = new Set([
   "courses",
   "cgpa",
   "ai",
+  "past-questions",
 ]);
 
 const UTILITY_ACTIONS: QuickAction[] = [

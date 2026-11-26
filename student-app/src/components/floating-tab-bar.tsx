@@ -68,11 +68,6 @@ const MORE_MENU = [
     icon: "sparkles-outline" as const,
   },
   {
-    title: "Past Questions",
-    href: "/study/past-questions",
-    icon: "document-text-outline" as const,
-  },
-  {
     title: "Chat",
     href: "/(tabs)/inbox",
     icon: "chatbubble-outline" as const,

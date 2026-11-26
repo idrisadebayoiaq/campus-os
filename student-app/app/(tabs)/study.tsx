@@ -26,7 +26,10 @@ export default function StudyScreen() {
   const colors = useTheme();
   const router = useRouter();
   const { isExamPrep } = useStudentKind();
-  const tools = isExamPrep ? STUDY_TOOLS.filter((t) => EXAM_TOOLS.has(t.href)) : STUDY_TOOLS;
+  // Past questions are for exam candidates only.
+  const tools = isExamPrep
+    ? STUDY_TOOLS.filter((t) => EXAM_TOOLS.has(t.href))
+    : STUDY_TOOLS.filter((t) => t.href !== "past-questions");
 
   return (
     <Screen padded={false} tabClearance>

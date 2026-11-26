@@ -1,3 +1,4 @@
+import { Redirect } from "expo-router";
 import { ActivityIndicator, View } from "react-native";
 import { PremiumGate } from "@/src/components/premium-gate";
 import { CrudScreen, StudyShell } from "@/src/components/study";
@@ -16,9 +17,12 @@ type PastQuestion = LocalMeta & {
 };
 
 export default function PastQuestionsScreen() {
-  const { isExamPrep } = useStudentKind();
+  const { isExamPrep, loading: kindLoading } = useStudentKind();
   const premium = usePremium();
   const colors = useTheme();
+
+  // Past questions are only for exam candidates; students in school don't see them.
+  if (!kindLoading && !isExamPrep) return <Redirect href="/(tabs)" />;
 
   if (isExamPrep && premium.loading) {
     return (

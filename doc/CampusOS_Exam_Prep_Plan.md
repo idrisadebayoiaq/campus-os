@@ -1,4 +1,4 @@
-# CampusOS exam-prep plan (saved, not built yet)
+﻿# CampusOS exam-prep plan (saved, not built yet)
 
 Status: parked on purpose. Build when ready. Last updated 26 Nov 2026.
 
@@ -50,7 +50,7 @@ Technical outline:
 ## Decided plan: two kinds of student (built)
 
 Pricing (all editable in the portal under Payment settings):
-- In school: Premium 2,000 per month. AI tutor is free with a limit (10 questions an hour, 30 a day). Premium triples the limit and adds the green badge, lower selling fee and priority support.
+- In school: Premium 2,000 per month. AI tutor is free with a limit (10 questions an hour, 30 a day). Past questions are not shown to in-school students. Premium triples the limit and adds the green badge, lower selling fee and priority support.
 - Preparing for an exam (JAMB, WAEC, NECO, Post-UTME): Premium 4,000 per month. The AI tutor and past questions need Premium. Everything else (wallet, marketplace, flashcards, CBT practice, study plan, focus timer, notes, study groups, chat) is free.
 
 Signup: a first screen asks "How will you use CampusOS?" (Already in school / Preparing for an exam). In school then gives name, email, password and location, then picks a school and campus. Exam candidates give name, email, password and the exams they are writing, and skip campus setup. Subjects, exam date, wanted school and course are added later under Exam goals.
@@ -62,3 +62,4 @@ What each kind sees:
 - Exam candidate: Home with exam countdown, study plan tools and a Premium unlock card; Study tab instead of Housing; a smaller Study Hub (planner, calendar, notes, past questions, flashcards, CBT practice, focus, AI tutor, groups, tutors, insights).
 
 Still to build: a real past-question bank (ALOC Station import or own content) behind Premium, exam-style practice quizzes, and daily study-plan generation from subjects and exam date.
+
