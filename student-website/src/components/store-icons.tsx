@@ -44,7 +44,6 @@ export function ApkIcon({ className = "h-7 w-7" }: { className?: string }) {
       />
       <circle cx="34" cy="34" r="9" fill="#3C315B" />
       <path
-        fill="#FFFDF8"
         d="M34 29.2v7.2m0 0-2.6-2.6m2.6 2.6 2.6-2.6"
         stroke="#FFFDF8"
         strokeWidth="2"
