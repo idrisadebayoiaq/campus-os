@@ -1,24 +1,36 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { AuthFrame } from "@/components/auth-frame";
 import { SignupForm } from "@/components/auth-forms";
+import { businessTypeLabel, isBusinessType } from "@/lib/business-types";
 
 export const metadata = { title: "Sign up as business" };
+export const instant = false;
 
-export default function BusinessSignupPage() {
+export default async function BusinessSignupPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ type?: string }>;
+}) {
+  const { type } = await searchParams;
+  if (!type || !isBusinessType(type)) redirect("/signup");
+
+  const label = businessTypeLabel(type);
+
   return (
     <AuthFrame
-      eyebrow="Business"
-      title="Create your business account"
-      description="Sign up, then apply from your dashboard as a housing provider or campus vendor."
+      eyebrow={label}
+      title={`Create your ${label.toLowerCase()} account`}
+      description="After signing up you'll go straight to your application. Once approved you only see tools for your business."
       panelTitle="List once. Reach students on campus."
-      panelBody="CampusOS reviews applications, then unlocks setup for housing, food, or marketplace listings."
+      panelBody="CampusOS reviews applications, then unlocks setup and listings for your kind of business."
     >
-      <SignupForm intent="business" />
+      <SignupForm intent="business" redirectTo={`/apply/${type}`} />
       <div className="mt-6 space-y-3 border-t border-border pt-5 text-sm text-muted">
         <p>
-          Need a lecturer account instead?{" "}
-          <Link href="/signup/lecturer" className="font-medium text-fg underline underline-offset-2">
-            Sign up as lecturer
+          Not a {label.toLowerCase()}?{" "}
+          <Link href="/signup" className="font-medium text-fg underline underline-offset-2">
+            Choose another account type
           </Link>
         </p>
         <p>

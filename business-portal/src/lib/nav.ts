@@ -1,3 +1,5 @@
+import { isAdminOnly, type Persona } from "@/lib/persona";
+
 export type NavItem = {
   href: string;
   label: string;
@@ -5,28 +7,9 @@ export type NavItem = {
   group: string;
 };
 
-type RoleSet = {
-  business: boolean;
-  lecturer: boolean;
-  school: boolean;
-  staff: boolean;
-};
-
-function roleSet(roles: string[]): RoleSet {
-  return {
-    business: roles.includes("provider") || roles.includes("vendor"),
-    lecturer: roles.includes("lecturer"),
-    school: roles.includes("school_admin"),
-    staff: roles.includes("admin") || roles.includes("moderator"),
-  };
-}
-
-/** Sidebar navigation for the signed-in user's roles. */
-/** True when the account is staff and not also a business owner: admin-only experience. */
-export function isAdminOnly(roles: string[]) {
-  const r = roleSet(roles);
-  return r.staff && !r.business;
-}
+const HOME: NavItem = { href: "/dashboard", label: "Overview", icon: "home", group: "Workspace" };
+const MESSAGES: NavItem = { href: "/inbox", label: "Messages", icon: "inbox", group: "Workspace" };
+const BILLING: NavItem = { href: "/billing", label: "Billing", icon: "budget", group: "Workspace" };
 
 const ADMIN_NAV: NavItem[] = [
   { href: "/admin", label: "Overview", icon: "home", group: "Admin" },
@@ -40,81 +23,74 @@ const ADMIN_NAV: NavItem[] = [
   { href: "/inbox", label: "Inbox", icon: "inbox", group: "Platform" },
 ];
 
-export function navForRoles(roles: string[]): NavItem[] {
-  if (isAdminOnly(roles)) return ADMIN_NAV;
-  const r = roleSet(roles);
-  const items: NavItem[] = [
-    { href: "/dashboard", label: "Home", icon: "home", group: "Workspace" },
+const NAV_BY_PERSONA: Record<Exclude<Persona, "admin">, NavItem[]> = {
+  housing: [
+    HOME,
+    { href: "/listings", label: "Properties", icon: "housing", group: "Housing" },
+    { href: "/listings/inspections", label: "Inspections", icon: "timetable", group: "Housing" },
+    MESSAGES,
+    BILLING,
+  ],
+  restaurant: [
+    HOME,
+    { href: "/listings", label: "Menu", icon: "food", group: "Restaurant" },
+    { href: "/listings/orders", label: "Orders", icon: "assignments", group: "Restaurant" },
+    MESSAGES,
+    BILLING,
+  ],
+  service: [
+    HOME,
+    { href: "/listings", label: "My listings", icon: "market", group: "Services" },
+    MESSAGES,
+    BILLING,
+  ],
+  seller: [
+    HOME,
+    { href: "/listings", label: "My listings", icon: "market", group: "Marketplace" },
+    MESSAGES,
+    BILLING,
+  ],
+  lecturer: [
+    HOME,
+    { href: "/classes", label: "Classes", icon: "courses", group: "Teaching" },
+    { href: "/announcements", label: "Announcements", icon: "bell", group: "Teaching" },
+    MESSAGES,
+  ],
+  school: [
+    HOME,
+    { href: "/school/verifications", label: "Student IDs", icon: "shield", group: "School" },
+    { href: "/school/departments", label: "Departments", icon: "school", group: "School" },
+    { href: "/school/lecturers", label: "Lecturers", icon: "groups", group: "School" },
+    { href: "/school/announcements", label: "School news", icon: "bell", group: "School" },
+    MESSAGES,
+  ],
+  applicant: [
+    HOME,
     { href: "/apply", label: "Apply", icon: "assignments", group: "Workspace" },
-  ];
+  ],
+};
 
-  if (r.business || r.staff) {
-    items.push(
-      { href: "/listings", label: "Listings", icon: "market", group: "Business" },
-      { href: "/listings/orders", label: "Orders", icon: "food", group: "Business" },
-      {
-        href: "/listings/inspections",
-        label: "Inspections",
-        icon: "housing",
-        group: "Business",
-      },
-      { href: "/billing", label: "Billing", icon: "budget", group: "Business" },
-    );
+/** Sidebar for the account's kind(s). Only that kind's own tools appear. */
+export function navForPersonas(personas: Persona[]): NavItem[] {
+  if (isAdminOnly(personas)) return ADMIN_NAV;
+
+  const items: NavItem[] = [];
+  const seen = new Set<string>();
+  for (const persona of personas) {
+    if (persona === "admin") continue;
+    for (const item of NAV_BY_PERSONA[persona]) {
+      const key = `${item.href}|${item.label}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      items.push(item);
+    }
   }
-
-  if (r.lecturer || r.school || r.staff) {
-    items.push(
-      { href: "/classes", label: "Classes", icon: "courses", group: "Teaching" },
-      {
-        href: "/announcements",
-        label: "Announcements",
-        icon: "bell",
-        group: "Teaching",
-      },
-    );
+  if (personas.includes("admin")) {
+    for (const item of ADMIN_NAV) {
+      const key = `${item.href}|${item.label}`;
+      if (!seen.has(key)) items.push(item);
+    }
   }
-
-  if (r.business || r.lecturer || r.school || r.staff) {
-    items.push({ href: "/inbox", label: "Inbox", icon: "inbox", group: "Workspace" });
-  }
-
-  if (r.school || r.staff) {
-    items.push(
-      {
-        href: "/school/verifications",
-        label: "Verifications",
-        icon: "shield",
-        group: "School",
-      },
-      {
-        href: "/school/departments",
-        label: "Departments",
-        icon: "school",
-        group: "School",
-      },
-      {
-        href: "/school/lecturers",
-        label: "Lecturers",
-        icon: "groups",
-        group: "School",
-      },
-      {
-        href: "/school/announcements",
-        label: "School news",
-        icon: "bell",
-        group: "School",
-      },
-    );
-  }
-
-  if (r.staff) {
-    items.push(
-      { href: "/admin", label: "Admin", icon: "profile", group: "Staff" },
-      { href: "/admin/schools", label: "Schools", icon: "school", group: "Staff" },
-      { href: "/admin/lecturers", label: "Lecturer apps", icon: "groups", group: "Staff" },
-    );
-  }
-
   return items;
 }
 
@@ -131,9 +107,9 @@ export function groupNav(items: NavItem[]) {
   return order.map((group) => ({ group, items: map.get(group)! }));
 }
 
-/** Quick links on the dashboard (everything except Home). */
-export function dashboardLinks(roles: string[]) {
-  return navForRoles(roles).filter((i) => i.href !== "/dashboard");
+/** Quick links on the dashboard (everything except Overview). */
+export function dashboardLinks(personas: Persona[]) {
+  return navForPersonas(personas).filter((i) => i.href !== "/dashboard" && i.href !== "/admin");
 }
 
 export function displayNameFromProfile(input: {

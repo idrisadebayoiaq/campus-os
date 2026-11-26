@@ -1,28 +1,62 @@
 import Link from "next/link";
 import { AuthFrame } from "@/components/auth-frame";
-import { SignupForm } from "@/components/auth-forms";
+import { BUSINESS_TYPES } from "@/lib/business-types";
 
-export const metadata = { title: "Create business account" };
+export const metadata = { title: "Create your account" };
+
+const OPTIONS = [
+  ...BUSINESS_TYPES.map((t) => ({
+    href: `/signup/business?type=${t.key}`,
+    title:
+      t.key === "housing_provider"
+        ? "Housing agent / landlord"
+        : t.key === "food_vendor"
+          ? "Restaurant / food vendor"
+          : t.title,
+    body: t.description,
+  })),
+  {
+    href: "/signup/lecturer",
+    title: "Lecturer",
+    body: "Run classes and announcements for your students.",
+  },
+  {
+    href: "/signup/school",
+    title: "School authority",
+    body: "Verify students, manage departments and approve lecturers for your school.",
+  },
+];
 
 export default function SignupPage() {
   return (
     <AuthFrame
       eyebrow="Get started"
-      title="Create your portal account"
-      description="Sign up, then open your dashboard to apply as a housing provider or campus vendor."
-      panelTitle="List once. Reach students on campus."
-      panelBody="CampusOS reviews applications, then unlocks setup for housing, food, or marketplace listings."
-    >
-      <SignupForm />
-      <div className="mt-6 space-y-3 border-t border-border pt-5 text-sm text-muted">
+      title="What do you do on campus?"
+      description="Pick one. You'll get only the tools for that, nothing else."
+      panelTitle="The right tools, nothing extra"
+      panelBody="Restaurants manage menus and orders. Housing agents manage rooms and inspections. Lecturers manage classes. Each account sees only what it needs."
+      footer={
         <p>
           Already registered?{" "}
           <Link href="/login" className="font-medium text-fg underline underline-offset-2">
             Log in
           </Link>
         </p>
-        <p className="text-xs">
-          After signup, go to Apply from your dashboard to submit a business application.
+      }
+    >
+      <div className="space-y-3">
+        {OPTIONS.map((option) => (
+          <Link
+            key={option.href}
+            href={option.href}
+            className="block rounded-2xl border border-border bg-surface px-4 py-4 transition hover:border-accent"
+          >
+            <p className="text-sm font-semibold text-fg">{option.title}</p>
+            <p className="mt-1 text-xs leading-5 text-muted">{option.body}</p>
+          </Link>
+        ))}
+        <p className="pt-2 text-xs leading-5 text-muted">
+          Students use the CampusOS mobile app, not this portal.
         </p>
       </div>
     </AuthFrame>

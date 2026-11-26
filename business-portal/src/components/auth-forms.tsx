@@ -99,7 +99,7 @@ export function SignupForm({
   intent = "business",
   redirectTo = "/dashboard",
 }: {
-  intent?: "business" | "lecturer";
+  intent?: "business" | "lecturer" | "school";
   redirectTo?: string;
 } = {}) {
   const router = useRouter();

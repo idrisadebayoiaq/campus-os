@@ -1,6 +1,7 @@
 import { connection } from "next/server";
 import { PortalShell } from "@/components/portal-shell";
 import { ThemeProvider } from "@/components/theme-provider";
+import { loadAccess } from "@/lib/access";
 import { displayNameFromProfile, usernameFromEmail } from "@/lib/nav";
 import { createClient } from "@/lib/supabase/server";
 
@@ -13,13 +14,13 @@ export async function PortalShellServer({ children }: { children: React.ReactNod
 
   let shellUser = null;
   if (user) {
-    const [{ data: profile }, { data: roleRows }] = await Promise.all([
+    const [{ data: profile }, access] = await Promise.all([
       supabase
         .from("profiles")
         .select("full_name, first_name, preferred_name, avatar_url")
         .eq("id", user.id)
         .maybeSingle(),
-      supabase.from("user_roles").select("role").eq("user_id", user.id),
+      loadAccess(supabase, user.id),
     ]);
 
     const displayName = displayNameFromProfile({
@@ -35,7 +36,7 @@ export async function PortalShellServer({ children }: { children: React.ReactNod
       displayName,
       username: usernameFromEmail(user.email),
       avatarUrl: profile?.avatar_url ?? null,
-      roles: (roleRows ?? []).map((row) => String(row.role)),
+      personas: access.personas,
     };
   }
 

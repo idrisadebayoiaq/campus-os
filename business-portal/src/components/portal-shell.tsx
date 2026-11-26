@@ -6,7 +6,8 @@ import { useEffect, useState, type ReactNode } from "react";
 import { CampusLogo } from "@/components/campus-logo";
 import { NavIcon } from "@/components/nav-icons";
 import { useTheme } from "@/components/theme-provider";
-import { groupNav, initialsFromName, isAdminOnly, navForRoles } from "@/lib/nav";
+import { groupNav, initialsFromName, navForPersonas } from "@/lib/nav";
+import { PERSONA_LABEL, homeFor, type Persona } from "@/lib/persona";
 
 type ShellUser = {
   id: string;
@@ -14,7 +15,7 @@ type ShellUser = {
   displayName: string;
   username: string;
   avatarUrl: string | null;
-  roles: string[];
+  personas: Persona[];
 };
 
 export function PortalShell({
@@ -83,8 +84,9 @@ export function PortalShell({
     pathname === href ||
     (href !== "/dashboard" && href !== "/admin" && pathname.startsWith(href));
 
-  const navGroups = groupNav(navForRoles(user.roles));
-  const home = isAdminOnly(user.roles) ? "/admin" : "/dashboard";
+  const navGroups = groupNav(navForPersonas(user.personas));
+  const home = homeFor(user.personas);
+  const personaLabel = user.personas.map((p) => PERSONA_LABEL[p]).join(" · ");
 
   const navClass = (active: boolean) =>
     `flex items-center gap-3 rounded-2xl px-3 py-2.5 text-sm transition ${
@@ -234,7 +236,7 @@ export function PortalShell({
             ) : null}
             <div className="min-w-0">
               <p className="truncate text-sm font-medium">{user.displayName}</p>
-              <p className="truncate text-xs text-muted">CampusOS Portal</p>
+              <p className="truncate text-xs text-muted">{personaLabel}</p>
             </div>
           </div>
           <button

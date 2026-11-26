@@ -16,9 +16,9 @@ export default function LecturerSignupPage() {
       <SignupForm intent="lecturer" redirectTo="/apply/lecturer" />
       <div className="mt-6 space-y-3 border-t border-border pt-5 text-sm text-muted">
         <p>
-          Running a business instead?{" "}
-          <Link href="/signup/business" className="font-medium text-fg underline underline-offset-2">
-            Sign up as business
+          Not a lecturer?{" "}
+          <Link href="/signup" className="font-medium text-fg underline underline-offset-2">
+            Choose another account type
           </Link>
         </p>
         <p>

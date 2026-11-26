@@ -1,5 +1,8 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
+import { loadAccess } from "@/lib/access";
+import { homeFor } from "@/lib/persona";
+import { allowedPersonasFor } from "@/lib/route-policy";
 
 const AUTH_PATHS = ["/login", "/signup", "/business-rules"];
 
@@ -62,6 +65,15 @@ export async function updateSession(request: NextRequest) {
 
   if (pathname === "/" || pathname === "/login" || pathname === "/signup") {
     return redirectTo("/dashboard");
+  }
+
+  // Each kind of account only gets its own part of the portal.
+  const allowed = allowedPersonasFor(pathname);
+  if (allowed) {
+    const access = await loadAccess(supabase, user.id);
+    if (!access.personas.some((p) => allowed.includes(p))) {
+      return redirectTo(homeFor(access.personas));
+    }
   }
 
   return supabaseResponse;
