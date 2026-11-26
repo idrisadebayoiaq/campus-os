@@ -12,6 +12,7 @@ export type Persona =
   | "lecturer"
   | "school"
   | "admin"
+  | "support"
   | "applicant";
 
 export type AccessInfo = {
@@ -39,12 +40,14 @@ export const PERSONA_LABEL: Record<Persona, string> = {
   lecturer: "Lecturer",
   school: "School authority",
   admin: "Admin",
+  support: "Support team",
   applicant: "New account",
 };
 
 export function personasFor(info: AccessInfo): Persona[] {
   const out: Persona[] = [];
   if (info.roles.includes("admin") || info.roles.includes("moderator")) out.push("admin");
+  if (info.roles.includes("support")) out.push("support");
   for (const type of info.businessTypes) {
     const p = TYPE_TO_PERSONA[type];
     if (p && !out.includes(p)) out.push(p);
@@ -65,10 +68,22 @@ export function hasBusiness(personas: Persona[]) {
 
 /** Staff with no other kind of account get the admin-only experience. */
 export function isAdminOnly(personas: Persona[]) {
-  return personas.includes("admin") && personas.every((p) => p === "admin" || p === "applicant");
+  return (
+    personas.includes("admin") &&
+    personas.every((p) => p === "admin" || p === "support" || p === "applicant")
+  );
+}
+
+/** Support agents with no other kind of account only get the Support desk. */
+export function isSupportOnly(personas: Persona[]) {
+  return (
+    personas.includes("support") &&
+    personas.every((p) => p === "support" || p === "applicant")
+  );
 }
 
 export function homeFor(personas: Persona[]) {
+  if (isSupportOnly(personas)) return "/support-desk";
   return isAdminOnly(personas) ? "/admin" : "/dashboard";
 }
 

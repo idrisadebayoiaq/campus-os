@@ -7,6 +7,7 @@ const BUSINESS: Persona[] = ["housing", "restaurant", "service", "seller"];
  * First matching prefix wins, so keep the most specific ones first.
  */
 const POLICY: { prefix: string; allow: Persona[] }[] = [
+  { prefix: "/support-desk", allow: ["support", "admin"] },
   { prefix: "/admin", allow: ["admin"] },
   { prefix: "/school", allow: ["school", "admin"] },
   { prefix: "/classes", allow: ["lecturer"] },

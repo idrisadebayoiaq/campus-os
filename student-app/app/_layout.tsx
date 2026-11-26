@@ -57,6 +57,8 @@ function RootNavigator() {
         <Stack.Screen name="explore" options={{ headerShown: false }} />
         <Stack.Screen name="settings" options={{ headerShown: false }} />
         <Stack.Screen name="support" options={{ headerShown: false }} />
+        <Stack.Screen name="support-assistant" options={{ headerShown: false }} />
+        <Stack.Screen name="support-new" options={{ headerShown: false }} />
         <Stack.Screen name="notifications" options={{ headerShown: false }} />
         <Stack.Screen name="housing-preferences" options={{ headerShown: false }} />
         <Stack.Screen name="change-password" options={{ headerShown: false }} />

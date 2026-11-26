@@ -47,7 +47,7 @@ export async function loadBusinessConversations(
       : part.conversations;
     if (!conv?.id) continue;
     // Business inbox focuses on listing/order (and any chat they're in)
-    if (!["listing", "order", "direct", "support"].includes(conv.kind)) continue;
+    if (!["listing", "order", "direct"].includes(conv.kind)) continue;
     convIds.push(conv.id);
     meta.push({
       id: conv.id,

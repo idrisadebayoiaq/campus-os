@@ -10,6 +10,7 @@ import {
   hasBusiness,
   isAdminOnly,
   isBusinessPersona,
+  isSupportOnly,
   pendingBusinessPersonas,
   type Persona,
 } from "@/lib/persona";
@@ -51,6 +52,7 @@ const HEADLINE: Record<Persona, { title: string; body: string }> = {
     body: "Verify students, manage departments and approve lecturers.",
   },
   admin: { title: "Admin", body: "Platform administration." },
+  support: { title: "Support desk", body: "Answer support requests from students and businesses." },
   applicant: {
     title: "Welcome to CampusOS",
     body: "Tell us what you do on campus and we'll set up the right tools for you.",
@@ -66,6 +68,7 @@ export default async function DashboardPage() {
 
   const access = await loadAccess(supabase, user.id);
   const { personas } = access;
+  if (isSupportOnly(personas)) redirect("/support-desk");
   if (isAdminOnly(personas)) redirect("/admin");
 
   const primary = personas.find((p) => p !== "admin") ?? personas[0];
@@ -299,6 +302,23 @@ export default async function DashboardPage() {
           </div>
         </section>
       ) : null}
+
+      <section className="flex flex-col gap-4 rounded-2xl border border-border bg-surface p-5 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-start gap-3">
+          <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-accent-soft">
+            <NavIcon name="support" />
+          </span>
+          <div>
+            <p className="font-medium">Need help?</p>
+            <p className="mt-1 text-sm text-muted">
+              Get an instant answer from the CampusOS Assistant, or chat with the support team.
+            </p>
+          </div>
+        </div>
+        <ButtonLink href="/support" variant="secondary">
+          Help & support
+        </ButtonLink>
+      </section>
 
       <div className="flex flex-wrap gap-3">
         <SignOutButton />

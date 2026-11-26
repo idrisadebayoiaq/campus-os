@@ -5,7 +5,8 @@ export type PortalRole =
   | "moderator"
   | "admin"
   | "lecturer"
-  | "school_admin";
+  | "school_admin"
+  | "support";
 
 export function isStaff(roles: string[]) {
   return roles.includes("admin") || roles.includes("moderator");

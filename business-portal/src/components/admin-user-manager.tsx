@@ -12,7 +12,7 @@ export type AdminUserRow = {
   roles: string[];
 };
 
-const ASSIGNABLE = ["admin", "moderator", "provider", "vendor", "lecturer", "school_admin"] as const;
+const ASSIGNABLE = ["admin", "moderator", "support", "provider", "vendor", "lecturer", "school_admin"] as const;
 
 export function AdminUserManager({
   users,

@@ -23,6 +23,7 @@ import {
   type ChatMessage,
 } from "@/src/lib/messaging";
 import { speakText } from "@/src/lib/speech";
+import { TICKET_STATUS_LABEL, type SupportTicketInfo } from "@/src/lib/support";
 import { supabase } from "@/src/lib/supabase";
 import { useTheme } from "@/src/theme/ThemeProvider";
 import { radii } from "@/src/theme/tokens";
@@ -71,6 +72,8 @@ export default function ChatThreadScreen() {
   const [aiThinking, setAiThinking] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [aiAvatar, setAiAvatar] = useState<string | null>(null);
+  const [ticket, setTicket] = useState<SupportTicketInfo | null>(null);
+  const [rated, setRated] = useState(false);
 
   const isAi = kind === "ai";
   const isSupport = kind === "support";
@@ -107,6 +110,18 @@ export default function ChatThreadScreen() {
             ? "CampusOS team · usually replies within a day"
             : kindLabel(conv.kind),
       );
+      if (conv.kind === "support") {
+        const { data: t } = await supabase
+          .from("support_tickets")
+          .select("id, number, status, rating")
+          .eq("conversation_id", id)
+          .maybeSingle();
+        if (t) {
+          const info = t as SupportTicketInfo;
+          setTicket(info);
+          setSubtitle(`Ticket #${info.number} · ${TICKET_STATUS_LABEL[info.status] ?? info.status}`);
+        }
+      }
       if (conv.kind === "ai") {
         const { data: ai } = await supabase
           .from("ai_companion_profiles")
@@ -415,6 +430,33 @@ export default function ChatThreadScreen() {
           }
         />
 
+        {ticket?.status === "resolved" && !ticket.rating && !rated ? (
+          <View style={[styles.rateBar, { backgroundColor: colors.surface, borderTopColor: colors.border }]}>
+            <AppText size={13} weight="600">
+              Ticket resolved — how did we do?
+            </AppText>
+            <View style={{ flexDirection: "row", gap: 6 }}>
+              {[1, 2, 3, 4, 5].map((n) => (
+                <Pressable
+                  key={n}
+                  hitSlop={6}
+                  accessibilityLabel={`${n} star${n > 1 ? "s" : ""}`}
+                  onPress={() => {
+                    setRated(true);
+                    void supabase.rpc("rate_support_ticket", { p_ticket: ticket.id, p_rating: n });
+                  }}
+                >
+                  <Ionicons name="star-outline" size={26} color={colors.accent} />
+                </Pressable>
+              ))}
+            </View>
+          </View>
+        ) : rated ? (
+          <AppText muted size={12} style={{ textAlign: "center", paddingVertical: 8 }}>
+            Thanks for rating the support team.
+          </AppText>
+        ) : null}
+
         <View
           style={[
             styles.composer,
@@ -481,6 +523,15 @@ const styles = StyleSheet.create({
     flex: 1,
     flexDirection: "row",
     alignItems: "center",
+    gap: 10,
+  },
+  rateBar: {
+    borderTopWidth: StyleSheet.hairlineWidth,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     gap: 10,
   },
   supportBadge: {

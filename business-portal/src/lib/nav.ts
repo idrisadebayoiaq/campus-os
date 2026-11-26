@@ -1,4 +1,4 @@
-import { isAdminOnly, type Persona } from "@/lib/persona";
+import { isAdminOnly, isSupportOnly, type Persona } from "@/lib/persona";
 
 export type NavItem = {
   href: string;
@@ -10,6 +10,12 @@ export type NavItem = {
 const HOME: NavItem = { href: "/dashboard", label: "Overview", icon: "home", group: "Workspace" };
 const MESSAGES: NavItem = { href: "/inbox", label: "Messages", icon: "inbox", group: "Workspace" };
 const BILLING: NavItem = { href: "/billing", label: "Billing", icon: "budget", group: "Workspace" };
+const HELP: NavItem = { href: "/support", label: "Help & support", icon: "support", group: "Help" };
+
+const DESK_NAV: NavItem[] = [
+  { href: "/support-desk", label: "Tickets", icon: "tickets", group: "Support desk" },
+  { href: "/support-desk/knowledge", label: "Assistant knowledge", icon: "guides", group: "Support desk" },
+];
 
 const ADMIN_NAV: NavItem[] = [
   { href: "/admin", label: "Overview", icon: "home", group: "Admin" },
@@ -21,6 +27,8 @@ const ADMIN_NAV: NavItem[] = [
   { href: "/admin/reports", label: "Reports", icon: "bell", group: "Moderation" },
   { href: "/admin/schools", label: "Schools", icon: "school", group: "Platform" },
   { href: "/inbox", label: "Inbox", icon: "inbox", group: "Platform" },
+  ...DESK_NAV,
+  { href: "/admin/support-team", label: "Support team", icon: "groups", group: "Support desk" },
 ];
 
 const NAV_BY_PERSONA: Record<Exclude<Persona, "admin">, NavItem[]> = {
@@ -30,6 +38,7 @@ const NAV_BY_PERSONA: Record<Exclude<Persona, "admin">, NavItem[]> = {
     { href: "/listings/inspections", label: "Inspections", icon: "timetable", group: "Housing" },
     MESSAGES,
     BILLING,
+    HELP,
   ],
   restaurant: [
     HOME,
@@ -37,24 +46,28 @@ const NAV_BY_PERSONA: Record<Exclude<Persona, "admin">, NavItem[]> = {
     { href: "/listings/orders", label: "Orders", icon: "assignments", group: "Restaurant" },
     MESSAGES,
     BILLING,
+    HELP,
   ],
   service: [
     HOME,
     { href: "/listings", label: "My listings", icon: "market", group: "Services" },
     MESSAGES,
     BILLING,
+    HELP,
   ],
   seller: [
     HOME,
     { href: "/listings", label: "My listings", icon: "market", group: "Marketplace" },
     MESSAGES,
     BILLING,
+    HELP,
   ],
   lecturer: [
     HOME,
     { href: "/classes", label: "Classes", icon: "courses", group: "Teaching" },
     { href: "/announcements", label: "Announcements", icon: "bell", group: "Teaching" },
     MESSAGES,
+    HELP,
   ],
   school: [
     HOME,
@@ -63,15 +76,19 @@ const NAV_BY_PERSONA: Record<Exclude<Persona, "admin">, NavItem[]> = {
     { href: "/school/lecturers", label: "Lecturers", icon: "groups", group: "School" },
     { href: "/school/announcements", label: "School news", icon: "bell", group: "School" },
     MESSAGES,
+    HELP,
   ],
+  support: DESK_NAV,
   applicant: [
     HOME,
     { href: "/apply", label: "Apply", icon: "assignments", group: "Workspace" },
+    HELP,
   ],
 };
 
 /** Sidebar for the account's kind(s). Only that kind's own tools appear. */
 export function navForPersonas(personas: Persona[]): NavItem[] {
+  if (isSupportOnly(personas)) return DESK_NAV;
   if (isAdminOnly(personas)) return ADMIN_NAV;
 
   const items: NavItem[] = [];
@@ -109,7 +126,9 @@ export function groupNav(items: NavItem[]) {
 
 /** Quick links on the dashboard (everything except Overview). */
 export function dashboardLinks(personas: Persona[]) {
-  return navForPersonas(personas).filter((i) => i.href !== "/dashboard" && i.href !== "/admin");
+  return navForPersonas(personas).filter(
+    (i) => i.href !== "/dashboard" && i.href !== "/admin" && i.href !== "/support",
+  );
 }
 
 export function displayNameFromProfile(input: {

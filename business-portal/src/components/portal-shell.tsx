@@ -80,11 +80,17 @@ export function PortalShell({
     );
   }
 
-  const isActive = (href: string) =>
+  const navItems = navForPersonas(user.personas);
+  const matches = (href: string) =>
     pathname === href ||
-    (href !== "/dashboard" && href !== "/admin" && pathname.startsWith(href));
+    (href !== "/dashboard" && href !== "/admin" && pathname.startsWith(`${href}/`));
+  const activeHref = navItems
+    .map((item) => item.href)
+    .filter(matches)
+    .sort((a, b) => b.length - a.length)[0];
+  const isActive = (href: string) => href === activeHref;
 
-  const navGroups = groupNav(navForPersonas(user.personas));
+  const navGroups = groupNav(navItems);
   const home = homeFor(user.personas);
   const personaLabel = user.personas.map((p) => PERSONA_LABEL[p]).join(" · ");
 

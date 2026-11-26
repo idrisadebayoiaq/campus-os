@@ -3,7 +3,8 @@ import { Link, router } from "expo-router";
 import { useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { AuthShell } from "@/src/components/auth-shell";
-import { LocationField, LocationPicker, type PickedLocation } from "@/src/components/location-picker";
+import type { PickedLocation } from "@/src/components/location-picker";
+import { LocationSearch } from "@/src/components/location-search";
 import {
   AppText,
   Button,
@@ -28,7 +29,6 @@ export default function SignupScreen() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [location, setLocation] = useState<PickedLocation | null>(null);
-  const [picking, setPicking] = useState(false);
   const [terms, setTerms] = useState(false);
   const [marketing, setMarketing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -186,25 +186,18 @@ export default function SignupScreen() {
         </AppText>
       </Pressable>
 
-      {location ? (
-        <Field label="Your location">
-          <LocationField value={location.label} onPress={() => setPicking(true)} />
-        </Field>
-      ) : (
-        <View style={[styles.locCard, { backgroundColor: colors.surface }]}>
-          <View style={[styles.locIcon, { backgroundColor: colors.accentSoft }]}>
-            <Ionicons name="navigate" size={22} color={colors.fg} />
-          </View>
-          <AppText size={16} weight="700">
-            Use your location
-          </AppText>
-          <AppText size={14} muted style={{ lineHeight: 20 }}>
-            We&apos;ll ask for permission to find you on the map. You can move the
-            pin or search for your street, hostel or area.
-          </AppText>
-          <Button title="Allow & choose on map" onPress={() => setPicking(true)} />
-        </View>
-      )}
+      <Field
+        label="Your location"
+        hint="Search and tap your area, street or hostel, or use your current location."
+      >
+        <LocationSearch
+          value={location}
+          onChange={(place) => {
+            setLocation(place);
+            if (place) setError(null);
+          }}
+        />
+      </Field>
 
       <View style={[styles.consent, { borderColor: colors.border }]}>
         <Checkbox checked={terms} onChange={setTerms}>
@@ -248,18 +241,6 @@ export default function SignupScreen() {
         loading={loading}
         disabled={!terms || !location}
       />
-
-      <LocationPicker
-        visible={picking}
-        title="Your location"
-        initial={location}
-        onClose={() => setPicking(false)}
-        onConfirm={(place) => {
-          setLocation(place);
-          setPicking(false);
-          setError(null);
-        }}
-      />
     </AuthShell>
   );
 }
@@ -286,13 +267,5 @@ const styles = StyleSheet.create({
   rule: { flexDirection: "row", alignItems: "center", gap: 8 },
   banner: { borderRadius: radii.sm, borderWidth: 1, padding: 12 },
   backLink: { flexDirection: "row", alignItems: "center", gap: 6, alignSelf: "flex-start" },
-  locCard: { borderRadius: radii.lg, padding: 20, gap: 10 },
-  locIcon: {
-    width: 46,
-    height: 46,
-    borderRadius: 23,
-    alignItems: "center",
-    justifyContent: "center",
-  },
   consent: { borderWidth: 1, borderRadius: radii.md, padding: 16, gap: 14 },
 });

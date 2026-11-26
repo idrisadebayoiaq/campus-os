@@ -100,7 +100,7 @@ export function SignupForm({
   intent = "business",
   redirectTo = "/dashboard",
 }: {
-  intent?: "business" | "lecturer" | "school";
+  intent?: "business" | "lecturer" | "school" | "support";
   redirectTo?: string;
 } = {}) {
   const router = useRouter();
@@ -161,7 +161,7 @@ export function SignupForm({
           name="full_name"
           required
           autoComplete="name"
-          placeholder="Business owner name"
+          placeholder={intent === "business" ? "Business owner name" : "Your full name"}
         />
       </Field>
       <Field label="Work email">

@@ -6,7 +6,8 @@ export type ConversationKind =
   | "listing"
   | "order"
   | "group"
-  | "ai";
+  | "ai"
+  | "assistant";
 
 export type MessageType = "text" | "audio" | "system" | "image";
 
@@ -62,7 +63,7 @@ export const INBOX_FILTERS = [
 ] as const;
 
 /** AI tutor and support have their own screens and never appear in Chats. */
-export const STANDALONE_KINDS = new Set(["ai", "support"]);
+export const STANDALONE_KINDS = new Set(["ai", "support", "assistant"]);
 
 export function conversationTitle(input: {
   kind: string;
@@ -107,57 +108,6 @@ export function previewForMessage(msg: {
   if (msg.message_type === "image") return "Photo";
   if (msg.message_type === "system") return msg.body || "Update";
   return msg.body || null;
-}
-
-export async function ensureSupportConversation(
-  supabase: SupabaseClient,
-  userId: string,
-) {
-  const { data: parts } = await supabase
-    .from("conversation_participants")
-    .select("conversation_id")
-    .eq("user_id", userId);
-
-  const ids = (parts || []).map((p) => p.conversation_id as string);
-  if (ids.length) {
-    const { data: support } = await supabase
-      .from("conversations")
-      .select("id")
-      .in("id", ids)
-      .eq("kind", "support")
-      .limit(1)
-      .maybeSingle();
-    if (support?.id) return support.id as string;
-  }
-
-  const { data: conversation, error } = await supabase
-    .from("conversations")
-    .insert({
-      kind: "support",
-      subject: "CampusOS Support",
-      created_by: userId,
-    })
-    .select("id")
-    .single();
-  if (error || !conversation) {
-    throw error || new Error("Could not create support chat");
-  }
-
-  await supabase.from("conversation_participants").insert({
-    conversation_id: conversation.id,
-    user_id: userId,
-    role: "member",
-    last_read_at: new Date().toISOString(),
-  });
-
-  await supabase.from("messages").insert({
-    conversation_id: conversation.id,
-    sender_id: null,
-    message_type: "system",
-    body: "Hi, this is CampusOS Support. Tell us what you need help with and our team will reply here.",
-  });
-
-  return conversation.id as string;
 }
 
 export async function ensureAiConversation(
