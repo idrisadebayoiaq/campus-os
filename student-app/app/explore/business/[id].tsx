@@ -27,6 +27,7 @@ import {
 import { businessTypeLabel } from "@/src/lib/market-discovery";
 import { startBusinessChat } from "@/src/lib/messaging";
 import { supabase } from "@/src/lib/supabase";
+import { PremiumBadge } from "@/src/components/premium-badge";
 import {
   levelLabel,
   loadBizMeta,
@@ -373,6 +374,7 @@ export default function BusinessDetailScreen() {
           </View>
 
           <View style={styles.badgeRow}>
+            {meta?.premium ? <PremiumBadge style={{ paddingVertical: 4, paddingHorizontal: 10 }} /> : null}
             {isFood ? (
               <View style={[styles.pill, { backgroundColor: closed ? colors.danger : colors.success }]}>
                 <AppText size={11} weight="700" style={{ color: "#fff" }}>

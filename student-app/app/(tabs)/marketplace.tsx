@@ -33,6 +33,7 @@ import {
   type MarketplaceChip,
 } from "@/src/lib/market-discovery";
 import { supabase } from "@/src/lib/supabase";
+import { PremiumBadge } from "@/src/components/premium-badge";
 import { levelLabel, loadBizMeta, loadFeatured, metaLine, type BizMeta } from "@/src/lib/trust";
 import { useTheme } from "@/src/theme/ThemeProvider";
 import { radii } from "@/src/theme/tokens";
@@ -164,7 +165,8 @@ export default function MarketHubScreen() {
       if (onlyVerified && (!m || m.level === "basic")) return false;
       return true;
     });
-    const rank = (b: BusinessRow) => (featured.has(`business:${b.id}`) ? 0 : 1) + (meta[b.id]?.open === false ? 2 : 0);
+    const rank = (b: BusinessRow) =>
+      (featured.has(`business:${b.id}`) ? 0 : meta[b.id]?.premium ? 1 : 2) + (meta[b.id]?.open === false ? 3 : 0);
     return [...base].sort((a, b) => rank(a) - rank(b));
   }, [businesses, bizChip, query, meta, featured, onlyApproved, onlyVerified]);
 
@@ -334,6 +336,7 @@ export default function MarketHubScreen() {
                   <AppText weight="700" size={15} numberOfLines={1} style={{ flexShrink: 1 }}>
                     {item.display_name}
                   </AppText>
+                  {meta[item.id]?.premium ? <PremiumBadge /> : null}
                   {featured.has(`business:${item.id}`) ? (
                     <View style={[styles.tag, { backgroundColor: colors.accentSoft }]}>
                       <AppText size={10} weight="700">

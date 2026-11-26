@@ -24,6 +24,7 @@ import { useAuth } from "@/src/lib/auth";
 import { formatNaira, unitTotal } from "@/src/lib/campus";
 import { startHousingChat } from "@/src/lib/messaging";
 import { supabase } from "@/src/lib/supabase";
+import { PremiumBadge } from "@/src/components/premium-badge";
 import { levelLabel, loadBizMeta, metaLine, trackEvent, type BizMeta } from "@/src/lib/trust";
 import {
   isStudentVerified,
@@ -448,9 +449,12 @@ export default function HousingDetailScreen() {
         >
           <View style={styles.titleRow}>
             <View style={{ flex: 1, gap: 4, paddingRight: 8 }}>
-              <AppText size={22} weight="700">
-                {property?.title || unit.title}
-              </AppText>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                <AppText size={22} weight="700">
+                  {property?.title || unit.title}
+                </AppText>
+                {bizMeta?.premium ? <PremiumBadge /> : null}
+              </View>
               {bizMeta && (metaLine(bizMeta) || levelLabel(bizMeta.level) || bizMeta.endorsed) ? (
                 <AppText size={12} weight="600">
                   {[metaLine(bizMeta), levelLabel(bizMeta.level), bizMeta.endorsed ? "School-approved" : null].filter(Boolean).join(" · ")}

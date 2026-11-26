@@ -17,6 +17,8 @@ import { formatNaira } from "@/src/lib/campus";
 import { startBusinessChat, startDirectChat } from "@/src/lib/messaging";
 import { distanceKm, formatDistance, loadSavedLocation } from "@/src/lib/location";
 import { supabase } from "@/src/lib/supabase";
+import { PremiumBadge } from "@/src/components/premium-badge";
+import { loadPremiumIds } from "@/src/lib/premium";
 import { levelLabel, loadBizMeta, metaLine, trackEvent, type BizMeta } from "@/src/lib/trust";
 import {
   isStudentVerified,
@@ -54,6 +56,7 @@ export default function MarketplaceDetailScreen() {
   const [status, setStatus] = useState<string | null>(null);
   const [pickup, setPickup] = useState<string | null>(null);
   const [bizMeta, setBizMeta] = useState<BizMeta | null>(null);
+  const [sellerPremium, setSellerPremium] = useState(false);
 
   useEffect(() => {
     if (id && user) trackEvent(supabase, user.id, "view", "marketplace_listing", id);
@@ -112,6 +115,9 @@ export default function MarketplaceDetailScreen() {
           .maybeSingle();
         if (biz?.display_name) setSellerName(biz.display_name);
       } else if (data.seller_user_id) {
+        void loadPremiumIds(supabase, [data.seller_user_id]).then((s) => {
+          if (!cancelled) setSellerPremium(s.has(data.seller_user_id));
+        });
         const { data: prof } = await supabase
           .from("profiles")
           .select("preferred_name, first_name, full_name")
@@ -309,11 +315,14 @@ export default function MarketplaceDetailScreen() {
               </View>
             ) : null}
           </View>
-          <AppText muted size={13}>
-            {sellerName}
-            {bizMeta && levelLabel(bizMeta.level) ? ` · ${levelLabel(bizMeta.level)}` : ""}
-            {bizMeta?.endorsed ? " · School-approved" : ""}
-          </AppText>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+            <AppText muted size={13}>
+              {sellerName}
+              {bizMeta && levelLabel(bizMeta.level) ? ` · ${levelLabel(bizMeta.level)}` : ""}
+              {bizMeta?.endorsed ? " · School-approved" : ""}
+            </AppText>
+            {bizMeta?.premium || sellerPremium ? <PremiumBadge /> : null}
+          </View>
           {bizMeta && metaLine(bizMeta) ? (
             <AppText size={12} weight="600">
               {metaLine(bizMeta)}

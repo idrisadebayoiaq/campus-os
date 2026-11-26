@@ -234,8 +234,8 @@ export default async function ListingsPage() {
               </ButtonLink>
             </>
           ) : null}
-          <ButtonLink href="/billing" variant="ghost">
-            Billing
+          <ButtonLink href="/payouts" variant="ghost">
+            Payouts
           </ButtonLink>
         </section>
       </div>

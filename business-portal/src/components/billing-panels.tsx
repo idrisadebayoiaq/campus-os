@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { Button, Input } from "@/components/ui";
@@ -408,71 +409,6 @@ export function VerificationPanel({
   );
 }
 
-export type PlanState = { active: boolean; endsAt: string | null };
-
-export function PlanPanel({
-  businessId,
-  plan,
-  price,
-  balance,
-}: {
-  businessId: string;
-  plan: PlanState;
-  price: number;
-  balance: number;
-}) {
-  const router = useRouter();
-  const [busy, setBusy] = useState(false);
-  const [message, setMessage] = useState<string | null>(null);
-
-  async function fromBalance() {
-    setBusy(true);
-    setMessage(null);
-    const supabase = createClient();
-    const { error } = await supabase.rpc("pay_business_plan_from_balance", { p_business: businessId });
-    setBusy(false);
-    setMessage(error ? error.message : "Plan paid. Thank you.");
-    router.refresh();
-  }
-
-  async function byCard() {
-    setBusy(true);
-    setMessage(null);
-    const res = await callPaystack({ action: "init-plan", business_id: businessId, callback_url: `${window.location.origin}/billing` });
-    setBusy(false);
-    if (!res.ok) {
-      setMessage(res.message);
-      return;
-    }
-    window.location.href = String(res.data.authorization_url);
-  }
-
-  return (
-    <div className="space-y-3 text-sm">
-      <p>
-        {plan.active ? (
-          <>
-            Plan active until <span className="font-medium">{plan.endsAt ? new Date(plan.endsAt).toLocaleDateString() : "further notice"}</span>.
-          </>
-        ) : (
-          <span className="text-muted">No active plan.</span>
-        )}{" "}
-        <span className="text-muted">₦{price.toLocaleString()} per month.</span>
-      </p>
-      <div className="flex flex-wrap gap-2">
-        <Button type="button" disabled={busy || balance < price} onClick={() => void fromBalance()}>
-          {plan.active ? "Extend" : "Pay"} from balance
-        </Button>
-        <Button type="button" variant="secondary" disabled={busy} onClick={() => void byCard()}>
-          Pay by card
-        </Button>
-      </div>
-      {balance < price ? <p className="text-muted">Your balance (₦{balance.toLocaleString()}) is below the plan price, so use a card.</p> : null}
-      {message ? <p className="text-muted">{message}</p> : null}
-    </div>
-  );
-}
-
 export type RequestRow = {
   id: string;
   student: string;
@@ -499,12 +435,14 @@ export function PaymentRequestsPanel({
   tenancies,
   isOwner,
   housing,
+  locked = false,
 }: {
   businessId: string;
   requests: RequestRow[];
   tenancies: TenancyOption[];
   isOwner: boolean;
   housing: boolean;
+  locked?: boolean;
 }) {
   const router = useRouter();
   const [busy, setBusy] = useState<string | null>(null);
@@ -541,10 +479,23 @@ export function PaymentRequestsPanel({
 
   return (
     <div className="space-y-4">
+      {locked ? (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-amber-500/40 bg-amber-500/10 p-4 text-sm">
+          <p>
+            <span className="font-semibold">Premium Business is needed to send payment requests.</span>{" "}
+            <span className="text-muted">Requests you already sent can still be paid.</span>
+          </p>
+          <Link href="/plan" className="inline-flex h-10 items-center rounded-full bg-accent px-5 text-sm font-medium text-on-accent">
+            See the plan
+          </Link>
+        </div>
+      ) : null}
       <form
-        className="grid gap-3 sm:grid-cols-2"
+        className={`grid gap-3 sm:grid-cols-2 ${locked ? "pointer-events-none opacity-50" : ""}`}
+        aria-disabled={locked}
         onSubmit={(e) => {
           e.preventDefault();
+          if (locked) return;
           void create(new FormData(e.currentTarget));
         }}
       >

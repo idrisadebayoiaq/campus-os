@@ -8,6 +8,7 @@ import {
   Screen,
   TAB_BAR_CLEARANCE,
 } from "@/src/components/ui";
+import { PremiumBadge } from "@/src/components/premium-badge";
 import { useAuth } from "@/src/lib/auth";
 import { getStudentCampus, type StudentCampus } from "@/src/lib/campus";
 import { supabase } from "@/src/lib/supabase";
@@ -33,6 +34,7 @@ const MENU: MenuRow[] = [
   { title: "Edit Profile", icon: "person-outline", href: "/profile-edit" },
   { title: "Verify student ID", icon: "shield-checkmark-outline", href: "/verify" },
   { title: "My wallet", icon: "wallet-outline", href: "/wallet" },
+  { title: "Premium", icon: "diamond-outline", href: "/premium" },
   { title: "My orders", icon: "fast-food-outline", href: "/orders" },
   { title: "My room & rent", icon: "key-outline", href: "/my-room" },
   { title: "Rate & review", icon: "star-outline", href: "/review" },
@@ -55,6 +57,7 @@ export default function ProfileScreen() {
     verification: "",
   });
   const [premiumDismissed, setPremiumDismissed] = useState(false);
+  const [isPremium, setIsPremium] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
 
   useFocusEffect(
@@ -110,6 +113,8 @@ export default function ProfileScreen() {
             : String(s?.verification_level || "unverified"),
         });
         setCampus(campusRow);
+        const { data: ps } = await supabase.rpc("my_premium_state");
+        if (!cancelled) setIsPremium(Boolean((ps as { active?: boolean } | null)?.active));
       }
       void load();
       return () => {
@@ -171,9 +176,12 @@ export default function ProfileScreen() {
               <Ionicons name="camera" size={14} color={colors.inverseFg} />
             </View>
           </Pressable>
-          <AppText size={22} weight="700" style={{ marginTop: 14 }}>
-            {bits.displayName}
-          </AppText>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginTop: 14 }}>
+            <AppText size={22} weight="700">
+              {bits.displayName}
+            </AppText>
+            {isPremium ? <PremiumBadge /> : null}
+          </View>
           {user?.email ? (
             <AppText muted size={13} style={{ marginTop: 4 }}>
               {user.email}
@@ -199,8 +207,8 @@ export default function ProfileScreen() {
           ) : null}
         </View>
 
-        {!premiumDismissed ? (
-          <View style={[styles.premium, { backgroundColor: colors.heroBg }]}>
+        {!premiumDismissed && !isPremium ? (
+          <Pressable onPress={() => router.push("/premium")} style={[styles.premium, { backgroundColor: colors.heroBg }]}>
             <Pressable
               onPress={() => setPremiumDismissed(true)}
               style={styles.premiumClose}
@@ -222,11 +230,11 @@ export default function ProfileScreen() {
                   Go Premium
                 </AppText>
                 <AppText size={12} style={{ color: colors.heroMuted }}>
-                  Unlock deeper AI study help and priority housing alerts.
+                  Premium badge, higher AI tutor limits, lower selling fee and priority support.
                 </AppText>
               </View>
             </View>
-          </View>
+          </Pressable>
         ) : null}
 
         <AppText size={16} weight="700" style={{ marginTop: 8, marginBottom: 10 }}>

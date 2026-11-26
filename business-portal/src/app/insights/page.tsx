@@ -134,10 +134,16 @@ export default async function InsightsPage({ searchParams }: { searchParams: Pro
   }
 
   const results = await Promise.all(
-    businesses.map(async (b) => ({
-      business: b,
-      data: (await supabase.rpc("business_insights", { p_business: b.id, p_days: days })).data as Insights | null,
-    })),
+    businesses.map(async (b) => {
+      const { data: plan } = await supabase.rpc("business_plan_state", { p_business: b.id });
+      const p = plan as { active?: boolean; in_grace?: boolean } | null;
+      const unlocked = Boolean(p?.active || p?.in_grace);
+      return {
+        business: b,
+        unlocked,
+        data: unlocked ? ((await supabase.rpc("business_insights", { p_business: b.id, p_days: days })).data as Insights | null) : null,
+      };
+    }),
   );
 
   return (
@@ -155,7 +161,19 @@ export default async function InsightsPage({ searchParams }: { searchParams: Pro
             </Link>
           ))}
         </div>
-        {results.map(({ business, data }) => (data ? <Section key={business.id} business={business} i={data} /> : null))}
+        {results.map(({ business, data, unlocked }) =>
+            !unlocked ? (
+              <section key={business.id} className="space-y-3 rounded-3xl border border-border p-6">
+                <h2 className="text-lg font-medium">{business.display_name}</h2>
+                <p className="text-sm text-muted">Insights are part of Premium Business. See views, saves, chats, orders and revenue for your listings.</p>
+                <Link href="/plan" className="inline-flex h-10 items-center rounded-full bg-accent px-5 text-sm font-medium text-on-accent">
+                  See the plan
+                </Link>
+              </section>
+            ) : data ? (
+              <Section key={business.id} business={business} i={data} />
+            ) : null,
+          )}
       </div>
     </Container>
   );

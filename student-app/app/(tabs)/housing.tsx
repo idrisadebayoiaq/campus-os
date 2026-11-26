@@ -32,6 +32,7 @@ import {
   type SavedLocation,
 } from "@/src/lib/location";
 import { supabase } from "@/src/lib/supabase";
+import { PremiumBadge } from "@/src/components/premium-badge";
 import { levelLabel, loadBizMeta, loadFeatured, metaLine, trackEvent, type BizMeta } from "@/src/lib/trust";
 import { useTheme } from "@/src/theme/ThemeProvider";
 import { radii } from "@/src/theme/tokens";
@@ -276,7 +277,7 @@ export default function HousingScreen() {
         areaName(unit.properties).toLowerCase().includes(q);
       return matchesType && matchesQuery;
     });
-    const isFeat = (u: HousingUnit) => (featured.has(`property_unit:${u.id}`) ? 0 : 1);
+    const isFeat = (u: HousingUnit) => (featured.has(`property_unit:${u.id}`) ? 0 : metaOf(u)?.premium ? 1 : 2);
     return [...list].sort(
       (a, b) =>
         isFeat(a) - isFeat(b) ||
@@ -430,10 +431,15 @@ export default function HousingScreen() {
                     const line = [metaLine(m), m ? levelLabel(m.level) : null, m?.endorsed ? "School-approved" : null]
                       .filter(Boolean)
                       .join(" · ");
-                    return line ? (
-                      <AppText size={11} weight="600" numberOfLines={1}>
-                        {line}
-                      </AppText>
+                    return line || m?.premium ? (
+                      <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                        {m?.premium ? <PremiumBadge /> : null}
+                        {line ? (
+                          <AppText size={11} weight="600" numberOfLines={1} style={{ flexShrink: 1 }}>
+                            {line}
+                          </AppText>
+                        ) : null}
+                      </View>
                     ) : null;
                   })()}
                   <View style={styles.locRow}>

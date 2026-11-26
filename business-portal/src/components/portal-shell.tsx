@@ -7,6 +7,7 @@ import { CampusLogo } from "@/components/campus-logo";
 import { LiveAlerts } from "@/components/live-alerts";
 import { NavIcon } from "@/components/nav-icons";
 import { useTheme } from "@/components/theme-provider";
+import { PremiumBadge } from "@/components/ui";
 import { groupNav, initialsFromName, navForPersonas } from "@/lib/nav";
 import { PERSONA_LABEL, homeFor, type Persona } from "@/lib/persona";
 
@@ -17,6 +18,7 @@ type ShellUser = {
   username: string;
   avatarUrl: string | null;
   personas: Persona[];
+  premium?: boolean;
 };
 
 export function PortalShell({
@@ -164,7 +166,10 @@ export function PortalShell({
           )}
           {!collapsed ? (
             <div className="min-w-0">
-              <p className="truncate text-sm font-medium">{user.displayName}</p>
+              <p className="flex items-center gap-1.5 text-sm font-medium">
+                <span className="truncate">{user.displayName}</span>
+                {user.premium ? <PremiumBadge compact /> : null}
+              </p>
               <p className="truncate text-xs text-muted">My profile · @{user.username}</p>
             </div>
           ) : null}
@@ -251,7 +256,10 @@ export function PortalShell({
               </button>
             ) : null}
             <Link href="/profile" className="min-w-0 hover:opacity-80">
-              <p className="truncate text-sm font-medium">{user.displayName}</p>
+              <p className="flex items-center gap-1.5 text-sm font-medium">
+                <span className="truncate">{user.displayName}</span>
+                {user.premium ? <PremiumBadge /> : null}
+              </p>
               <p className="truncate text-xs text-muted">{personaLabel}</p>
             </Link>
           </div>

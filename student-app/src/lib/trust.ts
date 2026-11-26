@@ -7,9 +7,10 @@ export type BizMeta = {
   level: "basic" | "identity" | "cac";
   endorsed: boolean;
   open: boolean | null;
+  premium: boolean;
 };
 
-const EMPTY: BizMeta = { rating: null, reviews: 0, replyMinutes: null, level: "basic", endorsed: false, open: null };
+const EMPTY: BizMeta = { rating: null, reviews: 0, replyMinutes: null, level: "basic", endorsed: false, open: null, premium: false };
 
 /** Ratings, reply speed, verification level, school approval and open state for a set of businesses. */
 export async function loadBizMeta(
@@ -22,12 +23,16 @@ export async function loadBizMeta(
   for (const id of unique) out[id] = { ...EMPTY };
   if (!unique.length) return out;
 
-  const [ratings, replies, profiles, endorsed] = await Promise.all([
+  const [ratings, replies, profiles, endorsed, premiumRes] = await Promise.all([
     supabase.rpc("business_rating_stats", { p_ids: unique }),
     supabase.rpc("business_reply_stats", { p_ids: unique }),
     supabase.from("business_profiles").select("id, verification_level").in("id", unique),
     supabase.rpc("endorsed_business_ids", { p_ids: unique }),
+    supabase.rpc("premium_ids", { p_ids: unique }),
   ]);
+  for (const id of (Array.isArray(premiumRes.data) ? premiumRes.data : []) as string[]) {
+    if (out[id]) out[id].premium = true;
+  }
 
   for (const r of (ratings.data ?? []) as { business_id: string; avg_rating: number; review_count: number }[]) {
     if (out[r.business_id]) out[r.business_id] = { ...out[r.business_id], rating: Number(r.avg_rating), reviews: r.review_count };

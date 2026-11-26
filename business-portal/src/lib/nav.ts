@@ -9,7 +9,9 @@ export type NavItem = {
 
 const HOME: NavItem = { href: "/dashboard", label: "Overview", icon: "home", group: "Workspace" };
 const MESSAGES: NavItem = { href: "/inbox", label: "Messages", icon: "inbox", group: "Workspace" };
-const BILLING: NavItem = { href: "/billing", label: "Billing", icon: "budget", group: "Workspace" };
+const PLAN: NavItem = { href: "/plan", label: "Plan", icon: "shield", group: "Money" };
+const PAYOUTS: NavItem = { href: "/payouts", label: "Payouts", icon: "budget", group: "Money" };
+const REQUESTS: NavItem = { href: "/requests", label: "Payment requests", icon: "assignments", group: "Money" };
 const TEAM: NavItem = { href: "/team", label: "Team", icon: "groups", group: "Workspace" };
 const INSIGHTS: NavItem = { href: "/insights", label: "Insights", icon: "exams", group: "Workspace" };
 const REVIEWS: NavItem = { href: "/reviews", label: "Reviews", icon: "bell", group: "Workspace" };
@@ -51,7 +53,9 @@ const NAV_BY_PERSONA: Record<Exclude<Persona, "admin">, NavItem[]> = {
     REVIEWS,
     BOOSTS,
     TEAM,
-    BILLING,
+    REQUESTS,
+    PLAN,
+    PAYOUTS,
     HELP,
   ],
   restaurant: [
@@ -65,7 +69,8 @@ const NAV_BY_PERSONA: Record<Exclude<Persona, "admin">, NavItem[]> = {
     REVIEWS,
     BOOSTS,
     TEAM,
-    BILLING,
+    PLAN,
+    PAYOUTS,
     HELP,
   ],
   service: [
@@ -78,7 +83,9 @@ const NAV_BY_PERSONA: Record<Exclude<Persona, "admin">, NavItem[]> = {
     REVIEWS,
     BOOSTS,
     TEAM,
-    BILLING,
+    REQUESTS,
+    PLAN,
+    PAYOUTS,
     HELP,
   ],
   seller: [
@@ -91,7 +98,8 @@ const NAV_BY_PERSONA: Record<Exclude<Persona, "admin">, NavItem[]> = {
     REVIEWS,
     BOOSTS,
     TEAM,
-    BILLING,
+    PLAN,
+    PAYOUTS,
     HELP,
   ],
   lecturer: [

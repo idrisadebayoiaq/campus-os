@@ -2,7 +2,7 @@ import { router } from "expo-router";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ActivityIndicator, AppState, Linking, View } from "react-native";
 import { AppText, Button, EmptyState, Input } from "@/src/components/ui";
-import { ChipRow, Group, Hero, KeyValue, ListRow, Notice, Panel, Pill, Section, PageShell } from "@/src/components/page";
+import { ChipRow, Group, Hero, KeyValue, ListRow, Notice, Panel, Section, PageShell } from "@/src/components/page";
 import { useAuth } from "@/src/lib/auth";
 import { formatNaira } from "@/src/lib/campus";
 import { callPaystack } from "@/src/lib/payments";
@@ -43,7 +43,6 @@ export default function WalletScreen() {
   const [message, setMessage] = useState<string | null>(null);
   const waitUntil = useRef(0);
   const [premium, setPremium] = useState<Premium>({ active: false, endsAt: null, autoRenew: true, price: 1000 });
-  const [premiumBusy, setPremiumBusy] = useState(false);
 
   const load = useCallback(async () => {
     if (!user) return;
@@ -137,21 +136,6 @@ export default function WalletScreen() {
           ? `Your wallet can hold up to ${formatNaira(info.cap)}.`
           : null;
 
-  async function subscribe() {
-    setPremiumBusy(true);
-    const { error } = await supabase.rpc("subscribe_premium");
-    setPremiumBusy(false);
-    if (error) setMessage(error.message);
-    void load();
-  }
-
-  async function toggleRenew() {
-    setPremiumBusy(true);
-    await supabase.rpc("set_premium_auto_renew", { p_on: !premium.autoRenew });
-    setPremiumBusy(false);
-    void load();
-  }
-
   async function topUp() {
     if (problem || busy) return;
     setBusy(true);
@@ -235,39 +219,19 @@ export default function WalletScreen() {
       ) : null}
 
       <Section title="CampusOS Premium">
-        <Panel>
-          <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
-            <View style={{ flex: 1 }}>
-              <AppText weight="700">Premium</AppText>
-              <AppText muted size={13}>
-                {formatNaira(premium.price)} per month, paid from your wallet
-              </AppText>
-            </View>
-            {premium.active ? <Pill label="Active" tone="success" /> : null}
-          </View>
-          {premium.active ? (
-            <>
-              <AppText size={13}>Active until {premium.endsAt ? new Date(premium.endsAt).toLocaleDateString() : ""}.</AppText>
-              <Button
-                compact
-                variant="secondary"
-                title={premium.autoRenew ? "Stop renewing" : "Renew automatically"}
-                onPress={() => void toggleRenew()}
-                loading={premiumBusy}
-              />
-            </>
-          ) : (
-            <Button
-              compact
-              title={balance < premium.price ? `Add ${formatNaira(premium.price)} first` : "Subscribe from wallet"}
-              onPress={() => void subscribe()}
-              disabled={balance < premium.price}
-              loading={premiumBusy}
-            />
-          )}
-        </Panel>
+        <Group>
+          <ListRow
+            icon="diamond-outline"
+            title={premium.active ? "Premium is active" : "Get Premium"}
+            subtitle={
+              premium.active
+                ? `Until ${premium.endsAt ? new Date(premium.endsAt).toLocaleDateString() : ""}`
+                : `${formatNaira(premium.price)} per month · badge, higher AI limits, lower selling fee`
+            }
+            onPress={() => router.push("/premium")}
+          />
+        </Group>
       </Section>
-
       <Section title="More">
         <Group>
           <ListRow icon="bag-handle-outline" title="Purchases & sales" subtitle="Marketplace orders, handovers and disputes" onPress={() => router.push("/market-orders")} />

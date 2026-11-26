@@ -15,7 +15,9 @@ import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { AppText, Avatar } from "@/src/components/ui";
 import { AiAvatar } from "@/src/lib/ai-avatars";
+import { PremiumBadge } from "@/src/components/premium-badge";
 import { useAuth } from "@/src/lib/auth";
+import { loadPremiumIds } from "@/src/lib/premium";
 import { formatNaira } from "@/src/lib/campus";
 import {
   conversationTitle,
@@ -71,6 +73,7 @@ export default function ChatThreadScreen() {
   const [aiAvatar, setAiAvatar] = useState<string | null>(null);
   const [ticket, setTicket] = useState<SupportTicketInfo | null>(null);
   const [rated, setRated] = useState(false);
+  const [peerPremium, setPeerPremium] = useState(false);
   const [listing, setListing] = useState<{ title: string; price: number | null; image: string | null; href: string } | null>(null);
 
   const isAi = kind === "ai";
@@ -136,6 +139,16 @@ export default function ChatThreadScreen() {
           const info = t as SupportTicketInfo;
           setTicket(info);
           setSubtitle(`Ticket #${info.number} · ${TICKET_STATUS_LABEL[info.status] ?? info.status}`);
+        }
+      }
+      if (conv.kind !== "ai" && conv.kind !== "support") {
+        const { data: parts } = await supabase.from("conversation_participants").select("user_id").eq("conversation_id", id);
+        const peers = ((parts ?? []) as { user_id: string }[]).map((p) => p.user_id).filter((p) => p !== user.id);
+        if (peers.length === 1) {
+          const premium = await loadPremiumIds(supabase, peers);
+          setPeerPremium(premium.has(peers[0]));
+        } else {
+          setPeerPremium(false);
         }
       }
       if (conv.kind === "ai") {
@@ -309,9 +322,12 @@ export default function ChatThreadScreen() {
             <Avatar label={title} size={40} />
           )}
           <View style={{ flex: 1 }}>
-            <AppText weight="700" size={16} numberOfLines={1}>
-              {title}
-            </AppText>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+              <AppText weight="700" size={16} numberOfLines={1} style={{ flexShrink: 1 }}>
+                {title}
+              </AppText>
+              {peerPremium ? <PremiumBadge /> : null}
+            </View>
             <AppText muted size={12} numberOfLines={1}>
               {subtitle}
             </AppText>

@@ -145,10 +145,17 @@ Deno.serve(async (req) => {
         .eq("feature", "tutor")
         .gte("created_at", day),
     ]);
-    if ((lastHour ?? 0) >= PER_HOUR) {
+    // Premium students get a higher limit.
+    const { data: premiumSet } = await admin.rpc("premium_ids", { p_ids: [user.id] });
+    let multiplier = 1;
+    if (Array.isArray(premiumSet) && premiumSet.includes(user.id)) {
+      const { data: m } = await admin.rpc("setting_num", { p_key: "tutor_premium_multiplier", p_default: 3 });
+      multiplier = Math.max(1, Number(m ?? 3));
+    }
+    if ((lastHour ?? 0) >= PER_HOUR * multiplier) {
       return json({ error: "You've asked a lot this hour. Take a short break and try again soon." }, 429);
     }
-    if ((lastDay ?? 0) >= PER_DAY) {
+    if ((lastDay ?? 0) >= PER_DAY * multiplier) {
       return json({ error: "You've reached today's tutor limit. It resets tomorrow." }, 429);
     }
 

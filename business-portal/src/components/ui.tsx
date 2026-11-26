@@ -73,6 +73,21 @@ export function Input({
   );
 }
 
+/** Green "Premium" badge shown next to the name of every Premium account. */
+export function PremiumBadge({ className = "", compact = false }: { className?: string; compact?: boolean }) {
+  return (
+    <span
+      title="CampusOS Premium"
+      className={`inline-flex shrink-0 items-center gap-1 rounded-full bg-[#16a34a] px-2 py-0.5 text-[11px] font-semibold leading-4 text-white ${className}`}
+    >
+      <svg viewBox="0 0 16 16" className="h-3 w-3" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+        <path d="M3.5 8.5l3 3 6-7" />
+      </svg>
+      {compact ? null : "Premium"}
+    </span>
+  );
+}
+
 export function Label({ children }: { children: ReactNode }) {
   return <label className="mb-1.5 block text-sm font-medium text-fg">{children}</label>;
 }

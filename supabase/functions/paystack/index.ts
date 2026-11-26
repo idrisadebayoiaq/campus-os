@@ -4,7 +4,7 @@
 //   PAYSTACK_SECRET_KEY  - required (sk_live_... or sk_test_...). Everything else is set up through the API.
 //
 // Actions: status, banks, resolve-bank, verify-bank, init-topup, init-order, init-boost, init-plan,
-//          verify, verify-mine, payout, refund, platform-balance
+//          init-premium, verify, verify-mine, payout, refund, platform-balance
 // resolve-bank, verify-bank and payout work for a business (business_id) or, without it, for the signed-in student.
 
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
@@ -78,7 +78,11 @@ Deno.serve(async (req) => {
   async function checkPayment(reference: string): Promise<string> {
     const tx = await paystack(`/transaction/verify/${encodeURIComponent(reference)}`);
     if (tx.status === "success") {
-      const { data } = await admin.rpc("settle_payment", { p_reference: reference, p_paid_kobo: Number(tx.amount) });
+      const { data } = await admin.rpc("settle_payment", {
+        p_reference: reference,
+        p_paid_kobo: Number(tx.amount),
+        p_auth: tx.authorization ? { ...tx.authorization, email: tx.customer?.email } : null,
+      });
       return String(data ?? "success");
     }
     if (tx.status === "failed") await admin.rpc("fail_payment", { p_reference: reference });
@@ -390,6 +394,32 @@ Deno.serve(async (req) => {
         status: "pending",
         purpose: "subscription",
         meta: { business_id: businessId },
+      });
+      return json({ authorization_url: init.authorization_url, reference });
+    }
+
+    // Student Premium by card. The card is saved (when Paystack allows) so it can renew by itself.
+    if (action === "init-premium") {
+      const callback = typeof body.callback_url === "string" ? body.callback_url : undefined;
+      const price = await num("student_plan_price", 1000);
+      const reference = `prem_${user.id.replaceAll("-", "").slice(0, 16)}_${Date.now().toString(36)}`;
+      const init = await paystack("/transaction/initialize", "POST", {
+        email,
+        amount: kobo(price),
+        reference,
+        callback_url: callback,
+        channels: ["card"],
+        metadata: { purpose: "subscription", student: true, user_id: user.id },
+      });
+      await admin.from("payment_ledger").insert({
+        user_id: user.id,
+        provider: "paystack",
+        reference,
+        amount: price,
+        currency: "NGN",
+        status: "pending",
+        purpose: "subscription",
+        meta: { student: "true" },
       });
       return json({ authorization_url: init.authorization_url, reference });
     }

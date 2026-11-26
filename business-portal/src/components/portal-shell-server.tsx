@@ -23,6 +23,12 @@ export async function PortalShellServer({ children }: { children: React.ReactNod
       loadAccess(supabase, user.id),
     ]);
 
+    const { data: ownedRows } = await supabase.from("business_profiles").select("id").eq("owner_user_id", user.id);
+    const { data: premiumRows } = await supabase.rpc("premium_ids", {
+      p_ids: [user.id, ...(ownedRows ?? []).map((r) => r.id as string)],
+    });
+    const premium = Array.isArray(premiumRows) && premiumRows.length > 0;
+
     const displayName = displayNameFromProfile({
       preferred_name: profile?.preferred_name,
       first_name: profile?.first_name,
@@ -37,6 +43,7 @@ export async function PortalShellServer({ children }: { children: React.ReactNod
       username: usernameFromEmail(user.email),
       avatarUrl: profile?.avatar_url ?? null,
       personas: access.personas,
+      premium,
     };
   }
 

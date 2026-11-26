@@ -31,7 +31,7 @@ Deno.serve(async (req) => {
   const given = req.headers.get("x-sweep-token") ?? "";
   if (!tokenRow?.value || given !== tokenRow.value) return new Response("Forbidden", { status: 403 });
 
-  const out = { payments: 0, settled: 0, payouts: 0, refunds: 0 };
+  const out = { payments: 0, settled: 0, payouts: 0, refunds: 0, renewals: 0, renewed: 0 };
 
   // 1. Pending card payments from the last 3 days that are at least a minute old.
   const { data: pending } = await admin
@@ -47,7 +47,11 @@ Deno.serve(async (req) => {
     try {
       const tx = await paystack(`/transaction/verify/${encodeURIComponent(p.reference)}`);
       if (tx.status === "success") {
-        const { data } = await admin.rpc("settle_payment", { p_reference: p.reference, p_paid_kobo: Number(tx.amount) });
+        const { data } = await admin.rpc("settle_payment", {
+          p_reference: p.reference,
+          p_paid_kobo: Number(tx.amount),
+          p_auth: tx.authorization ? { ...tx.authorization, email: tx.customer?.email } : null,
+        });
         if (data === "success") out.settled++;
       } else if (tx.status === "failed") {
         await admin.rpc("fail_payment", { p_reference: p.reference });
@@ -115,6 +119,50 @@ Deno.serve(async (req) => {
       });
     } catch (e) {
       console.error("sweep refund", r.id, e instanceof Error ? e.message : e);
+    }
+  }
+
+  // 4. Plans and Premium that renew by card. Charges the saved card shortly before the plan ends.
+  const { data: due } = await admin.rpc("plans_due_for_renewal");
+  for (const d of (due ?? []) as {
+    kind: string;
+    user_id: string;
+    business_id: string | null;
+    amount: number;
+    authorization_code: string;
+    email: string;
+  }[]) {
+    out.renewals++;
+    const reference = `ren_${(d.business_id ?? d.user_id).replaceAll("-", "").slice(0, 16)}_${Date.now().toString(36)}`;
+    try {
+      await admin.from("payment_ledger").insert({
+        business_id: d.business_id,
+        user_id: d.user_id,
+        provider: "paystack",
+        reference,
+        amount: d.amount,
+        currency: "NGN",
+        status: "pending",
+        purpose: "subscription",
+        meta: d.business_id ? { business_id: d.business_id, renewal: "true" } : { student: "true", renewal: "true" },
+      });
+      const tx = await paystack("/transaction/charge_authorization", "POST", {
+        authorization_code: d.authorization_code,
+        email: d.email,
+        amount: Math.round(Number(d.amount) * 100),
+        reference,
+      });
+      if (tx.status === "success") {
+        await admin.rpc("settle_payment", { p_reference: reference, p_paid_kobo: Number(tx.amount) });
+        out.renewed++;
+      } else if (tx.status === "failed") {
+        await admin.rpc("fail_payment", { p_reference: reference });
+        await admin.rpc("plan_renewal_failed", { p_user: d.user_id, p_business: d.business_id });
+      }
+    } catch (e) {
+      await admin.rpc("fail_payment", { p_reference: reference });
+      await admin.rpc("plan_renewal_failed", { p_user: d.user_id, p_business: d.business_id });
+      console.error("sweep renewal", reference, e instanceof Error ? e.message : e);
     }
   }
 

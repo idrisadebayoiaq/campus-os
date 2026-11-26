@@ -45,7 +45,13 @@ Deno.serve(async (req) => {
   try {
     const data = event.data ?? {};
     if (event.event === "charge.success") {
-      await admin.rpc("settle_payment", { p_reference: String(data.reference ?? ""), p_paid_kobo: Number(data.amount ?? 0) });
+      const auth = data.authorization as Record<string, unknown> | undefined;
+      const email = (data.customer as { email?: string } | undefined)?.email;
+      await admin.rpc("settle_payment", {
+        p_reference: String(data.reference ?? ""),
+        p_paid_kobo: Number(data.amount ?? 0),
+        p_auth: auth ? { ...auth, email } : null,
+      });
     } else if (event.event === "charge.failed") {
       await admin.rpc("fail_payment", { p_reference: String(data.reference ?? "") });
     } else if (event.event === "transfer.success") {

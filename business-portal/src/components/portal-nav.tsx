@@ -7,7 +7,8 @@ const appLinks = [
   { href: "/listings", label: "Listings" },
   { href: "/listings/orders", label: "Orders" },
   { href: "/listings/inspections", label: "Inspections" },
-  { href: "/billing", label: "Billing" },
+  { href: "/plan", label: "Plan" },
+  { href: "/payouts", label: "Payouts" },
   { href: "/admin", label: "Admin" },
 ];
 
