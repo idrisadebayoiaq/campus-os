@@ -1,10 +1,12 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import {
+  BalancePanel,
   PayoutForm,
   RefundList,
   VerificationPanel,
   type PayoutAccount,
+  type PayoutRow,
   type RefundRow,
 } from "@/components/billing-panels";
 import { Container, EmptyState, PageHeader } from "@/components/ui";
@@ -42,6 +44,19 @@ export default async function BillingPage() {
   const kitchens = owned.filter((b) => b.business_type === "food_vendor");
   const since = new Date(Date.now() - 8 * 7 * 86400_000).toISOString();
 
+  const [balances, { data: payoutRows }, { data: minSetting }] = await Promise.all([
+    Promise.all(
+      kitchens.map(async (k) => {
+        const { data } = await supabase.rpc('business_balance', { p_business: k.id });
+        return [k.id, Number(data ?? 0)] as const;
+      }),
+    ),
+    supabase.from('payouts').select('id, business_id, amount, status, failure_reason, created_at').in('business_id', ids).order('created_at', { ascending: false }).limit(40),
+    supabase.rpc('setting_num', { p_key: 'payout_min', p_default: 5000 }),
+  ]);
+  const balanceOf = new Map(balances);
+  const payoutMin = Number(minSetting ?? 5000);
+
   const [{ data: payouts }, { data: refunds }, { data: ledger }, { data: orders }, { data: boosts }, { data: plans }, { data: verReqs }, { data: levels }] =
     await Promise.all([
       supabase
@@ -70,14 +85,15 @@ export default async function BillingPage() {
       supabase.from("business_profiles").select("id, verification_level, verification_label").in("id", ids),
     ]);
 
-  const weeks = new Map<string, { sales: number; card: number; cash: number; count: number }>();
+  const weeks = new Map<string, { sales: number; card: number; cash: number; wallet: number; count: number }>();
   for (const o of orders ?? []) {
     const key = weekStart(new Date(o.created_at)).toISOString().slice(0, 10);
-    const w = weeks.get(key) ?? { sales: 0, card: 0, cash: 0, count: 0 };
+    const w = weeks.get(key) ?? { sales: 0, card: 0, cash: 0, wallet: 0, count: 0 };
     const t = Number(o.total);
     w.sales += t;
     w.count += 1;
     if (o.payment_method === "card" && o.payment_status === "paid") w.card += t;
+    else if (o.payment_method === "wallet") w.wallet += t;
     else w.cash += t;
     weeks.set(key, w);
   }
@@ -98,6 +114,18 @@ export default async function BillingPage() {
           <section key={b.id} className="space-y-4 rounded-2xl border border-border p-5">
             <h2 className="text-lg font-medium">{b.display_name}</h2>
             <div className="space-y-6">
+              {b.business_type === "food_vendor" ? (
+                <div className="space-y-2">
+                  <h3 className="text-sm font-semibold uppercase tracking-wider text-muted">Balance & withdrawals</h3>
+                  <BalancePanel
+                    businessId={b.id}
+                    balance={balanceOf.get(b.id) ?? 0}
+                    minimum={payoutMin}
+                    hasBank={Boolean(paymentMethod(b.id)?.is_verified)}
+                    payouts={(payoutRows ?? []).filter((p) => p.business_id === b.id) as unknown as PayoutRow[]}
+                  />
+                </div>
+              ) : null}
               {b.business_type === "food_vendor" ? (
                 <div className="space-y-2">
                   <h3 className="text-sm font-semibold uppercase tracking-wider text-muted">Payout account</h3>
@@ -133,7 +161,7 @@ export default async function BillingPage() {
                   <div key={week} className="flex flex-wrap justify-between gap-2 px-4 py-3">
                     <span className="font-medium">Week of {new Date(week).toLocaleDateString(undefined, { day: "numeric", month: "short" })}</span>
                     <span className="text-muted">
-                      {w.count} orders · ₦{w.sales.toLocaleString()} (card ₦{w.card.toLocaleString()} · cash ₦{w.cash.toLocaleString()})
+                      {w.count} orders · ₦{w.sales.toLocaleString()} (card ₦{w.card.toLocaleString()} · wallet ₦{w.wallet.toLocaleString()} · cash ₦{w.cash.toLocaleString()})
                     </span>
                   </div>
                 ))}

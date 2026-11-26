@@ -32,6 +32,7 @@ type MenuRow = {
 const MENU: MenuRow[] = [
   { title: "Edit Profile", icon: "person-outline", href: "/profile-edit" },
   { title: "Verify student ID", icon: "shield-checkmark-outline", href: "/verify" },
+  { title: "My wallet", icon: "wallet-outline", href: "/wallet" },
   { title: "My orders", icon: "fast-food-outline", href: "/orders" },
   { title: "My room & rent", icon: "key-outline", href: "/my-room" },
   { title: "Rate & review", icon: "star-outline", href: "/review" },

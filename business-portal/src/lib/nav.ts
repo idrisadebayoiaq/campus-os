@@ -28,6 +28,7 @@ const ADMIN_NAV: NavItem[] = [
   { href: "/admin/lecturers", label: "Lecturers", icon: "groups", group: "Reviews" },
   { href: "/admin/verifications", label: "CAC badges", icon: "shield", group: "Reviews" },
   { href: "/admin/boosts", label: "Boosts", icon: "budget", group: "Moderation" },
+  { href: "/admin/payments", label: "Money", icon: "budget", group: "Platform" },
   { href: "/school/verifications", label: "Student IDs", icon: "shield", group: "Reviews" },
   { href: "/admin/listings", label: "Listings", icon: "market", group: "Moderation" },
   { href: "/admin/reports", label: "Reports", icon: "bell", group: "Moderation" },

@@ -29,8 +29,10 @@ export default function CheckoutScreen() {
   const [detail, setDetail] = useState("");
   const [quote, setQuote] = useState<Quote | null>(null);
   const [promo, setPromo] = useState("");
-  const [method, setMethod] = useState<"cash" | "card">("cash");
+  const [method, setMethod] = useState<"cash" | "card" | "wallet">("cash");
   const [cards, setCards] = useState(false);
+  const [walletOn, setWalletOn] = useState(false);
+  const [walletBalance, setWalletBalance] = useState(0);
   const [open, setOpen] = useState<boolean | null>(null);
   const [note, setNote] = useState("");
   const [placing, setPlacing] = useState(false);
@@ -44,13 +46,17 @@ export default function CheckoutScreen() {
   useEffect(() => {
     if (!user || !businessId) return;
     void (async () => {
-      const [saved, accepts, openNow] = await Promise.all([
+      const [saved, accepts, openNow, wallet, enabled] = await Promise.all([
         loadSavedLocation(supabase, user.id),
         supabase.rpc("business_accepts_cards", { p_business: businessId }),
         supabase.rpc("business_open_now", { p_business: businessId }),
+        supabase.from("wallets").select("balance").eq("user_id", user.id).maybeSingle(),
+        supabase.rpc("setting_bool", { p_key: "wallet_enabled", p_default: true }),
       ]);
       if (saved) setPlace(saved);
       setCards(accepts.data === true);
+      setWalletOn(enabled.data !== false);
+      setWalletBalance(Number(wallet.data?.balance ?? 0));
       setOpen(typeof openNow.data === "boolean" ? openNow.data : null);
     })();
   }, [user, businessId]);
@@ -93,8 +99,11 @@ export default function CheckoutScreen() {
       if (!quote.deliverable) return quote.reason || "This kitchen doesn't deliver to you.";
       if (subtotal < Number(quote.min_order)) return `Minimum order for delivery is ${formatNaira(Number(quote.min_order))}.`;
     }
+    if (method === "wallet" && walletBalance < estimate) {
+      return `Your wallet has ${formatNaira(walletBalance)}. Add money to pay for this order.`;
+    }
     return null;
-  }, [open, delivery, place, quote, subtotal]);
+  }, [open, delivery, place, quote, subtotal, method, walletBalance, estimate]);
 
   async function submit() {
     if (!user || !businessId || blocked) return;
@@ -284,7 +293,7 @@ export default function CheckoutScreen() {
           <View style={[styles.segment, { backgroundColor: colors.surface }]}>
             <Pressable style={seg(method === "cash")} onPress={() => setMethod("cash")}>
               <AppText weight="700" size={13} style={segText(method === "cash")}>
-                {delivery ? "Pay on delivery" : "Pay on collection"}
+                {delivery ? "On delivery" : "On collection"}
               </AppText>
             </Pressable>
             <Pressable
@@ -292,10 +301,24 @@ export default function CheckoutScreen() {
               onPress={() => (cards ? setMethod("card") : Alert.alert("Card not available", "This kitchen hasn't set up card payments yet."))}
             >
               <AppText weight="700" size={13} style={segText(method === "card")}>
-                Pay by card
+                Card
               </AppText>
             </Pressable>
+            {walletOn ? (
+              <Pressable style={seg(method === "wallet")} onPress={() => setMethod("wallet")}>
+                <AppText weight="700" size={13} style={segText(method === "wallet")}>
+                  Wallet
+                </AppText>
+              </Pressable>
+            ) : null}
           </View>
+          {method === "wallet" ? (
+            <Pressable onPress={() => router.push("/wallet")} hitSlop={8}>
+              <AppText size={12} muted>
+                Wallet balance {formatNaira(walletBalance)} · tap to add money
+              </AppText>
+            </Pressable>
+          ) : null}
         </View>
 
         <View style={{ gap: 8 }}>
@@ -349,7 +372,13 @@ export default function CheckoutScreen() {
           style={[styles.cta, { backgroundColor: colors.inverseBg, opacity: placing || blocked ? 0.5 : 1 }]}
         >
           <AppText weight="700" style={{ color: colors.inverseFg }}>
-            {placing ? "Placing…" : method === "card" ? `Place order & pay · ${formatNaira(estimate)}` : `Place order · ${formatNaira(estimate)}`}
+            {placing
+              ? "Placing…"
+              : method === "card"
+                ? `Place order & pay · ${formatNaira(estimate)}`
+                : method === "wallet"
+                  ? `Pay from wallet · ${formatNaira(estimate)}`
+                  : `Place order · ${formatNaira(estimate)}`}
           </AppText>
         </Pressable>
       </View>

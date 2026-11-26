@@ -69,13 +69,13 @@ function headline(o: Order) {
 function paymentLabel(o: Order) {
   switch (o.payment_status) {
     case "paid":
-      return "Paid by card";
+      return o.payment_method === "wallet" ? "Paid from wallet" : "Paid by card";
     case "pending":
       return "Waiting for your card payment";
     case "refund_requested":
       return "Refund requested";
     case "refunded":
-      return "Refunded";
+      return o.payment_method === "wallet" ? "Refunded to your wallet" : "Refunded to your card";
     case "failed":
       return "Payment failed";
     default:

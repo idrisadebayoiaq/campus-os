@@ -48,21 +48,46 @@ export function PayoutForm({ businessId, current }: { businessId: string; curren
     })();
   }, []);
 
-  async function save(form: FormData) {
+  const [found, setFound] = useState<{ account_name: string; bank_name: string | null; bank_code: string; account_number: string } | null>(null);
+
+  // Step 1: look the account up so the owner can confirm the name.
+  async function check(form: FormData) {
     setBusy(true);
     setMessage(null);
+    setFound(null);
+    const bank_code = String(form.get("bank_code"));
+    const account_number = String(form.get("account_number")).replace(/\D/g, "");
+    const res = await callPaystack({ action: "resolve-bank", business_id: businessId, bank_code, account_number });
+    setBusy(false);
+    if (!res.ok) {
+      setMessage({ ok: false, text: res.message });
+      return;
+    }
+    setFound({
+      account_name: String(res.data.account_name),
+      bank_name: (res.data.bank_name as string | null) ?? null,
+      bank_code,
+      account_number,
+    });
+  }
+
+  // Step 2: the owner confirmed it is their account.
+  async function confirm() {
+    if (!found) return;
+    setBusy(true);
     const res = await callPaystack({
       action: "verify-bank",
       business_id: businessId,
-      bank_code: String(form.get("bank_code")),
-      account_number: String(form.get("account_number")),
+      bank_code: found.bank_code,
+      account_number: found.account_number,
     });
     setBusy(false);
     if (!res.ok) {
       setMessage({ ok: false, text: res.message });
       return;
     }
-    setMessage({ ok: true, text: `Verified: ${res.data.account_name}. Card payments now go straight to this account.` });
+    setFound(null);
+    setMessage({ ok: true, text: `Saved: ${res.data.account_name}. Card payments now go straight to this account.` });
     router.refresh();
   }
 
@@ -88,7 +113,7 @@ export function PayoutForm({ businessId, current }: { businessId: string; curren
           className="grid gap-3 sm:grid-cols-[1fr_12rem_auto]"
           onSubmit={(e) => {
             e.preventDefault();
-            void save(new FormData(e.currentTarget));
+            void check(new FormData(e.currentTarget));
           }}
         >
           <select name="bank_code" required className="h-11 rounded-2xl border border-border bg-bg px-3 text-sm">
@@ -101,11 +126,127 @@ export function PayoutForm({ businessId, current }: { businessId: string; curren
           </select>
           <Input name="account_number" inputMode="numeric" maxLength={10} placeholder="10-digit account number" required />
           <Button type="submit" disabled={busy || !banks.length}>
-            {busy ? "Checking…" : current?.is_verified ? "Change account" : "Verify & save"}
+            {busy && !found ? "Checking…" : current?.is_verified ? "Change account" : "Check account"}
           </Button>
         </form>
       )}
+      {found ? (
+        <div className="space-y-3 rounded-2xl border border-border bg-surface p-4 text-sm">
+          <p>
+            This account belongs to <span className="font-semibold">{found.account_name}</span>
+            <span className="text-muted">
+              {" "}
+              · {found.bank_name} · ••••{found.account_number.slice(-4)}
+            </span>
+          </p>
+          <p className="text-muted">Is this your business account? Your money will be sent here, so make sure the name is right.</p>
+          <div className="flex gap-2">
+            <Button type="button" disabled={busy} onClick={() => void confirm()}>
+              {busy ? "Saving…" : "Yes, use this account"}
+            </Button>
+            <Button type="button" variant="secondary" disabled={busy} onClick={() => setFound(null)}>
+              No, change it
+            </Button>
+          </div>
+        </div>
+      ) : null}
       {message ? <p className={`text-sm ${message.ok ? "text-muted" : "text-red-600"}`}>{message.text}</p> : null}
+    </div>
+  );
+}
+
+export type PayoutRow = {
+  id: string;
+  amount: number;
+  status: string;
+  failure_reason: string | null;
+  created_at: string;
+};
+
+export function BalancePanel({
+  businessId,
+  balance,
+  minimum,
+  hasBank,
+  payouts,
+}: {
+  businessId: string;
+  balance: number;
+  minimum: number;
+  hasBank: boolean;
+  payouts: PayoutRow[];
+}) {
+  const router = useRouter();
+  const [busy, setBusy] = useState(false);
+  const [confirming, setConfirming] = useState(false);
+  const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
+  const open = payouts.some((p) => p.status === "requested" || p.status === "processing");
+  const canWithdraw = hasBank && !open && balance >= minimum;
+
+  async function withdraw() {
+    setBusy(true);
+    setMessage(null);
+    const res = await callPaystack({ action: "payout", business_id: businessId });
+    setBusy(false);
+    setConfirming(false);
+    if (!res.ok) {
+      setMessage({ ok: false, text: res.message });
+    } else {
+      setMessage({
+        ok: true,
+        text: res.data.status === "paid" ? "Sent. The money is on its way to your bank." : "Withdrawal started. It usually reaches your bank within minutes.",
+      });
+    }
+    router.refresh();
+  }
+
+  const label: Record<string, string> = { requested: "Starting", processing: "On its way", paid: "Paid", failed: "Failed" };
+
+  return (
+    <div className="space-y-3">
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-border bg-surface p-4">
+        <div>
+          <p className="text-xs uppercase tracking-wider text-muted">CampusOS balance</p>
+          <p className="text-2xl font-semibold">₦{balance.toLocaleString()}</p>
+          <p className="mt-1 text-xs text-muted">
+            Money from wallet orders. Card orders are paid to your bank straight away and do not show here.
+          </p>
+        </div>
+        {confirming ? (
+          <div className="flex items-center gap-2">
+            <Button type="button" disabled={busy} onClick={() => void withdraw()}>
+              {busy ? "Sending…" : `Withdraw ₦${balance.toLocaleString()}`}
+            </Button>
+            <Button type="button" variant="secondary" disabled={busy} onClick={() => setConfirming(false)}>
+              Cancel
+            </Button>
+          </div>
+        ) : (
+          <Button type="button" disabled={!canWithdraw} onClick={() => setConfirming(true)}>
+            Withdraw
+          </Button>
+        )}
+      </div>
+      {!hasBank ? <p className="text-sm text-muted">Add and confirm your bank account below to withdraw.</p> : null}
+      {hasBank && balance < minimum && !open ? (
+        <p className="text-sm text-muted">You can withdraw once your balance reaches ₦{minimum.toLocaleString()}.</p>
+      ) : null}
+      {message ? <p className={`text-sm ${message.ok ? "text-muted" : "text-red-600"}`}>{message.text}</p> : null}
+      {payouts.length ? (
+        <div className="divide-y divide-border rounded-md border border-border text-sm">
+          {payouts.map((p) => (
+            <div key={p.id} className="flex flex-wrap justify-between gap-2 px-4 py-2.5">
+              <span>
+                ₦{Number(p.amount).toLocaleString()} <span className="text-muted">· {new Date(p.created_at).toLocaleDateString()}</span>
+              </span>
+              <span className={p.status === "failed" ? "text-red-600" : "text-muted"}>
+                {label[p.status] ?? p.status}
+                {p.status === "failed" && p.failure_reason ? ` · ${p.failure_reason}` : ""}
+              </span>
+            </div>
+          ))}
+        </div>
+      ) : null}
     </div>
   );
 }
