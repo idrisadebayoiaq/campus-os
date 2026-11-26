@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useState } from "react";
-import { Alert, View } from "react-native";
+import { View } from "react-native";
 import { AppText, Button, Input } from "@/src/components/ui";
 import { Group, Hero, ListRow, Notice, PageShell, Panel, Section, type Tone } from "@/src/components/page";
 import { useAuth } from "@/src/lib/auth";
 import { formatNaira } from "@/src/lib/campus";
 import { callPaystack } from "@/src/lib/payments";
 import { supabase } from "@/src/lib/supabase";
+import { notify } from "@/src/lib/feedback";
 
 type Account = { account_name: string; bank_name: string | null; account_number: string };
 type Payout = { id: string; amount: number; status: string; failure_reason: string | null; created_at: string };
@@ -67,20 +68,20 @@ export default function EarningsScreen() {
     if (!banks.length) {
       const res = await callPaystack(supabase, { action: "banks" });
       if (res.ok) setBanks((res.data.banks as Bank[]) ?? []);
-      else Alert.alert("Banks unavailable", res.message);
+      else notify("Banks unavailable", res.message);
     }
   }
 
   async function check() {
     if (!bank || number.replace(/\D/g, "").length !== 10) {
-      Alert.alert("Check your details", "Choose your bank and enter your 10-digit account number.");
+      notify("Check your details", "Choose your bank and enter your 10-digit account number.");
       return;
     }
     setBusy(true);
     const res = await callPaystack(supabase, { action: "resolve-bank", bank_code: bank.code, account_number: number });
     setBusy(false);
     if (!res.ok) {
-      Alert.alert("Couldn't check this account", res.message);
+      notify("Couldn't check this account", res.message);
       return;
     }
     setFound(String(res.data.account_name));
@@ -92,7 +93,7 @@ export default function EarningsScreen() {
     const res = await callPaystack(supabase, { action: "verify-bank", bank_code: bank.code, account_number: number });
     setBusy(false);
     if (!res.ok) {
-      Alert.alert("Couldn't save", res.message);
+      notify("Couldn't save", res.message);
       return;
     }
     setEditing(false);
@@ -102,7 +103,7 @@ export default function EarningsScreen() {
   }
 
   function withdraw() {
-    Alert.alert("Withdraw to your bank?", `${formatNaira(balance)} will be sent to ${account?.account_name} (${account?.bank_name}).`, [
+    notify("Withdraw to your bank?", `${formatNaira(balance)} will be sent to ${account?.account_name} (${account?.bank_name}).`, [
       { text: "Cancel", style: "cancel" },
       {
         text: "Withdraw",
@@ -110,7 +111,7 @@ export default function EarningsScreen() {
           setBusy(true);
           const res = await callPaystack(supabase, { action: "payout" });
           setBusy(false);
-          Alert.alert(res.ok ? "Withdrawal started" : "Couldn't withdraw", res.ok ? "It usually reaches your bank within minutes." : res.message);
+          notify(res.ok ? "Withdrawal started" : "Couldn't withdraw", res.ok ? "It usually reaches your bank within minutes." : res.message);
           void load();
         },
       },

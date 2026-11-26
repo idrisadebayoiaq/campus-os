@@ -76,12 +76,19 @@ export default async function DashboardPage() {
   const primary = personas.find((p) => p !== "admin") ?? personas[0];
   const waitingSchool =
     primary === "applicant" && user.user_metadata?.signup_intent === "school";
+  const waitingStaff =
+    primary === "applicant" && user.user_metadata?.signup_intent === "staff";
   const headline = waitingSchool
     ? {
         title: "Waiting for your school",
         body: "CampusOS admin will link your account to your school. Once that's done your school tools appear here automatically.",
       }
-    : HEADLINE[primary];
+    : waitingStaff
+      ? {
+          title: "Your account is ready",
+          body: "An admin gives you access to your tools, like the Support desk or Admin. Ask your admin to add your email. You can also apply as a business any time.",
+        }
+      : HEADLINE[primary];
   const quickLinks = dashboardLinks(personas);
   const businessOwner = hasBusiness(personas);
 

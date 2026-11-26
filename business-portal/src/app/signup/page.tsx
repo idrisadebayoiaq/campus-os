@@ -45,6 +45,20 @@ export default function SignupPage() {
       }
     >
       <div className="space-y-3">
+        <Link
+          href="/signup/staff"
+          className="flex items-center justify-between gap-3 rounded-2xl border border-dashed border-border px-4 py-3 text-sm transition hover:border-accent"
+        >
+          <span>
+            <span className="block font-semibold text-fg">Skip, just create an account</span>
+            <span className="mt-0.5 block text-xs leading-5 text-muted">
+              For admins, support staff and anyone not running a business, class or school.
+            </span>
+          </span>
+          <span aria-hidden className="text-muted">
+            →
+          </span>
+        </Link>
         {OPTIONS.map((option) => (
           <Link
             key={option.href}

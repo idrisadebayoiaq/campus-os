@@ -1,6 +1,6 @@
 import { router, useLocalSearchParams } from "expo-router";
 import { useEffect, useState } from "react";
-import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, TextInput, View } from "react-native";
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, TextInput, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { AppText, EmptyState } from "@/src/components/ui";
@@ -8,6 +8,7 @@ import { useAuth } from "@/src/lib/auth";
 import { supabase } from "@/src/lib/supabase";
 import { useTheme } from "@/src/theme/ThemeProvider";
 import { radii } from "@/src/theme/tokens";
+import { notify } from "@/src/lib/feedback";
 
 type Target = { kind: "order" | "inspection" | "enquiry"; ref: string; business: string; name: string; label?: string };
 type Reviewable = { kind: Target["kind"]; ref_id: string; business_id: string; business_name: string; label: string; happened_at: string };
@@ -47,10 +48,10 @@ export default function ReviewScreen() {
     });
     setBusy(false);
     if (error) {
-      Alert.alert("Couldn't save review", error.message);
+      notify("Couldn't save review", error.message);
       return;
     }
-    Alert.alert("Thanks for your review", "It helps other students choose well.", [
+    notify("Thanks for your review", "It helps other students choose well.", [
       {
         text: "OK",
         onPress: () => {

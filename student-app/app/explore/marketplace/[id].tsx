@@ -2,7 +2,6 @@ import { router, useLocalSearchParams } from "expo-router";
 import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
-  Alert,
   Image,
   Pressable,
   ScrollView,
@@ -27,6 +26,7 @@ import {
 import { useTheme } from "@/src/theme/ThemeProvider";
 import { radii } from "@/src/theme/tokens";
 import { MediaGallery, type GalleryItem } from "@/src/components/media-gallery";
+import { notify } from "@/src/lib/feedback";
 
 type Listing = {
   id: string;
@@ -149,7 +149,7 @@ export default function MarketplaceDetailScreen() {
       router.push("/verify");
       return;
     }
-    Alert.alert(
+    notify(
       "Buy with your wallet?",
       `${formatNaira(item.price)} will be taken from your wallet and held safely by CampusOS. The seller is paid only after you receive the item, and you can report a problem before that.`,
       [
@@ -163,7 +163,7 @@ export default function MarketplaceDetailScreen() {
             setBusy(false);
             if (error) {
               if (error.message.includes("Not enough wallet")) {
-                Alert.alert("Not enough in your wallet", "Add money to your wallet, then try again.", [
+                notify("Not enough in your wallet", "Add money to your wallet, then try again.", [
                   { text: "Later", style: "cancel" },
                   { text: "Add money", onPress: () => router.push("/wallet") },
                 ]);

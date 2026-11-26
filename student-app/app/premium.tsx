@@ -1,12 +1,14 @@
 import { Ionicons } from "@expo/vector-icons";
-import { useCallback, useEffect, useRef, useState } from "react";
-import { ActivityIndicator, AppState, Linking, View } from "react-native";
+import { useCallback, useEffect, useState } from "react";
+import { View } from "react-native";
 import { Group, KeyValue, Notice, PageShell, Panel, Section } from "@/src/components/page";
 import { PremiumBadge, PREMIUM_GREEN } from "@/src/components/premium-badge";
 import { AppText, Button } from "@/src/components/ui";
 import { useAuth } from "@/src/lib/auth";
 import { formatNaira } from "@/src/lib/campus";
+import { notify } from "@/src/lib/feedback";
 import { callPaystack } from "@/src/lib/payments";
+import { PAY_RETURN_URL, usePaySheet } from "@/src/lib/pay-sheet";
 import { supabase } from "@/src/lib/supabase";
 import { useTheme } from "@/src/theme/ThemeProvider";
 
@@ -39,9 +41,8 @@ export default function PremiumScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [busy, setBusy] = useState<"card" | "wallet" | "renew" | null>(null);
-  const [waiting, setWaiting] = useState(false);
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
-  const waitUntil = useRef(0);
+  const { payByCard } = usePaySheet();
 
   const load = useCallback(async () => {
     if (!user) return;
@@ -59,46 +60,31 @@ export default function PremiumScreen() {
     void load();
   }, [load]);
 
+  // Settle any payment that finished while the app was closed (pull to refresh).
   const confirmPayments = useCallback(async () => {
     const res = await callPaystack(supabase, { action: "verify-mine" });
-    if (res.ok && Number(res.data.settled ?? 0) > 0) {
-      setWaiting(false);
-      setMessage({ ok: true, text: "Payment received. Premium is active." });
-      void load();
-    }
+    if (res.ok && Number(res.data.settled ?? 0) > 0) void load();
   }, [load]);
 
-  useEffect(() => {
-    const sub = AppState.addEventListener("change", (next) => {
-      if (next === "active" && waitUntil.current > Date.now()) void confirmPayments();
-    });
-    return () => sub.remove();
-  }, [confirmPayments]);
-
-  useEffect(() => {
-    if (!waiting) return;
-    const t = setInterval(() => {
-      if (Date.now() > waitUntil.current) {
-        setWaiting(false);
-        return;
-      }
-      void confirmPayments();
-    }, 5000);
-    return () => clearInterval(t);
-  }, [waiting, confirmPayments]);
-
-  async function payByCard() {
+  async function payWithCard() {
     setBusy("card");
     setMessage(null);
-    const res = await callPaystack(supabase, { action: "init-premium" });
+    const res = await callPaystack(supabase, { action: "init-premium", callback_url: PAY_RETURN_URL });
     setBusy(null);
-    if (res.ok && typeof res.data.authorization_url === "string") {
-      waitUntil.current = Date.now() + 5 * 60 * 1000;
-      setWaiting(true);
-      void Linking.openURL(res.data.authorization_url);
+    if (res.ok && typeof res.data.authorization_url === "string" && typeof res.data.reference === "string") {
+      const paid = await payByCard({
+        url: res.data.authorization_url,
+        reference: res.data.reference,
+        title: "CampusOS Premium",
+        amount: price,
+        successText: "Premium is now active on your account.",
+      });
+      if (paid.status === "success") notify("Premium is active", "Enjoy your green badge and higher limits.", undefined, { tone: "success" });
+      else if (paid.status === "failed") notify("Payment not completed", "Your card was not charged. Try again or use another card.", undefined, { tone: "danger" });
+      void load();
       return;
     }
-    setMessage({ ok: false, text: res.ok ? "Couldn't open the card page. Try again." : res.message });
+    notify("Couldn't start the payment", res.ok ? "Try again in a moment." : res.message, undefined, { tone: "danger" });
   }
 
   async function payFromWallet() {
@@ -189,31 +175,21 @@ export default function PremiumScreen() {
 
       <Section title={active ? "Extend Premium" : "Get Premium"}>
         <Button
-          title={waiting ? "Waiting for your payment…" : busy === "card" ? "Opening secure checkout…" : `Pay ${formatNaira(price)} by card`}
-          onPress={() => void payByCard()}
+          title={busy === "card" ? "Preparing secure checkout…" : `Pay ${formatNaira(price)} by card`}
+          onPress={() => void payWithCard()}
           loading={busy === "card"}
-          disabled={waiting || busy !== null}
+          disabled={busy !== null}
         />
         <Button
           variant="secondary"
           title={balance < price ? `Pay from wallet (${formatNaira(balance)}, add money first)` : `Pay ${formatNaira(price)} from wallet`}
           onPress={() => void payFromWallet()}
           loading={busy === "wallet"}
-          disabled={balance < price || busy !== null || waiting}
+          disabled={balance < price || busy !== null}
         />
-        {waiting ? (
-          <Notice icon="time-outline">
-            <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
-              <ActivityIndicator color={colors.fg} />
-              <AppText size={13} style={{ flex: 1 }}>
-                Finish on the card page. This screen updates the moment the payment goes through.
-              </AppText>
-            </View>
-          </Notice>
-        ) : null}
         {message ? <Notice tone={message.ok ? "success" : "danger"}>{message.text}</Notice> : null}
         <AppText size={12} muted>
-          You enter your card on Paystack&apos;s secure page (Mastercard, Visa, Verve). CampusOS never sees your card number. Paying by card saves it for renewal, which you can switch off below.
+          You enter your card on Paystack&apos;s secure form inside this app (Mastercard, Visa, Verve). CampusOS never sees your card number. Paying by card saves it for renewal, which you can switch off below.
         </AppText>
       </Section>
 

@@ -1,14 +1,16 @@
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
-import { useCallback, useEffect, useRef, useState } from "react";
-import { ActivityIndicator, AppState, Linking, Pressable, ScrollView, StyleSheet, View, useWindowDimensions } from "react-native";
+import { useCallback, useEffect, useState } from "react";
+import { Pressable, ScrollView, StyleSheet, View, useWindowDimensions } from "react-native";
 import { AppText, Button, EmptyState, Input } from "@/src/components/ui";
 import { ChipRow, Group, KeyValue, ListRow, Notice, Panel, Section, PageShell } from "@/src/components/page";
 import { TxList } from "@/src/components/tx-rows";
 import { DebitCard, PayoutCard, WALLET_CARD_HEIGHT, type LinkedCard } from "@/src/components/wallet-cards";
 import { useAuth } from "@/src/lib/auth";
 import { formatNaira } from "@/src/lib/campus";
+import { notify } from "@/src/lib/feedback";
 import { callPaystack } from "@/src/lib/payments";
+import { PAY_RETURN_URL, usePaySheet } from "@/src/lib/pay-sheet";
 import { supabase } from "@/src/lib/supabase";
 import { loadTransactions, type Tx } from "@/src/lib/transactions";
 import { useTheme } from "@/src/theme/ThemeProvider";
@@ -52,9 +54,8 @@ export default function WalletScreen() {
   const [amount, setAmount] = useState("2000");
   const [quote, setQuote] = useState<Quote | null>(null);
   const [busy, setBusy] = useState(false);
-  const [waiting, setWaiting] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
-  const waitUntil = useRef(0);
+  const { payByCard } = usePaySheet();
 
   const cardWidth = width - 40;
 
@@ -93,34 +94,14 @@ export default function WalletScreen() {
     void load();
   }, [load]);
 
-  // Ask for payments that finished while the card page was open.
+  // Settle any payment that finished while the app was closed (pull to refresh).
   const confirmPayments = useCallback(async () => {
     const res = await callPaystack(supabase, { action: "verify-mine" });
     if (res.ok && Number(res.data.settled ?? 0) > 0) {
-      setWaiting(false);
       setMessage("Payment received. Your wallet has been topped up.");
       void load();
     }
   }, [load]);
-
-  useEffect(() => {
-    const sub = AppState.addEventListener("change", (state) => {
-      if (state === "active" && waitUntil.current > Date.now()) void confirmPayments();
-    });
-    return () => sub.remove();
-  }, [confirmPayments]);
-
-  useEffect(() => {
-    if (!waiting) return;
-    const t = setInterval(() => {
-      if (Date.now() > waitUntil.current) {
-        setWaiting(false);
-        return;
-      }
-      void confirmPayments();
-    }, 6000);
-    return () => clearInterval(t);
-  }, [waiting, confirmPayments]);
 
   const value = Math.round(Number(amount.replace(/[^0-9]/g, "")) || 0);
 
@@ -150,15 +131,26 @@ export default function WalletScreen() {
     if (problem || busy) return;
     setBusy(true);
     setMessage(null);
-    const res = await callPaystack(supabase, { action: "init-topup", amount: value });
+    const res = await callPaystack(supabase, { action: "init-topup", amount: value, callback_url: PAY_RETURN_URL });
     setBusy(false);
-    if (res.ok && typeof res.data.authorization_url === "string") {
-      waitUntil.current = Date.now() + 5 * 60 * 1000;
-      setWaiting(true);
-      void Linking.openURL(res.data.authorization_url);
+    if (res.ok && typeof res.data.authorization_url === "string" && typeof res.data.reference === "string") {
+      const paid = await payByCard({
+        url: res.data.authorization_url,
+        reference: res.data.reference,
+        title: "Add money to wallet",
+        amount: Number(res.data.total ?? quote?.total ?? value),
+        successText: `${formatNaira(Number(res.data.credit ?? value))} has been added to your wallet.`,
+      });
+      if (paid.status === "success") {
+        setShowTopUp(false);
+        notify("Wallet topped up", `${formatNaira(Number(res.data.credit ?? value))} added to your wallet.`, undefined, { tone: "success" });
+      } else if (paid.status === "failed") {
+        notify("Payment not completed", "Your card was not charged. Try again or use another card.", undefined, { tone: "danger" });
+      }
+      void load();
       return;
     }
-    setMessage(res.ok ? "Couldn't start the payment. Try again." : res.message);
+    notify("Couldn't start the payment", res.ok ? "Try again in a moment." : res.message, undefined, { tone: "danger" });
   }
 
   const canTopUp = info.enabled && !frozen;
@@ -242,21 +234,11 @@ export default function WalletScreen() {
           ) : null}
           {problem ? <Notice tone="danger">{problem}</Notice> : null}
           <Button
-            title={busy ? "Opening card page…" : quote && !problem ? `Pay ${formatNaira(quote.total)} by card` : "Add money by card"}
+            title={busy ? "Preparing secure checkout…" : quote && !problem ? `Pay ${formatNaira(quote.total)} by card` : "Add money by card"}
             onPress={() => void topUp()}
             disabled={!!problem}
             loading={busy}
           />
-          {waiting ? (
-            <Notice icon="time-outline">
-              <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
-                <ActivityIndicator color={colors.fg} />
-                <AppText size={13} style={{ flex: 1 }}>
-                  Waiting for your payment. This page updates as soon as it goes through.
-                </AppText>
-              </View>
-            </Notice>
-          ) : null}
           <AppText size={12} muted>
             The card fee is shown before you pay. Wallet money can only be spent inside CampusOS. It can't be withdrawn or sent to others.
           </AppText>

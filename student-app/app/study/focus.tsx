@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Alert, View } from "react-native";
+import { View } from "react-native";
 import { AppText, Button, Card, Chip } from "@/src/components/ui";
 import { Row, StudyShell, SyncBanner } from "@/src/components/study";
 import { CACHE_KEYS } from "@/src/lib/offline";
@@ -7,6 +7,7 @@ import { formatDateTime, type StudySession } from "@/src/lib/study";
 import { useStudyTable } from "@/src/lib/use-study-table";
 import { useTheme } from "@/src/theme/ThemeProvider";
 import { radii } from "@/src/theme/tokens";
+import { notify } from "@/src/lib/feedback";
 
 type Mode = "focus" | "break";
 const MINUTES: Record<Mode, number> = { focus: 25, break: 5 };
@@ -57,10 +58,10 @@ export default function FocusScreen() {
         setRemaining(0);
         if (mode === "focus") {
           void log(MINUTES.focus);
-          Alert.alert("Focus complete", "Nice work! Take a 5 minute break.");
+          notify("Focus complete", "Nice work! Take a 5 minute break.");
           reset("break");
         } else {
-          Alert.alert("Break over", "Ready for another focus session?");
+          notify("Break over", "Ready for another focus session?");
           reset("focus");
         }
       } else {

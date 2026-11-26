@@ -500,9 +500,20 @@ export default function ChatThreadScreen() {
                 Tutor is typing…
               </AppText>
             ) : error ? (
-              <AppText size={12} style={{ color: colors.danger, marginTop: 8 }}>
-                {error}
-              </AppText>
+              <View style={[styles.errorBanner, { backgroundColor: colors.surface, borderColor: colors.danger }]}>
+                <Ionicons name="alert-circle" size={20} color={colors.danger} />
+                <View style={{ flex: 1 }}>
+                  <AppText weight="700" size={13}>
+                    Message not sent
+                  </AppText>
+                  <AppText muted size={12}>
+                    {error}
+                  </AppText>
+                </View>
+                <Pressable onPress={() => setError(null)} hitSlop={10}>
+                  <Ionicons name="close" size={16} color={colors.muted} />
+                </Pressable>
+              </View>
             ) : (
               <View />
             )
@@ -596,6 +607,15 @@ function errorText(e: unknown, fallback: string) {
 }
 
 const styles = StyleSheet.create({
+  errorBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    marginTop: 8,
+    padding: 12,
+    borderRadius: radii.md,
+    borderWidth: StyleSheet.hairlineWidth,
+  },
   center: { alignItems: "center", justifyContent: "center" },
   top: {
     flexDirection: "row",

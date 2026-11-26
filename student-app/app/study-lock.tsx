@@ -1,11 +1,11 @@
 import { router } from "expo-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Alert } from "react-native";
 import { Button, Field, Input } from "@/src/components/ui";
 import { ChipRow, Group, Hero, ListRow, Notice, PageShell, Section } from "@/src/components/page";
 import { useAuth } from "@/src/lib/auth";
 import { formatClock, formatMinutes, useStudyLock } from "@/src/lib/study-lock";
 import { supabase } from "@/src/lib/supabase";
+import { notify } from "@/src/lib/feedback";
 
 type Past = { id: string; label: string | null; minutes: number; started_at: string; ends_at: string };
 
@@ -58,7 +58,7 @@ export default function StudyLockScreen() {
 
   function confirm() {
     if (problem) return;
-    Alert.alert(
+    notify(
       `Lock CampusOS for ${formatMinutes(minutes)}?`,
       `Chat, the marketplace, housing, food, your wallet and notifications will be locked until ${endsAt}. Your study tools stay open. You can't end it early. Everything will be waiting when the timer ends.`,
       [

@@ -1,11 +1,12 @@
 import { router } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
-import { Alert, View } from "react-native";
+import { View } from "react-native";
 import { AppText, Button, EmptyState } from "@/src/components/ui";
 import { Hero, Notice, PageShell, Panel, Pill, Section, type Tone } from "@/src/components/page";
 import { useAuth } from "@/src/lib/auth";
 import { formatNaira } from "@/src/lib/campus";
 import { supabase } from "@/src/lib/supabase";
+import { notify } from "@/src/lib/feedback";
 
 type Request = {
   id: string;
@@ -64,13 +65,13 @@ export default function PaymentRequestsScreen() {
 
   function pay(r: Request) {
     if (balance < Number(r.amount)) {
-      Alert.alert("Not enough in your wallet", `You need ${formatNaira(r.amount)} and have ${formatNaira(balance)}.`, [
+      notify("Not enough in your wallet", `You need ${formatNaira(r.amount)} and have ${formatNaira(balance)}.`, [
         { text: "Later", style: "cancel" },
         { text: "Add money", onPress: () => router.push("/wallet") },
       ]);
       return;
     }
-    Alert.alert("Pay from wallet?", `${formatNaira(r.amount)} for ${r.title} will be taken from your wallet.`, [
+    notify("Pay from wallet?", `${formatNaira(r.amount)} for ${r.title} will be taken from your wallet.`, [
       { text: "Cancel", style: "cancel" },
       {
         text: "Pay",
@@ -78,7 +79,7 @@ export default function PaymentRequestsScreen() {
           setBusy(r.id);
           const { error } = await supabase.rpc("pay_payment_request", { p_request: r.id });
           setBusy(null);
-          if (error) Alert.alert("Couldn't pay", error.message);
+          if (error) notify("Couldn't pay", error.message);
           void load();
         },
       },

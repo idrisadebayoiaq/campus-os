@@ -26,8 +26,48 @@ const WELCOME =
 
 const WANTS_HUMAN =
   /\b(human|real person|talk to (a |an )?(person|human|someone|agent|staff)|speak (to|with) (a |an )?(person|human|someone|agent)|customer (care|service)|live agent)\b/i;
+// Only these send the chat straight to a person. Questions about money (refunds, fees, payouts)
+// are answered by the assistant, which hands off by itself when staff need to act.
 const SENSITIVE =
-  /\b(scam(med)?|fraud|stolen|stole|hack(ed)?|harass(ed|ment)?|threat(en)?|assault|abuse|refund|charged twice|double charge|chargeback|lost money|police|lawyer|delete my (account|data))\b/i;
+  /\b(scam(med)?|fraud|stolen|stole|hack(ed)?|harass(ed|ment)?|threat(en)?|assault|abuse|charged twice|double charge|chargeback|lost money|police|lawyer|delete my (account|data))\b/i;
+
+// A how-to platform guide so the assistant can answer about every part of CampusOS,
+// not only the questions that have a help article. Keep it factual; fees come live from settings.
+const PLATFORM_GUIDE = `
+CAMPUSOS PLATFORM GUIDE
+CampusOS is a campus app in Nigeria. Students use the mobile app. Businesses, lecturers and school staff use the web Portal.
+
+STUDENT APP (bottom bar: Home, Housing, Market, AI, and a More menu with Profile, Settings, Chat, Past Questions, Classes, Lecturer tools)
+- Home: calendar card, small wallet balance card (tap to open the wallet), AI Study card, study tools, nearby deals.
+- Housing: browse rooms near your location, open a room to see photos, price, agent, request an inspection, message the agent. "My room & rent" is under Profile.
+- Market / Explore: food vendors and the student marketplace. Food orders and marketplace purchases are paid from the wallet.
+- Wallet (Home wallet card or Profile > My wallet): a debit-card style card with name, linked card last 4 digits and balance. Actions: Add money, History, Purchases, Premium. Recent activity shows the latest 5 transactions with See all. A second card, "Request payout", appears for students who sell: shows what they can withdraw to a bank or to their wallet.
+- Transactions: full history with filters by type (Funding, Purchases, Refunds, Sales, Withdrawals) and date.
+- Paying by card (wallet top-up, Premium, card orders): a secure Paystack card form slides up inside the app; the result (success or failed) shows before closing. Cards: Mastercard, Visa, Verve.
+- Premium (Profile > Premium): green badge, higher AI tutor limits, lower marketplace fee, priority support. Pay by card (saved for auto-renew) or wallet. Early access to deals is coming soon.
+- Marketplace escrow: buyer pays from wallet, money is held, seller accepts, they meet and the buyer gives a 6-digit code, seller marks handed over, buyer confirms or disputes, then payment is released. Buyers cannot simply cancel after the seller accepts; they open a dispute and support rules on it.
+- Study hub: Courses, Timetable, Classes, Assignments, Exams, Calendar, Planner, CGPA, Library, Past questions (own notes), Flashcards, CBT practice log, Focus timer, AI Tutor, Study groups, Tutors, Insights.
+- Study lock (Settings > Study lock): pick a time; study tools stay open while distracting screens (chat, marketplace, housing, food, wallet) are covered and notifications are held until it ends.
+- AI tutor: a chat in the app for study questions, with hourly and daily limits (Premium triples them). Settings > AI tutor changes its name and avatar.
+- Verify student ID: Profile > Verify student ID, upload ID or admission letter; reviewed by the school or CampusOS.
+- Settings: edit profile, login and password, campus, location, housing preferences, theme, notifications, help and support, terms and privacy. Delete account is requested through support.
+- Help & support: this assistant first, then a person (ticket) when needed.
+
+PORTAL (web, for businesses, lecturers, school staff, support and admins)
+- Business types: housing agent/landlord, restaurant/food vendor, campus service, marketplace seller. Each sees only its own tools after approval.
+- Apply, then finish the setup wizard (details, photos, bank, delivery) after approval.
+- Housing: properties and units, inspection requests, tenancies, payment requests. Food: menu manager, orders board, pause orders, delivery zones. Marketplace: listings and orders.
+- Money pages: Plan (monthly Business plan, auto-renew card), Payouts (add verified bank, withdraw available balance, history), Payment requests (needs an active plan).
+- Also: Reviews with replies, Deals, Boosts, Insights (needs plan), Team members (needs plan), Inbox, Support.
+- Lecturers: classes, roster, timetable, announcements. School authority: verify students, departments, approve lecturers.
+- Staff: Support desk for agents; Admin for approvals, users, reports.
+
+RULES OF THUMB
+- Students sign up only in the mobile app. The Portal is not for student accounts.
+- Wallet money cannot be withdrawn or sent to other people; seller earnings can be withdrawn.
+- Never ask for or accept passwords, card numbers or PINs in chat.
+- Study questions (maths, essays, exam prep) belong to the AI tutor, not to support.
+`;
 const URGENT = /\b(assault|threat(en)?|danger|unsafe|emergency|police)\b/i;
 const GREETING = /^\s*(hi|hello|hey|good (morning|afternoon|evening)|yo|hola|thanks?( you)?|ok(ay)?)[\s!.?]*$/i;
 
@@ -93,7 +133,26 @@ async function recentMessages(admin: SupabaseClient, conversationId: string, lim
   return ((data ?? []) as Msg[]).reverse();
 }
 
-async function accountContext(admin: SupabaseClient, userId: string, audience: Audience) {
+/** Current prices and limits, read live so answers never go stale. */
+async function liveSettings(admin: SupabaseClient): Promise<string[]> {
+  try {
+    const { data } = await admin.from("platform_settings").select("key, value");
+    const s: Record<string, unknown> = {};
+    for (const r of data ?? []) s[(r as { key: string }).key] = (r as { value: unknown }).value;
+    const n = (k: string, d: number) => Number(s[k] ?? d);
+    const naira = (v: number) => `₦${v.toLocaleString("en-NG")}`;
+    return [
+      `Wallet top-up: ${naira(n("topup_min", 500))} to ${naira(n("topup_max", 100000))} each time; wallet holds up to ${naira(n("wallet_cap", 200000))}. The card fee is shown before paying and is paid by the student.`,
+      `Student Premium: ${naira(n("student_plan_price", 1000))}/month. Marketplace fee ${n("marketplace_commission_pct", 2)}% (${n("marketplace_commission_premium_pct", 1)}% for Premium). AI tutor limits x${n("tutor_premium_multiplier", 3)} for Premium.`,
+      `Business: Plan ${naira(n("business_plan_price", 3000))}/month (${n("plan_grace_days", 3)}-day grace). Commission: food orders ${n("food_commission_pct", 3)}%, rent ${n("rent_commission_pct", 5)}%. Minimum payout ${naira(n("payout_min", 5000))}.`,
+      `Marketplace: seller accepts within ${n("market_accept_hours", 24)}h, handover within ${n("market_handover_days", 5)} days, auto-release ${n("market_release_hours", 48)}h after handover is marked, smallest order ${naira(n("market_min", 500))}.`,
+    ];
+  } catch {
+    return [];
+  }
+}
+
+async function accountContext(admin: SupabaseClient, userClient: SupabaseClient, userId: string, audience: Audience) {
   const lines: string[] = [];
   try {
     if (audience === "business" || audience === "other") {
@@ -106,7 +165,7 @@ async function accountContext(admin: SupabaseClient, userId: string, audience: A
           .limit(3),
         admin
           .from("business_profiles")
-          .select("display_name, business_type, setup_complete, is_active, verification_label")
+          .select("id, display_name, business_type, setup_complete, is_active, verification_label")
           .eq("owner_user_id", userId)
           .limit(3),
       ]);
@@ -122,6 +181,13 @@ async function accountContext(admin: SupabaseClient, userId: string, audience: A
             `${b.is_active ? "active" : "inactive"}` +
             (b.verification_label ? `, label ${b.verification_label}` : ""),
         );
+        const { data: plan } = await userClient.rpc("business_plan_state", { p_business: b.id });
+        const ps = plan as { active?: boolean; ends_at?: string | null; in_grace?: boolean } | null;
+        if (ps) {
+          lines.push(
+            `Business plan for "${b.display_name}": ${ps.active ? `active until ${String(ps.ends_at ?? "").slice(0, 10)}` : "not active"}${ps.in_grace ? " (in grace period)" : ""}`,
+          );
+        }
       }
     }
     if (audience === "student") {
@@ -156,6 +222,46 @@ async function accountContext(admin: SupabaseClient, userId: string, audience: A
       }
       for (const o of orders ?? []) {
         lines.push(`Food order from ${String(o.created_at).slice(0, 10)}: ${o.status}, total ${o.total}`);
+      }
+
+      const [wallet, premium, seller, market, pending] = await Promise.all([
+        admin.from("wallets").select("balance, status").eq("user_id", userId).maybeSingle(),
+        userClient.rpc("my_premium_state"),
+        userClient.rpc("my_seller_summary"),
+        admin
+          .from("market_orders")
+          .select("title, amount, status, created_at, buyer_id")
+          .or(`buyer_id.eq.${userId},seller_user_id.eq.${userId}`)
+          .order("created_at", { ascending: false })
+          .limit(3),
+        admin
+          .from("payment_ledger")
+          .select("purpose, amount, status, created_at")
+          .eq("user_id", userId)
+          .in("status", ["pending", "failed"])
+          .order("created_at", { ascending: false })
+          .limit(3),
+      ]);
+      if (wallet.data) {
+        lines.push(`Wallet balance: ₦${Number(wallet.data.balance ?? 0).toLocaleString("en-NG")}${wallet.data.status === "frozen" ? " (wallet is on hold)" : ""}`);
+      }
+      const pr = premium.data as { active?: boolean; ends_at?: string | null; auto_renew?: boolean } | null;
+      if (pr) {
+        lines.push(
+          pr.active
+            ? `Premium: active until ${String(pr.ends_at ?? "").slice(0, 10)}, auto-renew ${pr.auto_renew ? "on" : "off"}`
+            : "Premium: not active",
+        );
+      }
+      const sl = seller.data as { is_seller?: boolean; available?: number; on_hold?: number } | null;
+      if (sl?.is_seller) {
+        lines.push(`Seller earnings: ₦${Number(sl.available ?? 0).toLocaleString("en-NG")} available, ₦${Number(sl.on_hold ?? 0).toLocaleString("en-NG")} on hold`);
+      }
+      for (const m of market.data ?? []) {
+        lines.push(`Marketplace order "${m.title}" (${m.buyer_id === userId ? "you bought" : "you sold"}): ${m.status}, ₦${Number(m.amount).toLocaleString("en-NG")}, ${String(m.created_at).slice(0, 10)}`);
+      }
+      for (const p of pending.data ?? []) {
+        lines.push(`Card payment (${p.purpose}) of ₦${Number(p.amount).toLocaleString("en-NG")} on ${String(p.created_at).slice(0, 10)}: ${p.status}`);
       }
     }
     const { count } = await admin
@@ -198,6 +304,7 @@ async function askModel(input: {
   audience: Audience;
   articles: Article[];
   context: string[];
+  settings: string[];
   history: Msg[];
   userId: string;
   question: string;
@@ -210,10 +317,18 @@ async function askModel(input: {
   const system = [
     `You are the CampusOS Assistant, the first line of customer support for CampusOS, a campus app in Nigeria.`,
     `You are talking to a ${input.audience === "student" ? "student using the mobile app" : "business, lecturer or school user of the CampusOS Portal"}.`,
-    `Answer ONLY from the help articles and account facts below. Never invent policies, prices, timelines or features.`,
-    `Set "handoff": true when the articles don't cover the question, when it involves money, refunds, safety, harassment, fraud, account access you can't fix with the articles, data deletion, or when the user asks for a person or is frustrated.`,
-    `Keep "reply" friendly, plain text, under 120 words, with short steps where helpful. No markdown headings.`,
+    `You know the whole platform. Answer from the PLATFORM GUIDE, LIVE PRICES, HELP ARTICLES and ACCOUNT FACTS below. Use the account facts to give answers about THIS user (their balance, orders, plan, status) and say exactly which screen to open.`,
+    `Never invent prices, fees, timelines, features or policies that are not written below. If something isn't covered, say you aren't sure instead of guessing.`,
+    `Answer how-to, fee, wallet, payment, Premium, marketplace, housing, food, study-tool and Portal questions yourself, step by step, even when money is involved. Only set "handoff": true when a person must act: a specific missing or wrong charge, a refund or dispute for a specific order, safety, harassment, fraud, account access you can't fix, data deletion, a question you can't answer from the information below, or the user asks for a person or is clearly frustrated.`,
+    `If the user asks a study question (maths, essays, exam prep), tell them the AI tutor in the app is the place for that and answer briefly only if it is a platform question.`,
+    `Never ask for passwords, card numbers, PINs or OTPs.`,
+    `Match the user's language and tone. Keep "reply" friendly, plain text, under 150 words, with short numbered steps when helpful. No markdown headings or bold.`,
     `Reply with JSON only: {"reply": string, "handoff": boolean, "subject": short ticket subject, "category": one of ${CATEGORIES.join("|")}, "priority": "normal"|"high"|"urgent", "summary": one or two sentences for the support agent}.`,
+    ``,
+    PLATFORM_GUIDE.trim(),
+    ``,
+    `LIVE PRICES AND LIMITS:`,
+    ...(input.settings.length ? input.settings : ["(unavailable)"]),
     ``,
     `HELP ARTICLES:`,
     ...(input.articles.length
@@ -245,7 +360,7 @@ async function askModel(input: {
           model,
           models: [model, fallback],
           temperature: 0.2,
-          max_tokens: 600,
+          max_tokens: 800,
           response_format: { type: "json_object" },
           provider: { sort: "price", allow_fallbacks: true, require_parameters: true },
           messages: [
@@ -394,10 +509,11 @@ Deno.serve(async (req) => {
         .single();
       if (insertError || !userMsg) throw insertError ?? new Error("Could not send");
 
-      const [{ data: found }, history, context] = await Promise.all([
-        admin.rpc("search_support_articles", { p_query: question, p_audience: kbAudience, p_limit: 4 }),
+      const [{ data: found }, history, context, settings] = await Promise.all([
+        admin.rpc("search_support_articles", { p_query: question, p_audience: kbAudience, p_limit: 6 }),
         recentMessages(admin, conversationId, 24),
-        accountContext(admin, user.id, audience),
+        accountContext(admin, userClient, user.id, audience),
+        liveSettings(admin),
       ]);
       const articles = (found ?? []) as Article[];
 
@@ -407,7 +523,7 @@ Deno.serve(async (req) => {
       if (forced) {
         decision = { reply: "", handoff: true };
       } else {
-        const ai = await askModel({ audience, articles, context, history, userId: user.id, question });
+        const ai = await askModel({ audience, articles, context, settings, history, userId: user.id, question });
         if (ai) {
           decision = ai.decision;
           mode = "ai";

@@ -100,7 +100,7 @@ export function SignupForm({
   intent = "business",
   redirectTo = "/dashboard",
 }: {
-  intent?: "business" | "lecturer" | "school" | "support";
+  intent?: "business" | "lecturer" | "school" | "support" | "staff";
   redirectTo?: string;
 } = {}) {
   const router = useRouter();

@@ -6,6 +6,8 @@ import { StatusBar } from "expo-status-bar";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { AuthProvider } from "@/src/lib/auth";
+import { FeedbackProvider } from "@/src/lib/feedback";
+import { PaySheetProvider } from "@/src/lib/pay-sheet";
 import { StudyLockProvider } from "@/src/lib/study-lock";
 import {
   ThemeProvider,
@@ -28,7 +30,11 @@ export default function RootLayout() {
         <ThemeProvider>
           <AuthProvider>
             <StudyLockProvider>
-              <RootNavigator />
+              <FeedbackProvider>
+                <PaySheetProvider>
+                  <RootNavigator />
+                </PaySheetProvider>
+              </FeedbackProvider>
             </StudyLockProvider>
           </AuthProvider>
         </ThemeProvider>

@@ -1,12 +1,13 @@
 import { router, useLocalSearchParams } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
-import { Alert, View } from "react-native";
+import { View } from "react-native";
 import { ChipRow, Group, Hero, KeyValue, ListRow, Notice, PageShell, Panel, Section } from "@/src/components/page";
 import { AppText, Button, Input } from "@/src/components/ui";
 import { useAuth } from "@/src/lib/auth";
 import { formatNaira } from "@/src/lib/campus";
 import { callPaystack } from "@/src/lib/payments";
 import { supabase } from "@/src/lib/supabase";
+import { notify } from "@/src/lib/feedback";
 
 type Summary = {
   available: number;
@@ -98,7 +99,7 @@ export default function PayoutScreen() {
 
   function withdrawToBank() {
     if (bankProblem || !s?.bank) return;
-    Alert.alert("Withdraw to your bank?", `${formatNaira(available)} will be sent to ${s.bank.name} (${s.bank.bank ?? "bank"} ••••${s.bank.last4}).`, [
+    notify("Withdraw to your bank?", `${formatNaira(available)} will be sent to ${s.bank.name} (${s.bank.bank ?? "bank"} ••••${s.bank.last4}).`, [
       { text: "Cancel", style: "cancel" },
       {
         text: "Withdraw",

@@ -2,8 +2,6 @@ import { router } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
-  Alert,
-  Linking,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -16,9 +14,11 @@ import { AppText, EmptyState } from "@/src/components/ui";
 import { useAuth } from "@/src/lib/auth";
 import { formatNaira } from "@/src/lib/campus";
 import { callPaystack } from "@/src/lib/payments";
+import { PAY_RETURN_URL, usePaySheet } from "@/src/lib/pay-sheet";
 import { supabase } from "@/src/lib/supabase";
 import { useTheme } from "@/src/theme/ThemeProvider";
 import { radii } from "@/src/theme/tokens";
+import { notify } from "@/src/lib/feedback";
 
 type Order = {
   id: string;
@@ -106,6 +106,7 @@ export default function OrdersScreen() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const { payByCard } = usePaySheet();
 
   const load = useCallback(async () => {
     if (!user) return;
@@ -139,22 +140,30 @@ export default function OrdersScreen() {
   }, [load, user]);
 
   async function payNow(order: Order) {
-    const res = await callPaystack(supabase, { action: "init-order", order_id: order.id });
-    if (res.ok && typeof res.data.authorization_url === "string") {
-      void Linking.openURL(res.data.authorization_url);
+    const res = await callPaystack(supabase, { action: "init-order", order_id: order.id, callback_url: PAY_RETURN_URL });
+    if (res.ok && typeof res.data.authorization_url === "string" && typeof res.data.reference === "string") {
+      const paid = await payByCard({
+        url: res.data.authorization_url,
+        reference: res.data.reference,
+        title: "Pay for your order",
+        amount: order.total,
+        successText: "Payment received. The kitchen has your order.",
+      });
+      if (paid.status === "failed") notify("Payment not completed", "Your card was not charged. Try again or use another card.", undefined, { tone: "danger" });
+      void load();
       return;
     }
-    Alert.alert("Couldn't start payment", res.ok ? "Try again in a moment." : res.message);
+    notify("Couldn't start payment", res.ok ? "Try again in a moment." : res.message);
   }
 
   function requestRefund(order: Order) {
-    Alert.alert("Request a refund?", "The kitchen will review your request and you'll be notified.", [
+    notify("Request a refund?", "The kitchen will review your request and you'll be notified.", [
       { text: "Not now", style: "cancel" },
       {
         text: "Request refund",
         onPress: async () => {
           const { error } = await supabase.rpc("request_refund", { p_order: order.id, p_reason: "Requested from the app" });
-          if (error) Alert.alert("Couldn't request refund", error.message);
+          if (error) notify("Couldn't request refund", error.message);
           void load();
         },
       },
@@ -173,14 +182,14 @@ export default function OrdersScreen() {
   }, [orders, load]);
 
   function cancel(order: Order) {
-    Alert.alert("Cancel this order?", "The kitchen hasn't accepted it yet.", [
+    notify("Cancel this order?", "The kitchen hasn't accepted it yet.", [
       { text: "Keep it", style: "cancel" },
       {
         text: "Cancel order",
         style: "destructive",
         onPress: async () => {
           const { error } = await supabase.from("food_orders").update({ status: "cancelled" }).eq("id", order.id);
-          if (error) Alert.alert("Couldn't cancel", error.message);
+          if (error) notify("Couldn't cancel", error.message);
           void load();
         },
       },

@@ -1,7 +1,7 @@
 import * as ImagePicker from "expo-image-picker";
 import { router, useLocalSearchParams } from "expo-router";
 import { useState } from "react";
-import { Alert, Image, Pressable, ScrollView, StyleSheet, TextInput, View } from "react-native";
+import { Image, Pressable, ScrollView, StyleSheet, TextInput, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { AppText, Chip } from "@/src/components/ui";
@@ -9,6 +9,7 @@ import { useAuth } from "@/src/lib/auth";
 import { supabase } from "@/src/lib/supabase";
 import { useTheme } from "@/src/theme/ThemeProvider";
 import { radii } from "@/src/theme/tokens";
+import { notify } from "@/src/lib/feedback";
 
 const REASONS = ["Scam or fraud", "Not as described", "Rude or unsafe", "Wrong price", "Fake photos", "Other"];
 
@@ -57,10 +58,10 @@ export default function ReportScreen() {
     });
     setBusy(false);
     if (error) {
-      Alert.alert("Couldn't send report", error.message);
+      notify("Couldn't send report", error.message);
       return;
     }
-    Alert.alert("Report sent", "Thanks. Our team will look into it. Your identity stays private.", [{ text: "OK", onPress: () => router.back() }]);
+    notify("Report sent", "Thanks. Our team will look into it. Your identity stays private.", [{ text: "OK", onPress: () => router.back() }]);
   }
 
   return (

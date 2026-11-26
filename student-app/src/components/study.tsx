@@ -1,6 +1,5 @@
 import { useMemo, useState, type ReactNode } from "react";
 import {
-  Alert,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -25,6 +24,7 @@ import { parseDateInput } from "@/src/lib/study";
 import { useStudyTable, type StudyRow } from "@/src/lib/use-study-table";
 import { useTheme } from "@/src/theme/ThemeProvider";
 import { radii } from "@/src/theme/tokens";
+import { notify } from "@/src/lib/feedback";
 
 /* ------------------------------ Shell ------------------------------ */
 
@@ -210,7 +210,7 @@ export function Row({
 }
 
 export function confirmDelete(label: string, onConfirm: () => void) {
-  Alert.alert("Delete", `Remove ${label}?`, [
+  notify("Delete", `Remove ${label}?`, [
     { text: "Cancel", style: "cancel" },
     { text: "Delete", style: "destructive", onPress: onConfirm },
   ]);
@@ -430,14 +430,14 @@ export function CrudScreen<T extends StudyRow = StudyRow>(props: CrudScreenProps
   async function onDelete(item: T, label: string) {
     confirmDelete(label, async () => {
       const res = await store.remove(item.id);
-      if (res.error) Alert.alert("Could not delete", res.error);
+      if (res.error) notify("Could not delete", res.error);
     });
   }
 
   const api: Api<T> = {
     update: async (id, patch) => {
       const res = await store.update(id, patch);
-      if (res.error) Alert.alert("Could not update", res.error);
+      if (res.error) notify("Could not update", res.error);
       return res;
     },
     remove: store.remove,

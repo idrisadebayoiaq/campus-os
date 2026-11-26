@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { Alert, Pressable, View } from "react-native";
+import { Pressable, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { AppText, Button, EmptyState, Input } from "@/src/components/ui";
 import { Notice, PageShell, Panel, Pill, Segmented, type Tone } from "@/src/components/page";
@@ -9,6 +9,7 @@ import { pickAndUploadEvidence } from "@/src/lib/evidence";
 import { supabase } from "@/src/lib/supabase";
 import { useTheme } from "@/src/theme/ThemeProvider";
 import { radii } from "@/src/theme/tokens";
+import { notify } from "@/src/lib/feedback";
 
 type Order = {
   id: string;
@@ -128,7 +129,7 @@ export default function MarketOrdersScreen() {
     setBusy(id);
     const { error } = await supabase.rpc(fn, args);
     setBusy(null);
-    if (error) Alert.alert("Couldn't do that", error.message);
+    if (error) notify("Couldn't do that", error.message);
     else setPanel(null);
     void load();
   }
@@ -139,7 +140,7 @@ export default function MarketOrdersScreen() {
       const path = await pickAndUploadEvidence(supabase, orderId, user.id);
       if (path) setPhoto(path);
     } catch (e) {
-      Alert.alert("Photo failed", e instanceof Error ? e.message : "Try again.");
+      notify("Photo failed", e instanceof Error ? e.message : "Try again.");
     }
   }
 
