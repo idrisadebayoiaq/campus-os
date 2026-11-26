@@ -3,10 +3,13 @@
 export const APP_VERSION = "1.0.4";
 export const APP_VERSION_CODE = 9;
 
-/** Direct APK (also mirrored as CampusOS-1.0.3-vc8.apk). */
+/**
+ * Direct APK link. Defaults to the latest EAS build artifact so the 50 MB
+ * APK is not committed to git. Override with NEXT_PUBLIC_APK_URL.
+ */
 export const APK_HREF =
   process.env.NEXT_PUBLIC_APK_URL?.trim() ||
-  "/downloads/CampusOS-latest.apk";
+  "https://expo.dev/artifacts/eas/SJ07OvPfcdvyUjrI_zRrXFzdnrhGaYS_i_EM1sYFG4A.apk";
 
 /**
  * Set when the listing goes live, e.g.
