@@ -32,13 +32,10 @@ type MenuRow = {
 const MENU: MenuRow[] = [
   { title: "Edit Profile", icon: "person-outline", href: "/profile-edit" },
   { title: "Verify student ID", icon: "shield-checkmark-outline", href: "/verify" },
-  { title: "Preferences", icon: "options-outline", href: "/preferences" },
-  { title: "Campus", icon: "school-outline", href: "/onboarding" },
-  { title: "Change Password", icon: "lock-closed-outline", href: "/profile-edit" },
-  { title: "Theme", icon: "contrast-outline", href: "/settings" },
-  { title: "Notifications", icon: "notifications-outline", href: "/preferences" },
+  { title: "Notifications", icon: "notifications-outline", href: "/notifications" },
+  { title: "AI tutor", icon: "sparkles-outline", href: "/inbox/ai-profile" },
   { title: "Settings", icon: "settings-outline", href: "/settings" },
-  { title: "Support", icon: "headset-outline", href: "/support" },
+  { title: "Help & support", icon: "headset-outline", href: "/support" },
 ];
 
 export default function ProfileScreen() {

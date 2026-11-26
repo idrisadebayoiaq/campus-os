@@ -1,4 +1,4 @@
-import { router, useLocalSearchParams } from "expo-router";
+import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
@@ -13,6 +13,7 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { AppText, Avatar } from "@/src/components/ui";
+import { AiAvatar } from "@/src/lib/ai-avatars";
 import { useAuth } from "@/src/lib/auth";
 import {
   conversationTitle,
@@ -51,7 +52,10 @@ function dayLabel(iso: string) {
 }
 
 export default function ChatThreadScreen() {
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const { id, draft: initialDraft } = useLocalSearchParams<{
+    id: string;
+    draft?: string;
+  }>();
   const { user, session } = useAuth();
   const colors = useTheme();
   const insets = useSafeAreaInsets();
@@ -61,13 +65,15 @@ export default function ChatThreadScreen() {
   const [kind, setKind] = useState("direct");
   const [subtitle, setSubtitle] = useState("");
   const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [draft, setDraft] = useState("");
+  const [draft, setDraft] = useState(initialDraft ?? "");
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const [aiThinking, setAiThinking] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [aiAvatar, setAiAvatar] = useState<string | null>(null);
 
   const isAi = kind === "ai";
+  const isSupport = kind === "support";
 
   const loadMessages = useCallback(async () => {
     if (!id || !user) return;
@@ -96,18 +102,30 @@ export default function ChatThreadScreen() {
       );
       setSubtitle(
         conv.kind === "ai"
-          ? "AI companion · tap name for settings"
-          : kindLabel(conv.kind),
+          ? "AI tutor · tap for settings"
+          : conv.kind === "support"
+            ? "CampusOS team · usually replies within a day"
+            : kindLabel(conv.kind),
       );
+      if (conv.kind === "ai") {
+        const { data: ai } = await supabase
+          .from("ai_companion_profiles")
+          .select("avatar_url")
+          .eq("conversation_id", id)
+          .maybeSingle();
+        setAiAvatar((ai?.avatar_url as string | null) ?? null);
+      }
     }
     setMessages((msgs as ChatMessage[]) || []);
     await markConversationRead(supabase, id, user.id);
     setLoading(false);
   }, [id, user]);
 
-  useEffect(() => {
-    void loadMessages();
-  }, [loadMessages]);
+  useFocusEffect(
+    useCallback(() => {
+      void loadMessages();
+    }, [loadMessages]),
+  );
 
   useEffect(() => {
     if (!id) return;
@@ -216,7 +234,7 @@ export default function ChatThreadScreen() {
   }
 
   function openProfile() {
-    if (!id) return;
+    if (!id || isSupport) return;
     if (isAi) {
       router.push(`/inbox/ai-profile?conversationId=${id}`);
       return;
@@ -249,7 +267,15 @@ export default function ChatThreadScreen() {
           <Ionicons name="arrow-back" size={22} color={colors.fg} />
         </Pressable>
         <Pressable onPress={openProfile} style={styles.headerMain}>
-          <Avatar label={title} size={40} />
+          {isAi ? (
+            <AiAvatar avatarKey={aiAvatar} size={40} />
+          ) : isSupport ? (
+            <View style={[styles.supportBadge, { backgroundColor: colors.accentSoft }]}>
+              <Ionicons name="headset" size={20} color={colors.fg} />
+            </View>
+          ) : (
+            <Avatar label={title} size={40} />
+          )}
           <View style={{ flex: 1 }}>
             <AppText weight="700" size={16} numberOfLines={1}>
               {title}
@@ -259,9 +285,17 @@ export default function ChatThreadScreen() {
             </AppText>
           </View>
         </Pressable>
-        <Pressable onPress={openProfile} style={styles.iconBtn}>
-          <Ionicons name="ellipsis-vertical" size={18} color={colors.fg} />
-        </Pressable>
+        {isSupport ? (
+          <View style={styles.iconBtn} />
+        ) : (
+          <Pressable onPress={openProfile} style={styles.iconBtn}>
+            <Ionicons
+              name={isAi ? "settings-outline" : "ellipsis-vertical"}
+              size={18}
+              color={colors.fg}
+            />
+          </Pressable>
+        )}
       </View>
 
       <KeyboardAvoidingView
@@ -394,7 +428,9 @@ export default function ChatThreadScreen() {
           <TextInput
             value={draft}
             onChangeText={setDraft}
-            placeholder={isAi ? "Ask your tutor…" : "Message"}
+            placeholder={
+              isAi ? "Ask your tutor…" : isSupport ? "Describe what you need…" : "Message"
+            }
             placeholderTextColor={colors.muted}
             multiline
             style={[
@@ -446,6 +482,13 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 10,
+  },
+  supportBadge: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: "center",
+    justifyContent: "center",
   },
   day: { textAlign: "center", marginVertical: 10 },
   system: { textAlign: "center", marginVertical: 6, paddingHorizontal: 24 },

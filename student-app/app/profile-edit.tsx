@@ -15,8 +15,6 @@ import {
   AppText,
   Avatar,
   Button,
-  Checkbox,
-  Chip,
   Field,
   Input,
 } from "@/src/components/ui";
@@ -24,13 +22,6 @@ import { useAuth } from "@/src/lib/auth";
 import { supabase } from "@/src/lib/supabase";
 import { useTheme } from "@/src/theme/ThemeProvider";
 import { radii } from "@/src/theme/tokens";
-
-const HOUSING_STATUS = [
-  { value: "need_room", label: "Need a room" },
-  { value: "moving_soon", label: "Moving soon" },
-  { value: "housed", label: "Already housed" },
-  { value: "exploring", label: "Exploring" },
-];
 
 type Status = { kind: "ok" | "error"; text: string } | null;
 
@@ -54,12 +45,6 @@ export default function ProfileEditScreen() {
   const [session, setSession] = useState("");
   const [semester, setSemester] = useState("");
   const [targetCgpa, setTargetCgpa] = useState("");
-  const [housingStatus, setHousingStatus] = useState("");
-  const [maxBudget, setMaxBudget] = useState("");
-  const [budgetPeriod, setBudgetPeriod] = useState("year");
-  const [alerts, setAlerts] = useState(false);
-  const [newPassword, setNewPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
 
   const [saving, setSaving] = useState<string | null>(null);
   const [status, setStatus] = useState<Record<string, Status>>({});
@@ -72,7 +57,7 @@ export default function ProfileEditScreen() {
     if (!user) return;
     let cancelled = false;
     async function load() {
-      const [profileRes, studentRes, housingRes] = await Promise.all([
+      const [profileRes, studentRes] = await Promise.all([
         supabase
           .from("profiles")
           .select("first_name, last_name, preferred_name, full_name, avatar_url")
@@ -83,16 +68,10 @@ export default function ProfileEditScreen() {
           .select("*")
           .eq("user_id", user!.id)
           .maybeSingle(),
-        supabase
-          .from("housing_preferences")
-          .select("*")
-          .eq("user_id", user!.id)
-          .maybeSingle(),
       ]);
       if (cancelled) return;
       const p = profileRes.data;
       const s = studentRes.data as Record<string, unknown> | null;
-      const h = housingRes.data as Record<string, unknown> | null;
 
       let first = p?.first_name || "";
       let last = p?.last_name || "";
@@ -111,10 +90,6 @@ export default function ProfileEditScreen() {
       setSession(String(s?.academic_session ?? ""));
       setSemester(String(s?.current_semester ?? ""));
       setTargetCgpa(s?.target_cgpa ? String(s.target_cgpa) : "");
-      setHousingStatus(String(h?.housing_status ?? ""));
-      setMaxBudget(h?.max_budget ? String(h.max_budget) : "");
-      setBudgetPeriod(String(h?.budget_period ?? "year"));
-      setAlerts(Boolean(h?.alerts_enabled));
     }
     void load();
     return () => {
@@ -300,75 +275,6 @@ export default function ProfileEditScreen() {
     );
   }
 
-  async function saveHousing() {
-    if (!user) return;
-    setSaving("housing");
-    setSectionStatus("housing", null);
-    const housingPayload = {
-      housing_status: housingStatus || null,
-      max_budget: numOrNull(maxBudget),
-      budget_period: budgetPeriod,
-      alerts_enabled: alerts,
-      updated_at: new Date().toISOString(),
-    };
-    let { error } = await supabase
-      .from("housing_preferences")
-      .update(housingPayload)
-      .eq("user_id", user.id);
-    if (error) {
-      ({ error } = await supabase
-        .from("housing_preferences")
-        .insert({ user_id: user.id, ...housingPayload }));
-    }
-    if (!error) {
-      const { data: existing } = await supabase
-        .from("housing_preferences")
-        .select("user_id")
-        .eq("user_id", user.id)
-        .maybeSingle();
-      if (!existing) {
-        ({ error } = await supabase
-          .from("housing_preferences")
-          .insert({ user_id: user.id, ...housingPayload }));
-      }
-    }
-    setSaving(null);
-    setSectionStatus(
-      "housing",
-      error
-        ? { kind: "error", text: error.message }
-        : { kind: "ok", text: "Housing preferences saved." },
-    );
-  }
-
-  async function changePassword() {
-    setSectionStatus("password", null);
-    if (newPassword.length < 6) {
-      setSectionStatus("password", {
-        kind: "error",
-        text: "Password must be at least 6 characters.",
-      });
-      return;
-    }
-    if (newPassword !== confirmPassword) {
-      setSectionStatus("password", {
-        kind: "error",
-        text: "Passwords do not match.",
-      });
-      return;
-    }
-    setSaving("password");
-    const { error } = await supabase.auth.updateUser({ password: newPassword });
-    setSaving(null);
-    if (error) {
-      setSectionStatus("password", { kind: "error", text: error.message });
-      return;
-    }
-    setNewPassword("");
-    setConfirmPassword("");
-    setSectionStatus("password", { kind: "ok", text: "Password updated." });
-  }
-
   return (
     <View style={{ flex: 1, backgroundColor: colors.bg, paddingTop: insets.top }}>
       <View style={styles.top}>
@@ -483,87 +389,6 @@ export default function ProfileEditScreen() {
               title="Save academic"
               onPress={saveAcademic}
               loading={saving === "academic"}
-            />
-          </View>
-
-          <View style={[styles.card, { backgroundColor: colors.surface }]}>
-            <AppText size={17} weight="700">
-              Housing preferences
-            </AppText>
-            <Field label="Housing status">
-              <View style={styles.chips}>
-                {HOUSING_STATUS.map((o) => (
-                  <Chip
-                    key={o.value}
-                    label={o.label}
-                    active={housingStatus === o.value}
-                    onPress={() =>
-                      setHousingStatus(housingStatus === o.value ? "" : o.value)
-                    }
-                  />
-                ))}
-              </View>
-            </Field>
-            <Field label="Max budget (₦)">
-              <Input
-                value={maxBudget}
-                onChangeText={setMaxBudget}
-                keyboardType="number-pad"
-                placeholder="e.g. 250000"
-                style={inner}
-              />
-            </Field>
-            <Field label="Budget period">
-              <View style={styles.chips}>
-                {["year", "semester", "month"].map((p) => (
-                  <Chip
-                    key={p}
-                    label={`Per ${p}`}
-                    active={budgetPeriod === p}
-                    onPress={() => setBudgetPeriod(p)}
-                  />
-                ))}
-              </View>
-            </Field>
-            <Checkbox checked={alerts} onChange={setAlerts}>
-              <AppText size={14}>Housing alerts</AppText>
-            </Checkbox>
-            {statusLine("housing")}
-            <Button
-              title="Save housing prefs"
-              onPress={saveHousing}
-              loading={saving === "housing"}
-            />
-          </View>
-
-          <View style={[styles.card, { backgroundColor: colors.surface }]}>
-            <AppText size={17} weight="700">
-              Change password
-            </AppText>
-            <Field label="New password">
-              <Input
-                secureTextEntry
-                autoComplete="new-password"
-                value={newPassword}
-                onChangeText={setNewPassword}
-                placeholder="At least 6 characters"
-                style={inner}
-              />
-            </Field>
-            <Field label="Confirm password">
-              <Input
-                secureTextEntry
-                autoComplete="new-password"
-                value={confirmPassword}
-                onChangeText={setConfirmPassword}
-                style={inner}
-              />
-            </Field>
-            {statusLine("password")}
-            <Button
-              title="Update password"
-              onPress={changePassword}
-              loading={saving === "password"}
             />
           </View>
         </ScrollView>

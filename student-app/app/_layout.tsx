@@ -57,6 +57,9 @@ function RootNavigator() {
         <Stack.Screen name="explore" options={{ headerShown: false }} />
         <Stack.Screen name="settings" options={{ headerShown: false }} />
         <Stack.Screen name="support" options={{ headerShown: false }} />
+        <Stack.Screen name="notifications" options={{ headerShown: false }} />
+        <Stack.Screen name="housing-preferences" options={{ headerShown: false }} />
+        <Stack.Screen name="change-password" options={{ headerShown: false }} />
         <Stack.Screen name="profile-edit" options={{ headerShown: false }} />
         <Stack.Screen name="verify" options={{ headerShown: false }} />
         <Stack.Screen name="meetings" options={{ headerShown: false }} />
@@ -64,6 +67,7 @@ function RootNavigator() {
         <Stack.Screen name="preferences" options={{ headerShown: false }} />
         <Stack.Screen name="inbox/[id]" options={{ headerShown: false }} />
         <Stack.Screen name="inbox/ai-profile" options={{ headerShown: false }} />
+        <Stack.Screen name="inbox/ai-avatar" options={{ headerShown: false }} />
         <Stack.Screen name="inbox/info" options={{ headerShown: false }} />
         <Stack.Screen name="lecturer" options={{ headerShown: false }} />
         <Stack.Screen

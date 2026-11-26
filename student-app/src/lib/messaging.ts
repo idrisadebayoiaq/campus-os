@@ -59,9 +59,10 @@ export const INBOX_FILTERS = [
   { key: "group", label: "Groups" },
   { key: "listing", label: "Housing" },
   { key: "order", label: "Business" },
-  { key: "ai", label: "AI" },
-  { key: "support", label: "Support" },
 ] as const;
+
+/** AI tutor and support have their own screens and never appear in Chats. */
+export const STANDALONE_KINDS = new Set(["ai", "support"]);
 
 export function conversationTitle(input: {
   kind: string;
@@ -153,7 +154,7 @@ export async function ensureSupportConversation(
     conversation_id: conversation.id,
     sender_id: null,
     message_type: "system",
-    body: "Welcome to CampusOS Chat. Message classmates, agents, businesses, and your AI tutor here.",
+    body: "Hi, this is CampusOS Support. Tell us what you need help with and our team will reply here.",
   });
 
   return conversation.id as string;
@@ -268,13 +269,7 @@ export async function ensureAiConversation(
 export async function loadConversations(
   supabase: SupabaseClient,
   userId: string,
-  opts?: { ensureAi?: boolean },
 ): Promise<ConversationListItem[]> {
-  await ensureSupportConversation(supabase, userId);
-  if (opts?.ensureAi !== false) {
-    await ensureAiConversation(supabase, userId);
-  }
-
   const { data: parts } = await supabase
     .from("conversation_participants")
     .select(
@@ -298,7 +293,7 @@ export async function loadConversations(
     const conv = Array.isArray(part.conversations)
       ? part.conversations[0]
       : part.conversations;
-    if (!conv?.id) continue;
+    if (!conv?.id || STANDALONE_KINDS.has(conv.kind)) continue;
     convIds.push(conv.id);
     partMeta.push({
       id: conv.id,
@@ -360,12 +355,7 @@ export async function loadConversations(
     };
   });
 
-  // AI sticky at top, then by updated_at
-  rows.sort((a, b) => {
-    if (a.kind === "ai" && b.kind !== "ai") return -1;
-    if (b.kind === "ai" && a.kind !== "ai") return 1;
-    return +new Date(b.updated_at) - +new Date(a.updated_at);
-  });
+  rows.sort((a, b) => +new Date(b.updated_at) - +new Date(a.updated_at));
   return rows;
 }
 

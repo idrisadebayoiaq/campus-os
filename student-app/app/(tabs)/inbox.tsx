@@ -25,7 +25,6 @@ import {
   INBOX_FILTERS,
   conversationTitle,
   createGroupChat,
-  ensureAiConversation,
   kindLabel,
   loadConversations,
   startDirectChat,
@@ -101,12 +100,6 @@ export default function InboxScreen() {
     return rows.filter((r) => r.kind === filter);
   }, [rows, filter]);
 
-  async function openAi() {
-    if (!user) return;
-    const { conversationId } = await ensureAiConversation(supabase, user.id);
-    router.push(`/inbox/${conversationId}`);
-  }
-
   async function startDm() {
     if (!user || !peerEmail.trim()) return;
     setComposeBusy(true);
@@ -116,6 +109,11 @@ export default function InboxScreen() {
       let peerId: string | undefined;
       if (/^[0-9a-f-]{36}$/i.test(raw)) {
         peerId = raw;
+      } else if (raw.includes("@")) {
+        const { data } = await supabase.rpc("lookup_user_id_by_email", {
+          p_email: raw,
+        });
+        peerId = (data as string | null) ?? undefined;
       } else {
         const { data: profile } = await supabase
           .from("profiles")
@@ -129,7 +127,7 @@ export default function InboxScreen() {
       }
       if (!peerId) {
         setComposeError(
-          "User not found. Paste their user id, or search by first/preferred name.",
+          "No CampusOS account found. Check the email address and try again.",
         );
         return;
       }
@@ -175,7 +173,7 @@ export default function InboxScreen() {
             Chats
           </AppText>
           <AppText muted size={13}>
-            WhatsApp-style campus messaging
+            Classmates, groups, agents and businesses
           </AppText>
         </View>
         <Pressable
@@ -255,17 +253,8 @@ export default function InboxScreen() {
             <View style={{ padding: 20 }}>
               <EmptyState
                 title="No chats yet"
-                description="Start a direct or group chat, message an agent from housing, or open your AI tutor."
+                description="Start a direct or group chat, or message an agent or business from their listing."
               />
-              <Pressable
-                onPress={() => void openAi()}
-                style={[styles.aiCta, { backgroundColor: colors.heroBg }]}
-              >
-                <Ionicons name="sparkles" size={18} color={colors.accent} />
-                <AppText weight="700" style={{ color: colors.heroFg }}>
-                  Chat with AI tutor
-                </AppText>
-              </Pressable>
             </View>
           }
           renderItem={({ item }) => {
@@ -330,7 +319,7 @@ export default function InboxScreen() {
               New chat
             </AppText>
             <AppText muted size={13}>
-              Direct message (email or user id)
+              Direct message by email
             </AppText>
             <TextInput
               value={peerEmail}
@@ -373,15 +362,6 @@ export default function InboxScreen() {
             >
               <AppText weight="700" style={{ color: colors.inverseFg }}>
                 Create group
-              </AppText>
-            </Pressable>
-
-            <Pressable
-              onPress={() => void openAi()}
-              style={[styles.primaryBtn, { backgroundColor: colors.heroBg }]}
-            >
-              <AppText weight="700" style={{ color: colors.heroFg }}>
-                Open AI tutor
               </AppText>
             </Pressable>
 
@@ -443,15 +423,6 @@ const styles = StyleSheet.create({
     width: 10,
     height: 10,
     borderRadius: 5,
-  },
-  aiCta: {
-    marginTop: 16,
-    minHeight: 48,
-    borderRadius: radii.md,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 8,
   },
   modalBackdrop: {
     flex: 1,

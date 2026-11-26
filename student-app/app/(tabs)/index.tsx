@@ -1,4 +1,4 @@
-import { router, type Href } from "expo-router";
+import { router, useFocusEffect, type Href } from "expo-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Pressable,
@@ -142,6 +142,19 @@ export default function HomeScreen() {
   const [credits, setCredits] = useState(0);
   const [courseCount, setCourseCount] = useState(0);
   const [assignmentCount, setAssignmentCount] = useState(0);
+  const [unreadNotifications, setUnreadNotifications] = useState(0);
+
+  useFocusEffect(
+    useCallback(() => {
+      if (!user) return;
+      void supabase
+        .from("notifications")
+        .select("id", { count: "exact", head: true })
+        .eq("user_id", user.id)
+        .eq("is_read", false)
+        .then(({ count }) => setUnreadNotifications(count ?? 0));
+    }, [user]),
+  );
 
   const load = useCallback(async () => {
     if (!user) return;
@@ -287,15 +300,31 @@ export default function HomeScreen() {
               <Ionicons name="headset-outline" size={18} color={colors.fg} />
             </Pressable>
             <Pressable
-              onPress={() => router.push("/(tabs)/inbox")}
+              onPress={() => router.push("/notifications")}
               style={[styles.iconBtn, { backgroundColor: colors.surface }]}
-              accessibilityLabel="Messages"
+              accessibilityLabel={
+                unreadNotifications
+                  ? `Notifications, ${unreadNotifications} unread`
+                  : "Notifications"
+              }
             >
               <Ionicons
                 name="notifications-outline"
                 size={18}
                 color={colors.fg}
               />
+              {unreadNotifications ? (
+                <View
+                  style={[
+                    styles.badge,
+                    { backgroundColor: colors.danger, borderColor: colors.bg },
+                  ]}
+                >
+                  <AppText size={10} weight="700" style={{ color: "#fff", lineHeight: 12 }}>
+                    {unreadNotifications > 9 ? "9+" : unreadNotifications}
+                  </AppText>
+                </View>
+              ) : null}
             </Pressable>
           </View>
         </View>
@@ -558,6 +587,18 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  badge: {
+    position: "absolute",
+    top: -2,
+    right: -2,
+    minWidth: 18,
+    height: 18,
+    paddingHorizontal: 4,
+    borderRadius: 9,
+    borderWidth: 2,
     alignItems: "center",
     justifyContent: "center",
   },

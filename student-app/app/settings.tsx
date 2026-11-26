@@ -1,3 +1,4 @@
+import Constants from "expo-constants";
 import { router, type Href } from "expo-router";
 import { useState } from "react";
 import {
@@ -33,6 +34,7 @@ type SettingsGroup = {
   rows: SettingsRow[];
 };
 
+const APP_VERSION = Constants.expoConfig?.version ?? "";
 const DOWNLOAD_URL = "https://campusos-app.vercel.app/download";
 const PRIVACY_URL = "https://campusos-app.vercel.app/privacy";
 
@@ -62,77 +64,67 @@ export default function SettingsScreen() {
       title: "Account",
       rows: [
         {
-          title: "My Profile",
-          icon: "person-outline",
-          href: "/(tabs)/profile",
-        },
-        {
           title: "Edit profile",
-          icon: "create-outline",
+          icon: "person-outline",
           href: "/profile-edit",
         },
         {
-          title: "Preferences",
-          icon: "options-outline",
-          href: "/preferences",
+          title: "Login & password",
+          icon: "key-outline",
+          href: "/change-password",
+        },
+        {
+          title: "Verify student ID",
+          icon: "shield-checkmark-outline",
+          href: "/verify",
         },
         {
           title: "Campus",
           icon: "school-outline",
           href: "/onboarding",
         },
-        {
-          title: "Login & password",
-          icon: "key-outline",
-          href: "/profile-edit",
-        },
       ],
     },
     {
-      key: "app",
-      title: "App",
+      key: "preferences",
+      title: "Preferences",
       rows: [
+        {
+          title: "Housing preferences",
+          icon: "home-outline",
+          href: "/housing-preferences",
+        },
+        {
+          title: "Study & alert preferences",
+          icon: "options-outline",
+          href: "/preferences",
+        },
+        {
+          title: "AI tutor",
+          icon: "sparkles-outline",
+          href: "/inbox/ai-profile",
+        },
         {
           title: "Theme",
           icon: "contrast-outline",
           status: themeLabel,
           onPress: cycleTheme,
         },
+      ],
+    },
+    {
+      key: "support",
+      title: "Help",
+      rows: [
         {
-          title: "Notifications",
-          icon: "notifications-outline",
-          href: "/preferences",
-        },
-        {
-          title: "Study Hub",
-          icon: "library-outline",
-          href: "/(tabs)/study",
-        },
-        {
-          title: "Chat",
-          icon: "chatbubble-outline",
-          href: "/(tabs)/inbox",
+          title: "Help & support",
+          icon: "headset-outline",
+          href: "/support",
         },
         {
           title: "Download app updates",
           icon: "download-outline",
           externalUrl: DOWNLOAD_URL,
-        },
-      ],
-    },
-    {
-      key: "support",
-      title: "Support",
-      rows: [
-        {
-          title: "Contact support",
-          icon: "headset-outline",
-          href: "/support",
-        },
-        {
-          title: "Feedback & suggestions",
-          icon: "chatbox-ellipses-outline",
-          href: "/support",
         },
         {
           title: "Privacy policy",
@@ -140,9 +132,9 @@ export default function SettingsScreen() {
           externalUrl: PRIVACY_URL,
         },
         {
-          title: "About CampusOS",
+          title: "Version",
           icon: "information-circle-outline",
-          href: "/support",
+          status: APP_VERSION,
         },
       ],
     },
@@ -232,11 +224,13 @@ export default function SettingsScreen() {
                       {row.status}
                     </AppText>
                   ) : null}
-                  <Ionicons
-                    name="chevron-forward"
-                    size={16}
-                    color={colors.muted}
-                  />
+                  {row.href || row.externalUrl || row.onPress ? (
+                    <Ionicons
+                      name="chevron-forward"
+                      size={16}
+                      color={colors.muted}
+                    />
+                  ) : null}
                 </Pressable>
               ))}
             </View>
