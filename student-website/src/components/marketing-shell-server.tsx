@@ -10,6 +10,11 @@ export function MarketingShellServer({ children }: { children: ReactNode }) {
   );
 }
 
+/** Prerender / loading fallback — must still provide theme context for client children. */
 export function MarketingShellFallback({ children }: { children: ReactNode }) {
-  return <div className="min-h-dvh bg-bg text-fg">{children}</div>;
+  return (
+    <ThemeProvider>
+      <div className="min-h-dvh bg-bg text-fg">{children}</div>
+    </ThemeProvider>
+  );
 }
