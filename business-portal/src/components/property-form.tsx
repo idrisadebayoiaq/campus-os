@@ -3,15 +3,18 @@
 import { useRouter } from "next/navigation";
 import { FormEvent, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { LocationPicker } from "@/components/location-picker";
 import { Button, Field, Input } from "@/components/ui";
 
 export function PropertyForm({
   businessId,
   campusId,
+  campusCenter,
   areas,
 }: {
   businessId: string;
   campusId: string;
+  campusCenter?: { lat: number; lng: number } | null;
   areas: { id: string; name: string }[];
 }) {
   const router = useRouter();
@@ -91,17 +94,15 @@ export function PropertyForm({
           ))}
         </select>
       </Field>
-      <Field label="Public address / landmark">
-        <Input name="address_public" />
+      <Field label="Property location">
+        <LocationPicker
+          names={{ address: "address_public", lat: "lat", lng: "lng" }}
+          bias={campusCenter}
+          required
+          addressLabel="Public address / landmark"
+          addressHint="Students see this. Keep it general (street or landmark); share the exact house after inspection is booked."
+        />
       </Field>
-      <div className="grid gap-3 sm:grid-cols-2">
-        <Field label="Map latitude (approx)">
-          <Input name="lat" placeholder="7.7829" />
-        </Field>
-        <Field label="Map longitude (approx)">
-          <Input name="lng" placeholder="4.5418" />
-        </Field>
-      </div>
       <Field label="Description">
         <textarea name="description" rows={3} className="w-full rounded-md border border-border bg-bg px-3 py-2 text-sm" />
       </Field>

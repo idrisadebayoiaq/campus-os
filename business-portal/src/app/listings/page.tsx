@@ -29,7 +29,7 @@ export default async function ListingsPage() {
   if (!businesses?.length) {
     return (
       <Container>
-        <div className="space-y-6 py-12">
+        <div className="space-y-6 py-8 sm:py-12">
           <PageHeader title="Listings" description="Your listings unlock once your application is approved." />
           <ButtonLink href="/dashboard">Back to overview</ButtonLink>
         </div>
@@ -72,7 +72,7 @@ export default async function ListingsPage() {
 
   return (
     <Container>
-      <div className="space-y-8 py-12">
+      <div className="space-y-8 py-8 sm:py-12">
         <PageHeader
           title="Listings"
           description="Publish only after CampusOS setup is complete. Everything stays campus-scoped."

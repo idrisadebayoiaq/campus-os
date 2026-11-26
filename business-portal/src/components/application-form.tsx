@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { FormEvent, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import type { BusinessTypeKey } from "@/lib/business-types";
+import { LocationPicker } from "@/components/location-picker";
 import { Button, Field, Input } from "@/components/ui";
 
 type Campus = {
@@ -11,6 +12,8 @@ type Campus = {
   name: string;
   city: string | null;
   state: string | null;
+  lat?: number | null;
+  lng?: number | null;
   institutions:
     | { name: string; short_name: string | null }
     | { name: string; short_name: string | null }[]
@@ -43,6 +46,15 @@ export function ApplicationForm({
       return hay.includes(q);
     });
   }, [campuses, campusQuery]);
+
+  const activeCampusId = filteredCampuses.some((c) => c.id === campusId)
+    ? campusId
+    : filteredCampuses[0]?.id || "";
+  const activeCampus = campuses.find((c) => c.id === activeCampusId);
+  const campusCenter =
+    activeCampus?.lat != null && activeCampus?.lng != null
+      ? { lat: activeCampus.lat, lng: activeCampus.lng }
+      : null;
 
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -79,6 +91,8 @@ export function ApplicationForm({
         .map((z) => z.trim())
         .filter(Boolean),
       address_text: String(form.get("address_text") || "").trim() || null,
+      lat: Number(form.get("lat")) || null,
+      lng: Number(form.get("lng")) || null,
       extra: {
         years_operating: String(form.get("years_operating") || "").trim() || null,
         website_or_social: String(form.get("website_or_social") || "").trim() || null,
@@ -165,7 +179,7 @@ export function ApplicationForm({
           name="campus_id"
           required
           className="h-11 w-full rounded-md border border-border bg-bg px-3 text-sm outline-none focus:border-fg"
-          value={filteredCampuses.some((c) => c.id === campusId) ? campusId : filteredCampuses[0]?.id || ""}
+          value={activeCampusId}
           onChange={(e) => setCampusId(e.target.value)}
         >
           {!filteredCampuses.length ? <option value="">No campuses match</option> : null}
@@ -186,8 +200,14 @@ export function ApplicationForm({
       <Field label="Service zones / neighborhoods (comma-separated)">
         <Input name="service_zones" placeholder="Gate Area, Behind Campus" />
       </Field>
-      <Field label="Operating address / base">
-        <Input name="address_text" />
+      <Field label="Where you operate from">
+        <LocationPicker
+          names={{ address: "address_text", lat: "lat", lng: "lng" }}
+          bias={campusCenter}
+          required
+          addressLabel="Operating address"
+          addressHint="Your shop, kitchen or office. Admins use this to verify you."
+        />
       </Field>
       <Field label="Short description">
         <textarea

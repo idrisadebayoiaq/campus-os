@@ -227,7 +227,7 @@ export default function AiProfileScreen() {
               placeholder="CampusOS Tutor"
               placeholderTextColor={colors.muted}
               maxLength={40}
-              style={[styles.input, { backgroundColor: colors.bg, color: colors.fg }]}
+              style={[styles.input, { backgroundColor: colors.inputBg, borderColor: colors.inputBorder, borderWidth: 1.5, color: colors.fg }]}
             />
           </Section>
 
@@ -297,7 +297,9 @@ export default function AiProfileScreen() {
               style={[
                 styles.input,
                 {
-                  backgroundColor: colors.bg,
+                  backgroundColor: colors.inputBg,
+                  borderColor: colors.inputBorder,
+                  borderWidth: 1.5,
                   color: colors.fg,
                   minHeight: 110,
                   textAlignVertical: "top",

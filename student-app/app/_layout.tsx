@@ -60,6 +60,8 @@ function RootNavigator() {
         <Stack.Screen name="notifications" options={{ headerShown: false }} />
         <Stack.Screen name="housing-preferences" options={{ headerShown: false }} />
         <Stack.Screen name="change-password" options={{ headerShown: false }} />
+        <Stack.Screen name="legal/[doc]" options={{ headerShown: false }} />
+        <Stack.Screen name="my-location" options={{ headerShown: false }} />
         <Stack.Screen name="profile-edit" options={{ headerShown: false }} />
         <Stack.Screen name="verify" options={{ headerShown: false }} />
         <Stack.Screen name="meetings" options={{ headerShown: false }} />

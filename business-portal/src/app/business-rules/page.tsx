@@ -5,7 +5,7 @@ export const metadata = { title: "Business rules" };
 export default function BusinessRulesPage() {
   return (
     <Container>
-      <div className="mx-auto max-w-2xl space-y-6 py-12">
+      <div className="mx-auto max-w-2xl space-y-6 py-8 sm:py-12">
         <PageHeader
           title="Business rules"
           description="Draft operating rules for Phase A0."

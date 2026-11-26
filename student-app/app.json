@@ -9,13 +9,9 @@
     "userInterfaceStyle": "automatic",
     "newArchEnabled": false,
     "splash": {
-      "image": "./assets/splash-icon.png",
+      "image": "./assets/splash-brand.png",
       "resizeMode": "contain",
-      "backgroundColor": "#FFFDF8",
-      "dark": {
-        "image": "./assets/splash-icon-dark.png",
-        "backgroundColor": "#1A1428"
-      }
+      "backgroundColor": "#3C315B"
     },
     "ios": {
       "supportsTablet": true,
@@ -39,7 +35,9 @@
         "android.permission.POST_NOTIFICATIONS",
         "android.permission.VIBRATE",
         "android.permission.RECORD_AUDIO",
-        "android.permission.MODIFY_AUDIO_SETTINGS"
+        "android.permission.MODIFY_AUDIO_SETTINGS",
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_FINE_LOCATION"
       ]
     },
     "web": {
@@ -83,17 +81,24 @@
       [
         "expo-splash-screen",
         {
-          "image": "./assets/splash-icon.png",
+          "image": "./assets/splash-brand.png",
+          "imageWidth": 200,
           "resizeMode": "contain",
-          "backgroundColor": "#FFFDF8",
+          "backgroundColor": "#3C315B",
           "dark": {
-            "image": "./assets/splash-icon-dark.png",
-            "backgroundColor": "#1A1428"
+            "image": "./assets/splash-brand.png",
+            "backgroundColor": "#3C315B"
           }
         }
       ],
       "expo-asset",
-      "expo-video"
+      "expo-video",
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Allow CampusOS to use your location to show schools, housing and places near you."
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true

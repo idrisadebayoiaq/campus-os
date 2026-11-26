@@ -18,7 +18,7 @@ export default async function AdminApplicationsPage() {
   if (!isStaff) {
     return (
       <Container>
-        <div className="space-y-6 py-12">
+        <div className="space-y-6 py-8 sm:py-12">
           <PageHeader
             title="Applications"
             description="Staff access required."
@@ -39,7 +39,7 @@ export default async function AdminApplicationsPage() {
 
   return (
     <Container>
-      <div className="space-y-8 py-12">
+      <div className="space-y-8 py-8 sm:py-12">
         <PageHeader
           title="Business applications"
           description="Review submitted applications, then approve, reject, or request changes."

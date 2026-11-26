@@ -133,3 +133,93 @@ button {
   white-space: nowrap;
   border-width: 0;
 }
+
+/* Form controls: always clearly visible, whatever utility classes a form uses. */
+:root,
+:root[data-theme="light"] {
+  --input-bg: #ffffff;
+  --input-border: #cfc7ea;
+}
+
+:root[data-theme="dark"] {
+  --input-bg: #120d1e;
+  --input-border: #4a3f69;
+}
+
+input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="hidden"]):not([type="color"]):not([type="file"]):not([type="submit"]):not([type="button"]),
+textarea,
+select {
+  background-color: var(--input-bg);
+  border: 1.5px solid var(--input-border);
+  color: var(--fg);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="hidden"]):not([type="color"]):not([type="file"]):hover,
+textarea:hover,
+select:hover {
+  border-color: color-mix(in srgb, var(--accent) 60%, var(--input-border));
+}
+
+input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="hidden"]):not([type="color"]):focus,
+textarea:focus,
+select:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 30%, transparent);
+  outline: none;
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: var(--muted);
+  opacity: 1;
+}
+
+input[type="file"] {
+  height: auto;
+  min-height: 2.75rem;
+  width: 100%;
+  padding: 0.4rem;
+  border: 1.5px dashed var(--input-border);
+  border-radius: 1rem;
+  background-color: var(--input-bg);
+  color: var(--muted);
+  font-size: 0.875rem;
+}
+
+input[type="file"]::file-selector-button {
+  margin-right: 0.75rem;
+  border: 0;
+  border-radius: 999px;
+  background: var(--accent);
+  color: var(--on-accent);
+  padding: 0.45rem 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+input[type="checkbox"],
+input[type="radio"] {
+  accent-color: var(--accent);
+  width: 1.05rem;
+  height: 1.05rem;
+  flex-shrink: 0;
+}
+
+input:disabled,
+textarea:disabled,
+select:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Leaflet map controls follow the theme. */
+.leaflet-container {
+  font: inherit;
+}
+
+.leaflet-bar a {
+  background: var(--bg);
+  color: var(--fg);
+  border-color: var(--border);
+}

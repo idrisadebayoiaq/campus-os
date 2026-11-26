@@ -38,7 +38,7 @@ export default async function ManageMarketListingPage({
 
   return (
     <Container>
-      <div className="mx-auto max-w-3xl space-y-6 py-12">
+      <div className="mx-auto max-w-3xl space-y-6 py-8 sm:py-12">
         <PageHeader
           title={listing.title}
           description={`${listing.kind} · ${listing.category}${

@@ -55,8 +55,15 @@ export default function SignupPage() {
             <p className="mt-1 text-xs leading-5 text-muted">{option.body}</p>
           </Link>
         ))}
-        <p className="pt-2 text-xs leading-5 text-muted">
-          Students use the CampusOS mobile app, not this portal.
+        <p className="rounded-2xl bg-surface px-4 py-3 text-xs leading-5 text-muted">
+          <span className="font-semibold text-fg">Are you a student?</span> Student accounts are
+          created only in the CampusOS mobile app.{" "}
+          <a
+            href={`${process.env.NEXT_PUBLIC_STUDENT_WEB_URL || "https://campusos-app.vercel.app"}/download`}
+            className="font-medium text-fg underline underline-offset-2"
+          >
+            Get the app
+          </a>
         </p>
       </div>
     </AuthFrame>

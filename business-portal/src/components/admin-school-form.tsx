@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { FormEvent, useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { LocationPicker } from "@/components/location-picker";
 import { Button, Field, Input } from "@/components/ui";
 
 type Institution = { id: string; name: string; short_name: string | null };
@@ -14,6 +15,8 @@ export function AdminSchoolForm() {
   const [error, setError] = useState<string | null>(null);
   const [ok, setOk] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [city, setCity] = useState("");
+  const [state, setState] = useState("");
 
   useEffect(() => {
     const supabase = createClient();
@@ -64,6 +67,8 @@ export function AdminSchoolForm() {
           name: campusName,
           city,
           state,
+          lat: Number(form.get("campus_lat")) || null,
+          lng: Number(form.get("campus_lng")) || null,
           is_active: true,
         });
       }
@@ -156,12 +161,24 @@ export function AdminSchoolForm() {
           <Field label="Main campus name">
             <Input name="campus_name" defaultValue="Main campus" />
           </Field>
+          <Field label="Campus location">
+            <LocationPicker
+              names={{ address: "campus_address", lat: "campus_lat", lng: "campus_lng" }}
+              required
+              addressLabel="Campus address"
+              addressHint="Drop the pin on the main gate. Students near here will see this school first."
+              onChange={(p) => {
+                if (p?.city) setCity(p.city);
+                if (p?.state) setState(p.state.replace(/\s+State$/i, ""));
+              }}
+            />
+          </Field>
           <div className="grid gap-3 sm:grid-cols-2">
             <Field label="City">
-              <Input name="city" />
+              <Input name="city" value={city} onChange={(e) => setCity(e.target.value)} />
             </Field>
             <Field label="State">
-              <Input name="state" />
+              <Input name="state" value={state} onChange={(e) => setState(e.target.value)} />
             </Field>
           </div>
         </>

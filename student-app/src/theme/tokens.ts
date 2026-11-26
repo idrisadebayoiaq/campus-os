@@ -19,6 +19,8 @@ export type ThemeColors = {
   accent: string;
   accentSoft: string;
   onAccent: string;
+  inputBg: string;
+  inputBorder: string;
 };
 
 export const radii = {
@@ -54,6 +56,8 @@ export const light: ThemeColors = {
   accent: "#AB9FF2",
   accentSoft: "#E2DFFE",
   onAccent: "#3C315B",
+  inputBg: "#FFFFFF",
+  inputBorder: "#CFC7EA",
 };
 
 export const dark: ThemeColors = {
@@ -77,6 +81,8 @@ export const dark: ThemeColors = {
   accent: "#AB9FF2",
   accentSoft: "#3C315B",
   onAccent: "#3C315B",
+  inputBg: "#120D1E",
+  inputBorder: "#4A3F69",
 };
 
 export function colorsFor(scheme: "light" | "dark" | null | undefined): ThemeColors {

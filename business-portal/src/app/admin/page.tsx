@@ -31,7 +31,7 @@ export default async function AdminHomePage() {
   if (!isStaff) {
     return (
       <Container>
-        <div className="py-12">
+        <div className="py-8 sm:py-12">
           <EmptyState
             title="Staff only"
             description="Your account needs an admin or moderator role to open the admin dashboard."

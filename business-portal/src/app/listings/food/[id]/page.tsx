@@ -38,7 +38,7 @@ export default async function ManageMenuItemPage({
 
   return (
     <Container>
-      <div className="mx-auto max-w-3xl space-y-6 py-12">
+      <div className="mx-auto max-w-3xl space-y-6 py-8 sm:py-12">
         <PageHeader
           title={item.name}
           description={`${business.display_name} · ₦${Number(item.price).toLocaleString()} · ${item.category}`}

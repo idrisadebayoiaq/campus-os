@@ -37,7 +37,7 @@ export default async function BillingPage() {
 
   return (
     <Container>
-      <div className="space-y-8 py-12">
+      <div className="space-y-8 py-8 sm:py-12">
         <PageHeader
           title="Billing"
           description="CampusOS housing subscriptions via Paystack. Student search stays free."

@@ -20,7 +20,7 @@ export default async function InspectionsPage() {
   if (!ids.length) {
     return (
       <Container>
-        <div className="py-12">
+        <div className="py-8 sm:py-12">
           <EmptyState title="No business yet" description="Approve and set up a housing business first." />
         </div>
       </Container>
@@ -40,7 +40,7 @@ export default async function InspectionsPage() {
 
   return (
     <Container>
-      <div className="space-y-8 py-12">
+      <div className="space-y-8 py-8 sm:py-12">
         <PageHeader
           title="Inspection requests"
           description="Accept, decline, or reschedule student viewing requests on CampusOS."

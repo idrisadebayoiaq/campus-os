@@ -4,7 +4,7 @@ import { loadAccess } from "@/lib/access";
 import { homeFor } from "@/lib/persona";
 import { allowedPersonasFor } from "@/lib/route-policy";
 
-const AUTH_PATHS = ["/login", "/signup", "/business-rules"];
+const AUTH_PATHS = ["/login", "/signup", "/business-rules", "/terms", "/privacy"];
 
 function isAuthPath(pathname: string) {
   return AUTH_PATHS.some(

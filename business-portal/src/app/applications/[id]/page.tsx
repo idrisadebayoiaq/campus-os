@@ -47,7 +47,7 @@ export default async function ApplicationStatusPage({
 
   return (
     <Container>
-      <div className="mx-auto max-w-2xl space-y-8 py-12">
+      <div className="mx-auto max-w-2xl space-y-8 py-8 sm:py-12">
         <PageHeader
           title={app.business_name}
           description={`${businessTypeLabel(app.business_type)} application`}

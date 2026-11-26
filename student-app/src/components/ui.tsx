@@ -1,3 +1,5 @@
+import { Ionicons } from "@expo/vector-icons";
+import { useState } from "react";
 import {
   ActivityIndicator,
   Image,
@@ -168,27 +170,72 @@ export function Button({
 
 export function Input(props: TextInputProps) {
   const colors = useTheme();
+  const [focused, setFocused] = useState(false);
   return (
     <TextInput
       placeholderTextColor={colors.muted}
+      selectionColor={colors.accent}
       {...props}
+      onFocus={(e) => {
+        setFocused(true);
+        props.onFocus?.(e);
+      }}
+      onBlur={(e) => {
+        setFocused(false);
+        props.onBlur?.(e);
+      }}
       style={[
         styles.input,
+        props.multiline && styles.inputMultiline,
         {
-          backgroundColor: colors.surface,
+          backgroundColor: colors.inputBg,
+          borderColor: colors.inputBorder,
           color: colors.fg,
         },
         props.style,
+        focused && { borderColor: colors.accent, backgroundColor: colors.inputBg },
+        props.editable === false && { opacity: 0.6 },
       ]}
     />
   );
 }
 
+export function PasswordInput(props: TextInputProps) {
+  const colors = useTheme();
+  const [show, setShow] = useState(false);
+  return (
+    <View>
+      <Input
+        autoCapitalize="none"
+        autoCorrect={false}
+        {...props}
+        secureTextEntry={!show}
+        style={[{ paddingRight: 52 }, props.style]}
+      />
+      <Pressable
+        onPress={() => setShow((v) => !v)}
+        hitSlop={8}
+        accessibilityRole="button"
+        accessibilityLabel={show ? "Hide password" : "Show password"}
+        style={styles.eye}
+      >
+        <Ionicons
+          name={show ? "eye-off-outline" : "eye-outline"}
+          size={21}
+          color={colors.muted}
+        />
+      </Pressable>
+    </View>
+  );
+}
+
 export function Field({
   label,
+  hint,
   children,
 }: {
   label: string;
+  hint?: string;
   children: React.ReactNode;
 }) {
   return (
@@ -197,6 +244,11 @@ export function Field({
         {label}
       </AppText>
       {children}
+      {hint ? (
+        <AppText muted size={12}>
+          {hint}
+        </AppText>
+      ) : null}
     </View>
   );
 }
@@ -367,16 +419,33 @@ export function SearchBar({
   placeholder?: string;
 }) {
   const colors = useTheme();
+  const [focused, setFocused] = useState(false);
   return (
-    <View style={[styles.search, { backgroundColor: colors.surface }]}>
-      <Text style={{ color: colors.muted, fontSize: 16 }}>⌕</Text>
+    <View
+      style={[
+        styles.search,
+        {
+          backgroundColor: colors.inputBg,
+          borderColor: focused ? colors.accent : colors.inputBorder,
+        },
+      ]}
+    >
+      <Ionicons name="search" size={18} color={colors.muted} />
       <TextInput
         value={value}
         onChangeText={onChangeText}
         placeholder={placeholder}
         placeholderTextColor={colors.muted}
+        selectionColor={colors.accent}
+        onFocus={() => setFocused(true)}
+        onBlur={() => setFocused(false)}
         style={{ flex: 1, color: colors.fg, fontSize: 15, paddingVertical: 0 }}
       />
+      {value ? (
+        <Pressable onPress={() => onChangeText("")} hitSlop={10}>
+          <Ionicons name="close-circle" size={18} color={colors.muted} />
+        </Pressable>
+      ) : null}
     </View>
   );
 }
@@ -392,9 +461,26 @@ const styles = StyleSheet.create({
   },
   input: {
     height: 52,
-    borderRadius: radii.md,
+    borderRadius: radii.sm,
+    borderWidth: 1.5,
     paddingHorizontal: 16,
     fontSize: 15,
+  },
+  eye: {
+    position: "absolute",
+    right: 4,
+    top: 0,
+    bottom: 0,
+    width: 48,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  inputMultiline: {
+    height: undefined,
+    minHeight: 110,
+    paddingTop: 14,
+    paddingBottom: 14,
+    textAlignVertical: "top",
   },
   empty: {
     borderRadius: radii.lg,
@@ -414,6 +500,7 @@ const styles = StyleSheet.create({
   search: {
     height: 52,
     borderRadius: radii.pill,
+    borderWidth: 1.5,
     paddingHorizontal: 16,
     flexDirection: "row",
     alignItems: "center",

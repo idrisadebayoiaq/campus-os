@@ -1,3 +1,4 @@
+import { Ionicons } from "@expo/vector-icons";
 import { Redirect, router } from "expo-router";
 import { useEffect, useMemo, useState } from "react";
 import {
@@ -19,7 +20,15 @@ import {
   Screen,
   SearchBar,
 } from "@/src/components/ui";
+import { LocationPicker } from "@/src/components/location-picker";
 import { useAuth } from "@/src/lib/auth";
+import {
+  distanceKm,
+  formatDistance,
+  loadSavedLocation,
+  saveLocation,
+  type SavedLocation,
+} from "@/src/lib/location";
 import { supabase } from "@/src/lib/supabase";
 import { useTheme } from "@/src/theme/ThemeProvider";
 import { radii } from "@/src/theme/tokens";
@@ -29,6 +38,8 @@ type Campus = {
   name: string;
   city: string | null;
   state: string | null;
+  lat: number | null;
+  lng: number | null;
 };
 
 type Institution = {
@@ -67,6 +78,8 @@ export default function OnboardingScreen() {
   const [department, setDepartment] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [home, setHome] = useState<SavedLocation | null>(null);
+  const [picking, setPicking] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -74,7 +87,7 @@ export default function OnboardingScreen() {
       const { data, error: queryError } = await supabase
         .from("institutions")
         .select(
-          "id, name, short_name, institution_type, campuses(id, name, city, state)",
+          "id, name, short_name, institution_type, campuses(id, name, city, state, lat, lng)",
         )
         .eq("is_active", true)
         .in("institution_type", TERTIARY_TYPES)
@@ -110,17 +123,60 @@ export default function OnboardingScreen() {
     };
   }, [user]);
 
+  // The student's chosen location (from signup), used to rank schools by distance.
+  useEffect(() => {
+    if (!user) return;
+    let cancelled = false;
+    void (async () => {
+      let loc = await loadSavedLocation(supabase, user.id);
+      const meta = user.user_metadata as Record<string, unknown> | undefined;
+      if (!loc && meta?.location_lat != null && meta?.location_lng != null) {
+        loc = {
+          label: String(meta.location_label ?? ""),
+          lat: Number(meta.location_lat),
+          lng: Number(meta.location_lng),
+        };
+        await saveLocation(supabase, user.id, loc);
+      }
+      if (!cancelled) setHome(loc);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [user]);
+
+  const distanceOf = useMemo(() => {
+    const map = new Map<string, number>();
+    if (!home) return map;
+    for (const inst of institutions) {
+      let best = Infinity;
+      for (const c of campusesOf(inst)) {
+        if (c.lat == null || c.lng == null) continue;
+        best = Math.min(best, distanceKm(home, { lat: c.lat, lng: c.lng }));
+      }
+      if (best < Infinity) map.set(inst.id, best);
+    }
+    return map;
+  }, [institutions, home]);
+
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     const tokens = q.split(/\s+/).filter(Boolean);
-    return institutions
+    const list = institutions
       .filter((i) => TERTIARY_TYPES.includes(i.institution_type))
       .filter((i) => {
         if (!tokens.length) return true;
-        const hay = `${i.name} ${i.short_name || ""}`.toLowerCase();
+        const campusText = campusesOf(i)
+          .map((c) => `${c.city || ""} ${c.state || ""}`)
+          .join(" ");
+        const hay = `${i.name} ${i.short_name || ""} ${campusText}`.toLowerCase();
         return hay.includes(q) || tokens.every((t) => hay.includes(t));
       });
-  }, [institutions, query]);
+    if (!home) return list;
+    return [...list].sort(
+      (a, b) => (distanceOf.get(a.id) ?? Infinity) - (distanceOf.get(b.id) ?? Infinity),
+    );
+  }, [institutions, query, home, distanceOf]);
 
   const selected = institutions.find((i) => i.id === institutionId) || null;
   const campuses = campusesOf(selected);
@@ -254,7 +310,7 @@ export default function OnboardingScreen() {
         >
           <View style={{ gap: 6 }}>
             <AppText size={30} weight="700">
-              Pick your campus
+              Pick your school
             </AppText>
             <AppText muted size={15}>
               Housing, study tools and listings are scoped to the school you
@@ -262,10 +318,28 @@ export default function OnboardingScreen() {
             </AppText>
           </View>
 
+          <Pressable
+            onPress={() => setPicking(true)}
+            style={[styles.nearRow, { backgroundColor: colors.surface }]}
+          >
+            <Ionicons name="location" size={18} color={colors.fg} />
+            <View style={{ flex: 1 }}>
+              <AppText size={12} muted>
+                {home ? "Showing schools near" : "Set your location to see nearby schools"}
+              </AppText>
+              <AppText size={14} weight="600" numberOfLines={1}>
+                {home?.label || "Choose on map"}
+              </AppText>
+            </View>
+            <AppText size={13} weight="700" style={{ color: colors.fg, opacity: 0.8 }}>
+              {home ? "Change" : "Set"}
+            </AppText>
+          </Pressable>
+
           <SearchBar
             value={query}
             onChangeText={setQuery}
-            placeholder="Search your school…"
+            placeholder="Search school, short name or city…"
           />
 
           {loading ? (
@@ -314,6 +388,10 @@ export default function OnboardingScreen() {
                         {[
                           inst.short_name,
                           inst.institution_type.replaceAll("_", " "),
+                          campusesOf(inst)[0]?.city,
+                          distanceOf.has(inst.id)
+                            ? `${formatDistance(distanceOf.get(inst.id)!)} away`
+                            : null,
                         ]
                           .filter(Boolean)
                           .join(" · ")}
@@ -394,6 +472,17 @@ export default function OnboardingScreen() {
           ) : null}
         </ScrollView>
       </KeyboardAvoidingView>
+      <LocationPicker
+        visible={picking}
+        title="Your location"
+        initial={home}
+        onClose={() => setPicking(false)}
+        onConfirm={async (place) => {
+          setPicking(false);
+          setHome(place);
+          if (user) await saveLocation(supabase, user.id, place);
+        }}
+      />
     </Screen>
   );
 }
@@ -419,4 +508,12 @@ const styles = StyleSheet.create({
     gap: 14,
   },
   chips: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
+  nearRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    borderRadius: radii.md,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+  },
 });

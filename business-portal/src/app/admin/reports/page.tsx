@@ -23,7 +23,7 @@ export default async function AdminReportsPage() {
   if (!isStaff) {
     return (
       <Container>
-        <div className="py-12">
+        <div className="py-8 sm:py-12">
           <EmptyState
             title="Staff only"
             description="CampusOS report queues are limited to admin and moderator roles."
@@ -41,7 +41,7 @@ export default async function AdminReportsPage() {
 
   return (
     <Container>
-      <div className="space-y-8 py-12">
+      <div className="space-y-8 py-8 sm:py-12">
         <PageHeader
           title="Report queue"
           description="Fraud and listing reports. Reporter identity stays private on CampusOS."

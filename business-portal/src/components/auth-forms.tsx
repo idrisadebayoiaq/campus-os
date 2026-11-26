@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { FormEvent, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
@@ -117,6 +118,16 @@ export function SignupForm({
     const fullName = String(form.get("full_name") || "");
     const email = String(form.get("email") || "");
     const password = String(form.get("password") || "");
+    if (form.get("terms") !== "on") {
+      setLoading(false);
+      setError("Please agree to the Terms of Service and Privacy Policy.");
+      return;
+    }
+    if (password.length < 8) {
+      setLoading(false);
+      setError("Use a password with at least 8 characters.");
+      return;
+    }
     const supabase = createClient();
 
     const { data, error: signUpError } = await supabase.auth.signUp({
@@ -166,9 +177,35 @@ export function SignupForm({
         <PasswordField
           name="password"
           autoComplete="new-password"
-          placeholder="At least 6 characters"
+          placeholder="At least 8 characters"
         />
       </Field>
+      <label className="flex items-start gap-3 rounded-2xl border border-border bg-surface/60 p-3 text-sm text-muted">
+        <input name="terms" type="checkbox" className="mt-0.5" required />
+        <span>
+          I agree to the CampusOS{" "}
+          <Link href="/terms" target="_blank" className="font-medium text-fg underline underline-offset-2">
+            Terms of Service
+          </Link>{" "}
+          and{" "}
+          <Link href="/privacy" target="_blank" className="font-medium text-fg underline underline-offset-2">
+            Privacy Policy
+          </Link>
+          {intent === "business" ? (
+            <>
+              , and the{" "}
+              <Link
+                href="/business-rules"
+                target="_blank"
+                className="font-medium text-fg underline underline-offset-2"
+              >
+                Business rules
+              </Link>
+            </>
+          ) : null}
+          .
+        </span>
+      </label>
       {error ? (
         <p className="rounded-md border border-danger/30 bg-surface px-3 py-2 text-sm text-danger">
           {error}

@@ -14,6 +14,7 @@ export type SignUpProfile = {
   lastName: string;
   preferredName?: string;
   marketing?: boolean;
+  location?: { label: string; lat: number; lng: number } | null;
 };
 
 const CONSENT_VERSION = "2026-11";
@@ -104,6 +105,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 first_name: firstName,
                 last_name: lastName,
                 preferred_name: preferredName,
+                signup_intent: "student",
+                location_label: profile.location?.label ?? null,
+                location_lat: profile.location?.lat ?? null,
+                location_lng: profile.location?.lng ?? null,
               },
             },
           });

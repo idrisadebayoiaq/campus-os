@@ -23,7 +23,7 @@ export default async function AdminListingsPage() {
   if (!isStaff) {
     return (
       <Container>
-        <div className="py-12">
+        <div className="py-8 sm:py-12">
           <EmptyState
             title="Staff only"
             description="CampusOS listing moderation is limited to admin and moderator roles."
@@ -43,7 +43,7 @@ export default async function AdminListingsPage() {
 
   return (
     <Container>
-      <div className="space-y-8 py-12">
+      <div className="space-y-8 py-8 sm:py-12">
         <PageHeader
           title="Listings moderation"
           description="Hide, suspend, and adjust verification labels on CampusOS inventory."

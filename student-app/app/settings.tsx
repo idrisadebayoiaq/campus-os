@@ -36,8 +36,6 @@ type SettingsGroup = {
 
 const APP_VERSION = Constants.expoConfig?.version ?? "";
 const DOWNLOAD_URL = "https://campusos-app.vercel.app/download";
-const PRIVACY_URL = "https://campusos-app.vercel.app/privacy";
-
 export default function SettingsScreen() {
   const colors = useTheme();
   const insets = useSafeAreaInsets();
@@ -90,6 +88,11 @@ export default function SettingsScreen() {
       title: "Preferences",
       rows: [
         {
+          title: "My location",
+          icon: "location-outline",
+          href: "/my-location",
+        },
+        {
           title: "Housing preferences",
           icon: "home-outline",
           href: "/housing-preferences",
@@ -127,9 +130,14 @@ export default function SettingsScreen() {
           externalUrl: DOWNLOAD_URL,
         },
         {
-          title: "Privacy policy",
+          title: "Terms of Service",
           icon: "document-text-outline",
-          externalUrl: PRIVACY_URL,
+          href: "/legal/terms",
+        },
+        {
+          title: "Privacy Policy",
+          icon: "shield-checkmark-outline",
+          href: "/legal/privacy",
         },
         {
           title: "Version",

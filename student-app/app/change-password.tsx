@@ -192,7 +192,7 @@ function Field({
       <AppText size={13} weight="600">
         {label}
       </AppText>
-      <View style={[styles.inputWrap, { backgroundColor: colors.bg }]}>
+      <View style={[styles.inputWrap, { backgroundColor: colors.inputBg, borderColor: colors.inputBorder }]}>
         <TextInput
           value={value}
           onChangeText={onChange}
@@ -248,7 +248,13 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  inputWrap: { borderRadius: 12, paddingHorizontal: 14, minHeight: 48, justifyContent: "center" },
+  inputWrap: {
+    borderRadius: 14,
+    borderWidth: 1.5,
+    paddingHorizontal: 14,
+    minHeight: 50,
+    justifyContent: "center",
+  },
   input: { fontSize: 15, paddingVertical: 10 },
   rule: { flexDirection: "row", alignItems: "center", gap: 8 },
 });

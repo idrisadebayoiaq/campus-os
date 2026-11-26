@@ -153,13 +153,13 @@ export default function LandingPage() {
           aria-hidden
           className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_15%_20%,rgba(171,159,242,0.4),transparent_55%),radial-gradient(ellipse_at_85%_75%,rgba(255,253,248,0.1),transparent_50%)]"
         />
-        <div className="relative mx-auto grid max-w-6xl items-center gap-12 px-4 py-16 sm:px-6 lg:grid-cols-[1.05fr_0.95fr] lg:py-24">
+        <div className="relative mx-auto grid max-w-6xl items-center gap-12 px-4 py-12 sm:px-6 sm:py-16 lg:grid-cols-[1.05fr_0.95fr] lg:py-24">
           <div className="anim-fade-up space-y-7">
             <span className="inline-flex items-center gap-2 rounded-full bg-white/10 px-4 py-1.5 text-xs font-semibold tracking-wide text-hero-fg ring-1 ring-white/15">
               <span className="h-2 w-2 rounded-full bg-accent" />
               Built for Nigerian students · v{APP_VERSION}
             </span>
-            <h1 className="max-w-xl text-4xl font-semibold tracking-tight text-hero-fg sm:text-5xl lg:text-6xl">
+            <h1 className="max-w-xl text-[2.35rem] font-semibold leading-[1.1] tracking-tight text-hero-fg sm:text-5xl lg:text-6xl">
               Your whole campus,{" "}
               <span className="text-accent">in one app</span>
             </h1>
@@ -222,14 +222,14 @@ export default function LandingPage() {
 
       {/* Features */}
       <section id="features" className="scroll-mt-20 bg-bg">
-        <div className="mx-auto max-w-6xl px-4 py-20 sm:px-6">
+        <div className="mx-auto max-w-6xl px-4 py-14 sm:py-20 sm:px-6">
           <SectionHeading
             center
             eyebrow="Everything you need"
             title="One app for the whole campus day"
             body="Stop juggling WhatsApp groups, notes apps and random listings. CampusOS brings it together and keeps it scoped to your school."
           />
-          <div className="mt-14 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="mt-10 grid gap-4 sm:mt-14 sm:grid-cols-2 sm:gap-5 lg:grid-cols-4">
             {FEATURES.map((f) => (
               <div
                 key={f.title}
@@ -248,7 +248,7 @@ export default function LandingPage() {
 
       {/* Deep dive: housing */}
       <section className="bg-surface">
-        <div className="mx-auto grid max-w-6xl items-center gap-12 px-4 py-20 sm:px-6 lg:grid-cols-2">
+        <div className="mx-auto grid max-w-6xl items-center gap-12 px-4 py-14 sm:py-20 sm:px-6 lg:grid-cols-2">
           <div className="space-y-6">
             <SectionHeading
               eyebrow="Housing"
@@ -274,7 +274,7 @@ export default function LandingPage() {
 
       {/* Deep dive: study */}
       <section className="bg-bg">
-        <div className="mx-auto grid max-w-6xl items-center gap-12 px-4 py-20 sm:px-6 lg:grid-cols-2">
+        <div className="mx-auto grid max-w-6xl items-center gap-12 px-4 py-14 sm:py-20 sm:px-6 lg:grid-cols-2">
           <div className="order-2 flex justify-center lg:order-1">
             <PhoneMock title="Study Hub">
               <MockRow title="Timetable" meta="3 classes today" />
@@ -302,7 +302,7 @@ export default function LandingPage() {
 
       {/* Deep dive: market + inbox */}
       <section className="bg-surface">
-        <div className="mx-auto grid max-w-6xl items-center gap-12 px-4 py-20 sm:px-6 lg:grid-cols-2">
+        <div className="mx-auto grid max-w-6xl items-center gap-12 px-4 py-14 sm:py-20 sm:px-6 lg:grid-cols-2">
           <div className="space-y-6">
             <SectionHeading
               eyebrow="Food, market & chat"
@@ -328,7 +328,7 @@ export default function LandingPage() {
 
       {/* How it works */}
       <section id="how" className="scroll-mt-20 bg-bg">
-        <div className="mx-auto max-w-6xl px-4 py-20 sm:px-6">
+        <div className="mx-auto max-w-6xl px-4 py-14 sm:py-20 sm:px-6">
           <SectionHeading
             center
             eyebrow="How it works"
@@ -350,7 +350,7 @@ export default function LandingPage() {
 
       {/* Audiences */}
       <section className="bg-hero-bg text-hero-fg">
-        <div className="mx-auto max-w-6xl px-4 py-20 sm:px-6">
+        <div className="mx-auto max-w-6xl px-4 py-14 sm:py-20 sm:px-6">
           <div className="max-w-2xl space-y-3">
             <p className="text-sm font-semibold tracking-wide text-accent">One platform</p>
             <h2 className="text-3xl font-semibold tracking-tight sm:text-4xl">
@@ -380,7 +380,7 @@ export default function LandingPage() {
 
       {/* FAQ */}
       <section id="faq" className="scroll-mt-20 bg-bg">
-        <div className="mx-auto max-w-3xl px-4 py-20 sm:px-6">
+        <div className="mx-auto max-w-3xl px-4 py-14 sm:py-20 sm:px-6">
           <SectionHeading center eyebrow="FAQ" title="Questions, answered" />
           <div className="mt-10 space-y-3">
             {FAQ.map((item) => (
@@ -401,7 +401,7 @@ export default function LandingPage() {
 
       {/* Download */}
       <section id="download" className="scroll-mt-20 bg-surface">
-        <div className="mx-auto grid max-w-6xl gap-10 px-4 py-20 sm:px-6 lg:grid-cols-[1fr_1.05fr] lg:items-center">
+        <div className="mx-auto grid max-w-6xl gap-10 px-4 py-14 sm:py-20 sm:px-6 lg:grid-cols-[1fr_1.05fr] lg:items-center">
           <div className="space-y-5">
             <Image
               src="/brand/mark.png"

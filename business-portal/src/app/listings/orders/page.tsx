@@ -21,7 +21,7 @@ export default async function OrdersPage() {
   if (!ids.length) {
     return (
       <Container>
-        <div className="py-12">
+        <div className="py-8 sm:py-12">
           <EmptyState title="No food business" description="Approve a food vendor profile first." />
         </div>
       </Container>
@@ -36,7 +36,7 @@ export default async function OrdersPage() {
 
   return (
     <Container>
-      <div className="space-y-8 py-12">
+      <div className="space-y-8 py-8 sm:py-12">
         <PageHeader
           title="Food orders"
           description="Kitchen board for CampusOS pickup orders."

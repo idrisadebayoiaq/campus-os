@@ -25,6 +25,12 @@ import {
   unitTotal,
   type StudentCampus,
 } from "@/src/lib/campus";
+import {
+  distanceKm,
+  formatDistance,
+  loadSavedLocation,
+  type SavedLocation,
+} from "@/src/lib/location";
 import { supabase } from "@/src/lib/supabase";
 import { useTheme } from "@/src/theme/ThemeProvider";
 import { radii } from "@/src/theme/tokens";
@@ -47,6 +53,8 @@ type HousingUnit = {
         title: string;
         campus_id: string;
         verification_label: string | null;
+        lat?: number | null;
+        lng?: number | null;
         campus_areas:
           | { name?: string | null }
           | { name?: string | null }[]
@@ -57,6 +65,8 @@ type HousingUnit = {
         title: string;
         campus_id: string;
         verification_label: string | null;
+        lat?: number | null;
+        lng?: number | null;
         campus_areas:
           | { name?: string | null }
           | { name?: string | null }[]
@@ -82,13 +92,18 @@ export default function HousingScreen() {
   const [error, setError] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState("All");
+  const [home, setHome] = useState<SavedLocation | null>(null);
 
   const load = useCallback(async () => {
     if (!user) return;
     setError(null);
     try {
-      const campusRow = await getStudentCampus(supabase, user.id);
+      const [campusRow, homeRow] = await Promise.all([
+        getStudentCampus(supabase, user.id),
+        loadSavedLocation(supabase, user.id),
+      ]);
       setCampus(campusRow);
+      setHome(homeRow);
       if (!campusRow) {
         setUnits([]);
         return;
@@ -97,7 +112,7 @@ export default function HousingScreen() {
       const { data, error: queryError } = await supabase
         .from("property_units")
         .select(
-          "id, title, unit_type, rent_base, fee_agent, fee_agreement, fee_caution, fee_service, rent_period, properties!inner(id, title, campus_id, verification_label, is_published, campus_areas(name))",
+          "id, title, unit_type, rent_base, fee_agent, fee_agreement, fee_caution, fee_service, rent_period, properties!inner(id, title, campus_id, verification_label, is_published, lat, lng, campus_areas(name))",
         )
         .eq("is_published", true)
         .eq("status", "available")
@@ -218,8 +233,17 @@ export default function HousingScreen() {
     return ["All", ...Array.from(set).slice(0, 5)];
   }, [units]);
 
+  const distanceOf = useCallback(
+    (unit: HousingUnit) => {
+      const p = Array.isArray(unit.properties) ? unit.properties[0] : unit.properties;
+      if (!home || p?.lat == null || p?.lng == null) return null;
+      return distanceKm(home, { lat: p.lat, lng: p.lng });
+    },
+    [home],
+  );
+
   const visible = useMemo(() => {
-    return units.filter((unit) => {
+    const list = units.filter((unit) => {
       const type = (unit.unit_type || "room").replaceAll("_", " ");
       const matchesType = filter === "All" || type === filter;
       const q = query.trim().toLowerCase();
@@ -229,7 +253,11 @@ export default function HousingScreen() {
         areaName(unit.properties).toLowerCase().includes(q);
       return matchesType && matchesQuery;
     });
-  }, [units, filter, query]);
+    if (!home) return list;
+    return [...list].sort(
+      (a, b) => (distanceOf(a) ?? Infinity) - (distanceOf(b) ?? Infinity),
+    );
+  }, [units, filter, query, home, distanceOf]);
 
   return (
     <Screen padded={false} tabClearance>
@@ -241,6 +269,7 @@ export default function HousingScreen() {
           {campus
             ? `${campus.institutionName} · ${campus.campusName}`
             : "Campus not selected"}
+          {home ? " · nearest first" : ""}
         </AppText>
         <SearchBar
           value={query}
@@ -374,6 +403,10 @@ export default function HousingScreen() {
                       color={colors.muted}
                     />
                     <AppText muted size={12} numberOfLines={1}>
+                      {(() => {
+                        const km = distanceOf(item);
+                        return km != null ? `${formatDistance(km)} · ` : "";
+                      })()}
                       {areaName(item.properties)}
                       {property?.title ? ` · ${property.title}` : ""}
                     </AppText>

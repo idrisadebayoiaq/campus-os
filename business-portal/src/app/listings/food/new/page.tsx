@@ -30,7 +30,7 @@ export default async function NewMenuItemPage({
 
   return (
     <Container>
-      <div className="mx-auto max-w-xl space-y-8 py-12">
+      <div className="mx-auto max-w-xl space-y-8 py-8 sm:py-12">
         <PageHeader title="Add menu item" description={biz.display_name} />
         <CampusScene
           mode="business"

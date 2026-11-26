@@ -10,6 +10,7 @@ import {
   type HoursMap,
   type SetupStepKey,
 } from "@/lib/setup";
+import { LocationPicker, type PickedPlace } from "@/components/location-picker";
 import { Button, Field, Input } from "@/components/ui";
 
 type Business = {
@@ -29,6 +30,9 @@ type Business = {
   setup_complete: boolean;
   setup_step: string;
   slug: string | null;
+  address_text?: string | null;
+  lat?: number | null;
+  lng?: number | null;
 };
 
 type Payment = {
@@ -42,6 +46,8 @@ type Campus = {
   id: string;
   name: string;
   city: string | null;
+  lat?: number | null;
+  lng?: number | null;
 };
 
 export function SetupWizard({
@@ -74,6 +80,11 @@ export function SetupWizard({
   const [zones, setZones] = useState((business.service_zones ?? []).join(", "));
   const [selectedCampus, setSelectedCampus] = useState(campusId ?? campuses[0]?.id ?? "");
   const [campusQuery, setCampusQuery] = useState("");
+  const [location, setLocation] = useState<PickedPlace | null>(
+    business.lat != null && business.lng != null && business.address_text
+      ? { lat: business.lat, lng: business.lng, label: business.address_text }
+      : null,
+  );
   const [logoUrl, setLogoUrl] = useState(business.logo_url);
   const [coverUrl, setCoverUrl] = useState(business.cover_url);
 
@@ -84,6 +95,12 @@ export function SetupWizard({
       `${c.name} ${c.city || ""}`.toLowerCase().includes(q),
     );
   }, [campuses, campusQuery]);
+
+  const selectedCampusRow = campuses.find((c) => c.id === selectedCampus);
+  const campusCenter =
+    selectedCampusRow?.lat != null && selectedCampusRow?.lng != null
+      ? { lat: selectedCampusRow.lat, lng: selectedCampusRow.lng }
+      : null;
 
   const [hours, setHours] = useState<HoursMap>(
     business.hours && typeof business.hours === "object"
@@ -121,6 +138,7 @@ export function SetupWizard({
   }
 
   async function saveProfile() {
+    if (!location) throw new Error("Pick your business location on the map.");
     const supabase = createClient();
     const { error: updateError } = await supabase
       .from("business_profiles")
@@ -132,6 +150,9 @@ export function SetupWizard({
           .map((z) => z.trim())
           .filter(Boolean),
         campus_id: selectedCampus || null,
+        address_text: location.label,
+        lat: location.lat,
+        lng: location.lng,
         logo_url: logoUrl,
         cover_url: coverUrl,
         setup_step: "hours",
@@ -291,6 +312,16 @@ export function SetupWizard({
                   </option>
                 ))}
               </select>
+            </Field>
+            <Field label="Business location">
+              <LocationPicker
+                names={{ address: "business_address", lat: "business_lat", lng: "business_lng" }}
+                defaultValue={location}
+                bias={campusCenter}
+                required
+                addressLabel="Address students see"
+                onChange={setLocation}
+              />
             </Field>
             <Field label="Service zones (comma-separated)">
               <Input value={zones} onChange={(e) => setZones(e.target.value)} />

@@ -329,7 +329,7 @@ export default function InboxScreen() {
               autoCapitalize="none"
               style={[
                 styles.input,
-                { backgroundColor: colors.surface, color: colors.fg },
+                { backgroundColor: colors.inputBg, borderColor: colors.inputBorder, borderWidth: 1.5, color: colors.fg },
               ]}
             />
             <Pressable
@@ -352,7 +352,7 @@ export default function InboxScreen() {
               placeholderTextColor={colors.muted}
               style={[
                 styles.input,
-                { backgroundColor: colors.surface, color: colors.fg },
+                { backgroundColor: colors.inputBg, borderColor: colors.inputBorder, borderWidth: 1.5, color: colors.fg },
               ]}
             />
             <Pressable

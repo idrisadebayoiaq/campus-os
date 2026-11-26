@@ -163,7 +163,7 @@ export default function HousingPreferencesScreen() {
             </Group>
 
             <Group title="Budget">
-              <View style={[styles.money, { backgroundColor: colors.bg }]}>
+              <View style={[styles.money, { backgroundColor: colors.inputBg, borderColor: colors.inputBorder }]}>
                 <AppText size={17} weight="700" muted>
                   ₦
                 </AppText>
@@ -320,7 +320,8 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 8,
-    borderRadius: 12,
+    borderRadius: 14,
+    borderWidth: 1.5,
     paddingHorizontal: 14,
     minHeight: 52,
   },

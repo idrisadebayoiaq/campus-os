@@ -23,7 +23,7 @@ export default async function SetupPage({
   const { data: business } = await supabase
     .from("business_profiles")
     .select(
-      "id, display_name, bio, phone, email, whatsapp, service_zones, logo_url, cover_url, hours, show_phone_public, show_whatsapp_public, show_email_public, setup_complete, setup_step, slug, campus_id, business_type, owner_user_id",
+      "id, display_name, bio, phone, email, whatsapp, service_zones, logo_url, cover_url, hours, show_phone_public, show_whatsapp_public, show_email_public, setup_complete, setup_step, slug, campus_id, business_type, owner_user_id, address_text, lat, lng",
     )
     .eq("id", id)
     .maybeSingle();
@@ -42,7 +42,7 @@ export default async function SetupPage({
 
   const { data: campuses } = await supabase
     .from("campuses")
-    .select("id, name, city")
+    .select("id, name, city, lat, lng")
     .eq("is_active", true)
     .order("name");
 
@@ -53,7 +53,7 @@ export default async function SetupPage({
 
   return (
     <Container>
-      <div className="mx-auto max-w-2xl space-y-8 py-12">
+      <div className="mx-auto max-w-2xl space-y-8 py-8 sm:py-12">
         <PageHeader
           title={`Setup · ${business.display_name}`}
           description={`${businessTypeLabel(business.business_type)} — complete all steps before publishing listings.`}

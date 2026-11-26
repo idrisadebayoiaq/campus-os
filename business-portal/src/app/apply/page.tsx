@@ -24,7 +24,7 @@ const OPTIONS = [
 export default function ApplyPage() {
   return (
     <Container>
-      <div className="space-y-8 py-12">
+      <div className="space-y-8 py-8 sm:py-12">
         <PageHeader
           title="What do you do on campus?"
           description="Choose one. After approval your portal shows only the tools for that. You can't mix account types."

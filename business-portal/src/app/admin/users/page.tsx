@@ -22,7 +22,7 @@ export default async function AdminUsersPage({
   if (!isStaff) {
     return (
       <Container>
-        <div className="py-12">
+        <div className="py-8 sm:py-12">
           <EmptyState title="Staff only" description="Admin or moderator role required." />
         </div>
       </Container>

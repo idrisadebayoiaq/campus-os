@@ -37,14 +37,21 @@ export function AuthFrame({
             <p className="max-w-sm text-sm leading-6 text-hero-muted">{panelBody}</p>
           </div>
           <p className="text-xs text-hero-muted">
-            Business portal ·{" "}
             <Link href="/business-rules" className="underline underline-offset-2">
               Business rules
+            </Link>{" "}
+            ·{" "}
+            <Link href="/terms" className="underline underline-offset-2">
+              Terms
+            </Link>{" "}
+            ·{" "}
+            <Link href="/privacy" className="underline underline-offset-2">
+              Privacy
             </Link>
           </p>
         </aside>
 
-        <section className="flex items-center px-4 py-10 sm:px-8 lg:px-12">
+        <section className="flex items-center px-4 py-8 sm:px-8 sm:py-10 lg:px-12">
           <div className="mx-auto w-full max-w-md space-y-8">
             <div className="space-y-4 lg:hidden">
               <CampusLogo href="/login" size={36} />
@@ -61,6 +68,19 @@ export function AuthFrame({
             </div>
 
             {footer ? <div className="space-y-3 text-sm text-muted">{footer}</div> : null}
+            <p className="text-xs text-muted lg:hidden">
+              <Link href="/terms" className="underline underline-offset-2">
+                Terms
+              </Link>{" "}
+              ·{" "}
+              <Link href="/privacy" className="underline underline-offset-2">
+                Privacy
+              </Link>{" "}
+              ·{" "}
+              <Link href="/business-rules" className="underline underline-offset-2">
+                Business rules
+              </Link>
+            </p>
           </div>
         </section>
       </div>

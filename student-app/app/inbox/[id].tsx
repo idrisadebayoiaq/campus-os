@@ -435,7 +435,7 @@ export default function ChatThreadScreen() {
             multiline
             style={[
               styles.input,
-              { backgroundColor: colors.surface, color: colors.fg },
+              { backgroundColor: colors.inputBg, borderColor: colors.inputBorder, borderWidth: 1.5, color: colors.fg },
             ]}
           />
           <Pressable

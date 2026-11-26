@@ -25,7 +25,7 @@ export default async function ApplyTypePage({
 
   const { data: campuses } = await supabase
     .from("campuses")
-    .select("id, name, city, state, institutions(name, short_name)")
+    .select("id, name, city, state, lat, lng, institutions(name, short_name)")
     .eq("is_active", true)
     .order("name");
 
@@ -37,7 +37,7 @@ export default async function ApplyTypePage({
 
   return (
     <Container>
-      <div className="mx-auto max-w-2xl space-y-8 py-12">
+      <div className="mx-auto max-w-2xl space-y-8 py-8 sm:py-12">
         <PageHeader
           title={`Apply · ${businessTypeLabel(type)}`}
           description="Submit your details for admin review. You cannot publish listings until approved."

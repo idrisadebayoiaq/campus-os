@@ -37,7 +37,7 @@ export default async function AdminApplicationDetailPage({
 
   return (
     <Container>
-      <div className="mx-auto max-w-3xl space-y-8 py-12">
+      <div className="mx-auto max-w-3xl space-y-8 py-8 sm:py-12">
         <PageHeader
           title={app.business_name}
           description={`${businessTypeLabel(app.business_type)} · ${app.status}`}
@@ -69,6 +69,16 @@ export default async function AdminApplicationDetailPage({
           <div className="sm:col-span-2">
             <p className="text-xs uppercase tracking-wide text-muted">Address</p>
             <p className="mt-1 text-muted">{app.address_text || "—"}</p>
+            {app.lat != null && app.lng != null ? (
+              <a
+                href={`https://www.openstreetmap.org/?mlat=${app.lat}&mlon=${app.lng}#map=17/${app.lat}/${app.lng}`}
+                target="_blank"
+                rel="noreferrer"
+                className="mt-1 inline-block text-xs font-medium text-fg underline underline-offset-2"
+              >
+                View pin on map
+              </a>
+            ) : null}
           </div>
           {app.decision_reason ? (
             <div className="sm:col-span-2">
