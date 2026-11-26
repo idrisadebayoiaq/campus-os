@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { DeliveryMap } from "@/components/delivery-map";
 import { Button, Input } from "@/components/ui";
 import { createClient } from "@/lib/supabase/client";
 
@@ -16,15 +17,17 @@ export type Zone = {
 
 export function DeliveryManager({
   businessId,
-  hasLocation,
+  location,
   zones,
 }: {
   businessId: string;
-  hasLocation: boolean;
+  location: { lat: number; lng: number } | null;
   zones: Zone[];
 }) {
   const router = useRouter();
+  const hasLocation = location != null;
   const [error, setError] = useState<string | null>(null);
+  const [draftKm, setDraftKm] = useState(1);
 
   async function add(form: FormData) {
     const supabase = createClient();
@@ -65,6 +68,15 @@ export function DeliveryManager({
       ) : null}
       {error ? <p className="text-sm text-red-600">{error}</p> : null}
 
+      {location ? (
+        <div className="space-y-2">
+          <DeliveryMap center={location} zones={zones} draftKm={draftKm} onDraftKm={setDraftKm} />
+          <p className="text-xs text-muted">
+            Green rings are your zones. Drag the blue handle to size the next one, then fill in the fee below.
+          </p>
+        </div>
+      ) : null}
+
       {zones.length ? (
         <div className="divide-y divide-border rounded-md border border-border">
           {zones.map((z) => (
@@ -104,7 +116,20 @@ export function DeliveryManager({
       >
         <h2 className="font-medium sm:col-span-2">Add a delivery zone</h2>
         <Input name="label" placeholder="Name, e.g. Inside campus" required />
-        <Input name="radius_km" type="number" step="0.1" min="0.1" placeholder="Radius (km)" required />
+        <Input
+          name="radius_km"
+          type="number"
+          step="0.1"
+          min="0.1"
+          max="50"
+          placeholder="Radius (km)"
+          required
+          value={draftKm}
+          onChange={(e) => {
+            const v = Number(e.target.value);
+            if (Number.isFinite(v) && v > 0) setDraftKm(Math.min(50, v));
+          }}
+        />
         <Input name="fee" type="number" min="0" placeholder="Delivery fee (₦)" />
         <Input name="min_order" type="number" min="0" placeholder="Minimum order (₦)" />
         <p className="text-xs text-muted sm:col-span-2">

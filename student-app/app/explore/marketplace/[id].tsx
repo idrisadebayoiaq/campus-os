@@ -14,6 +14,7 @@ import { AppText, EmptyState, Screen } from "@/src/components/ui";
 import { useAuth } from "@/src/lib/auth";
 import { formatNaira } from "@/src/lib/campus";
 import { startBusinessChat, startDirectChat } from "@/src/lib/messaging";
+import { distanceKm, formatDistance, loadSavedLocation } from "@/src/lib/location";
 import { supabase } from "@/src/lib/supabase";
 import { levelLabel, loadBizMeta, metaLine, trackEvent, type BizMeta } from "@/src/lib/trust";
 import {
@@ -87,8 +88,16 @@ export default function MarketplaceDetailScreen() {
       if (!gallery.length && data.image_url) gallery.push({ url: data.image_url, kind: "image" });
       if (!cancelled) setMedia(gallery);
       if (data.pickup_point_id) {
-        const { data: pp } = await supabase.from("pickup_points").select("name").eq("id", data.pickup_point_id).maybeSingle();
-        if (!cancelled) setPickup(pp?.name ?? null);
+        const { data: pp } = await supabase.from("pickup_points").select("name, lat, lng").eq("id", data.pickup_point_id).maybeSingle();
+        let walk = "";
+        if (pp?.lat != null && pp?.lng != null && user) {
+          const home = await loadSavedLocation(supabase, user.id);
+          if (home) {
+            const km = distanceKm(home, { lat: Number(pp.lat), lng: Number(pp.lng) });
+            walk = ` · ${formatDistance(km)} from you, about ${Math.max(1, Math.round(km * 12))} min walk`;
+          }
+        }
+        if (!cancelled) setPickup(pp?.name ? `${pp.name}${walk}` : null);
       }
       if (data.business_id) {
         const m = await loadBizMeta(supabase, [data.business_id]);

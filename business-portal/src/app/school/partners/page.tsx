@@ -26,7 +26,7 @@ export default async function SchoolPartnersPage() {
   const institutionId = authority.institution_id;
   const inst = Array.isArray(authority.institutions) ? authority.institutions[0] : authority.institutions;
 
-  const { data: campuses } = await supabase.from("campuses").select("id, name").eq("institution_id", institutionId).order("name");
+  const { data: campuses } = await supabase.from("campuses").select("id, name, lat, lng").eq("institution_id", institutionId).order("name");
   const campusIds = (campuses ?? []).map((c) => c.id);
 
   const [{ data: biz }, { data: endorsed }, { data: pts }] = await Promise.all([
@@ -41,7 +41,7 @@ export default async function SchoolPartnersPage() {
       : Promise.resolve({ data: [] as never[] }),
     supabase.from("school_endorsements").select("business_id").eq("institution_id", institutionId),
     campusIds.length
-      ? supabase.from("pickup_points").select("id, campus_id, name, is_active").in("campus_id", campusIds).order("name")
+      ? supabase.from("pickup_points").select("id, campus_id, name, is_active, lat, lng").in("campus_id", campusIds).order("name")
       : Promise.resolve({ data: [] as never[] }),
   ]);
 
@@ -53,7 +53,7 @@ export default async function SchoolPartnersPage() {
     level: LEVEL[b.verification_level] ?? b.verification_level,
     endorsed: endorsedSet.has(b.id),
   }));
-  const points: PointRow[] = ((pts ?? []) as { id: string; campus_id: string; name: string; is_active: boolean }[]).map((p) => ({
+  const points: PointRow[] = ((pts ?? []) as { id: string; campus_id: string; name: string; is_active: boolean; lat: number | null; lng: number | null }[]).map((p) => ({
     ...p,
     campus: campuses?.find((c) => c.id === p.campus_id)?.name ?? "",
   }));

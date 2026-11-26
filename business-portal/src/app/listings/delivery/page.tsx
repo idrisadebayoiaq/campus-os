@@ -45,7 +45,7 @@ export default async function DeliveryPage() {
             {kitchens.length > 1 ? <h2 className="text-lg font-medium">{k.display_name}</h2> : null}
             <DeliveryManager
               businessId={k.id}
-              hasLocation={k.lat != null && k.lng != null}
+              location={k.lat != null && k.lng != null ? { lat: Number(k.lat), lng: Number(k.lng) } : null}
               zones={((zones ?? []).filter((z) => z.business_id === k.id) as unknown as Zone[])}
             />
           </section>
