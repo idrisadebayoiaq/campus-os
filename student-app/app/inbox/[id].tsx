@@ -2,6 +2,7 @@ import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
+  BackHandler,
   FlatList,
   Image,
   KeyboardAvoidingView,
@@ -174,6 +175,19 @@ export default function ChatThreadScreen() {
     }, [loadMessages]),
   );
 
+  // If this chat is the only screen on the stack (opened from a notification or a
+  // redirect), phone back must go Home instead of closing the app.
+  useFocusEffect(
+    useCallback(() => {
+      const sub = BackHandler.addEventListener("hardwareBackPress", () => {
+        if (router.canGoBack()) return false;
+        router.replace("/(tabs)");
+        return true;
+      });
+      return () => sub.remove();
+    }, []),
+  );
+
   useEffect(() => {
     if (!id) return;
     const channel = supabase
@@ -274,7 +288,7 @@ export default function ChatThreadScreen() {
         void requestAiReply(body);
       }
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Send failed");
+      setError(errorText(e, "Send failed"));
       setDraft(body);
     } finally {
       setSending(false);
@@ -311,7 +325,10 @@ export default function ChatThreadScreen() {
   return (
     <View style={{ flex: 1, backgroundColor: colors.bg, paddingTop: insets.top }}>
       <View style={[styles.top, { borderBottomColor: colors.border }]}>
-        <Pressable onPress={() => router.back()} style={styles.iconBtn}>
+        <Pressable
+          onPress={() => (router.canGoBack() ? router.back() : router.replace("/(tabs)"))}
+          style={styles.iconBtn}
+        >
           <Ionicons name="arrow-back" size={22} color={colors.fg} />
         </Pressable>
         <Pressable onPress={openProfile} style={styles.headerMain}>
@@ -561,8 +578,21 @@ export default function ChatThreadScreen() {
   );
 }
 
+/** messages.client_id is a uuid column, so this must be a real v4 uuid. */
 function cryptoRandom() {
-  return `c_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+  return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
+    const r = Math.floor(Math.random() * 16);
+    return (c === "x" ? r : (r & 0x3) | 0x8).toString(16);
+  });
+}
+
+/** Supabase errors are plain objects, not Error instances. */
+function errorText(e: unknown, fallback: string) {
+  if (e && typeof e === "object" && "message" in e) {
+    const m = (e as { message?: unknown }).message;
+    if (typeof m === "string" && m) return m;
+  }
+  return e instanceof Error && e.message ? e.message : fallback;
 }
 
 const styles = StyleSheet.create({

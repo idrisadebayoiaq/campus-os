@@ -638,7 +638,7 @@ export default function HomeScreen() {
 
         {/* Promo / task card — AI Study */}
         <Pressable
-          onPress={() => router.push("/(tabs)/ai")}
+          onPress={() => router.push("/study/ai")}
           style={[styles.promoCard, { backgroundColor: colors.heroBg }]}
         >
           <View

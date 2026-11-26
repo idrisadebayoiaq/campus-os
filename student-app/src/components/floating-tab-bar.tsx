@@ -44,7 +44,7 @@ const PRIMARY_TABS = [
   {
     name: "ai",
     label: "AI",
-    href: "/(tabs)/ai",
+    href: "/study/ai",
     active: "sparkles" as const,
     idle: "sparkles-outline" as const,
   },
@@ -63,7 +63,7 @@ const MORE_MENU = [
   },
   {
     title: "AI study",
-    href: "/(tabs)/ai",
+    href: "/study/ai",
     icon: "sparkles-outline" as const,
   },
   {
