@@ -1,7 +1,7 @@
 /** Store / APK download targets for the CampusOS landing page. */
 
-export const APP_VERSION = "1.0.4";
-export const APP_VERSION_CODE = 9;
+export const APP_VERSION = "1.0.5";
+export const APP_VERSION_CODE = 10;
 
 /**
  * Direct APK link. Defaults to the latest EAS build artifact so the 50 MB
@@ -9,7 +9,7 @@ export const APP_VERSION_CODE = 9;
  */
 export const APK_HREF =
   process.env.NEXT_PUBLIC_APK_URL?.trim() ||
-  "https://expo.dev/artifacts/eas/SJ07OvPfcdvyUjrI_zRrXFzdnrhGaYS_i_EM1sYFG4A.apk";
+  "https://expo.dev/artifacts/eas/qoqIoGRFhIF3e-yu0-rpgAzSTjDa7c08Iw2w6piX-6w.apk";
 
 /**
  * Set when the listing goes live, e.g.
