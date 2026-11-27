@@ -94,6 +94,12 @@
       "expo-asset",
       "expo-video",
       [
+        "expo-local-authentication",
+        {
+          "faceIDPermission": "Allow CampusOS to use Face ID to confirm payments and open your wallet."
+        }
+      ],
+      [
         "expo-location",
         {
           "locationWhenInUsePermission": "Allow CampusOS to use your location to show schools, housing and places near you."

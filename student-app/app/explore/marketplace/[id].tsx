@@ -12,6 +12,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { AppText, EmptyState, Screen } from "@/src/components/ui";
 import { useAuth } from "@/src/lib/auth";
+import { usePayAuth } from "@/src/lib/pay-auth";
 import { formatNaira } from "@/src/lib/campus";
 import { startBusinessChat, startDirectChat } from "@/src/lib/messaging";
 import { distanceKm, formatDistance, loadSavedLocation } from "@/src/lib/location";
@@ -44,6 +45,7 @@ type Listing = {
 export default function MarketplaceDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { user } = useAuth();
+  const { confirm } = usePayAuth();
   const colors = useTheme();
   const insets = useSafeAreaInsets();
   const [item, setItem] = useState<Listing | null>(null);
@@ -156,6 +158,7 @@ export default function MarketplaceDetailScreen() {
         {
           text: "Pay and hold",
           onPress: async () => {
+            if (!(await confirm(`Pay ${formatNaira(item.price)} from your wallet`))) return;
             setBusy(true);
             setStatus(null);
             const { data: placed, error } = await supabase.rpc("market_place_order", { p_listing: item.id });

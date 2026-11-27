@@ -3,6 +3,7 @@ import { View } from "react-native";
 import { AppText, Button, Input } from "@/src/components/ui";
 import { Group, Hero, ListRow, Notice, PageShell, Panel, Section, type Tone } from "@/src/components/page";
 import { useAuth } from "@/src/lib/auth";
+import { usePayAuth } from "@/src/lib/pay-auth";
 import { formatNaira } from "@/src/lib/campus";
 import { callPaystack } from "@/src/lib/payments";
 import { supabase } from "@/src/lib/supabase";
@@ -24,6 +25,7 @@ const KIND: Record<string, string> = {
 
 export default function EarningsScreen() {
   const { user } = useAuth();
+  const { confirm: confirmPay } = usePayAuth();
   const [balance, setBalance] = useState(0);
   const [pending, setPending] = useState(0);
   const [minimum, setMinimum] = useState(5000);
@@ -111,6 +113,7 @@ export default function EarningsScreen() {
       {
         text: "Withdraw",
         onPress: async () => {
+          if (!(await confirmPay(`Withdraw ${formatNaira(balance)} to your bank`))) return;
           setBusy(true);
           const res = await callPaystack(supabase, { action: "payout" });
           setBusy(false);

@@ -7,6 +7,7 @@ import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { AuthProvider } from "@/src/lib/auth";
 import { FeedbackProvider } from "@/src/lib/feedback";
+import { PayAuthProvider } from "@/src/lib/pay-auth";
 import { PaySheetProvider } from "@/src/lib/pay-sheet";
 import { usePushNotifications } from "@/src/lib/push";
 import { StudentKindProvider } from "@/src/lib/student-kind";
@@ -35,11 +36,13 @@ export default function RootLayout() {
             <StudentKindProvider>
               <StudyLockProvider>
                 <FeedbackProvider>
-                  <PaySheetProvider>
-                    <TenancyProvider>
-                      <RootNavigator />
-                    </TenancyProvider>
-                  </PaySheetProvider>
+                  <PayAuthProvider>
+                    <PaySheetProvider>
+                      <TenancyProvider>
+                        <RootNavigator />
+                      </TenancyProvider>
+                    </PaySheetProvider>
+                  </PayAuthProvider>
                 </FeedbackProvider>
               </StudyLockProvider>
             </StudentKindProvider>
@@ -91,6 +94,7 @@ function RootNavigator() {
         <Stack.Screen name="checkout" options={{ headerShown: false }} />
         <Stack.Screen name="receipt" options={{ headerShown: false }} />
         <Stack.Screen name="viewings" options={{ headerShown: false }} />
+        <Stack.Screen name="payment-security" options={{ headerShown: false }} />
         <Stack.Screen name="report" options={{ headerShown: false }} />
         <Stack.Screen name="review" options={{ headerShown: false }} />
         <Stack.Screen name="my-room" options={{ headerShown: false }} />

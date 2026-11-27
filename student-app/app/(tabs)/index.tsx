@@ -18,6 +18,7 @@ import { ExamHome } from "@/src/components/exam-home";
 import { useStudentKind } from "@/src/lib/student-kind";
 import { useAuth } from "@/src/lib/auth";
 import { formatNaira, getStudentCampus } from "@/src/lib/campus";
+import { maskNaira, usePayAuth } from "@/src/lib/pay-auth";
 import {
   DAYS,
   STUDY_TOOLS,
@@ -163,6 +164,7 @@ function StudentHome() {
   const [unreadNotifications, setUnreadNotifications] = useState(0);
   const [deals, setDeals] = useState<Deal[]>([]);
   const [walletBalance, setWalletBalance] = useState<number | null>(null);
+  const { hidden: balanceHidden, toggleHidden: toggleBalance } = usePayAuth();
 
   useFocusEffect(
     useCallback(() => {
@@ -481,9 +483,17 @@ function StudentHome() {
               WALLET BALANCE
             </AppText>
             <AppText weight="700" size={18}>
-              {walletBalance == null ? "—" : formatNaira(walletBalance)}
+              {walletBalance == null ? "—" : maskNaira(walletBalance, balanceHidden)}
             </AppText>
           </View>
+          <Pressable
+            onPress={toggleBalance}
+            hitSlop={10}
+            style={{ padding: 4 }}
+            accessibilityLabel={balanceHidden ? "Show balance" : "Hide balance"}
+          >
+            <Ionicons name={balanceHidden ? "eye-off-outline" : "eye-outline"} size={20} color={colors.muted} />
+          </Pressable>
           <Ionicons name="chevron-forward" size={18} color={colors.muted} />
         </Pressable>
 
@@ -674,7 +684,7 @@ function StudentHome() {
             <AppText size={12} weight="700" style={{ color: colors.onAccent }}>
               Open
             </AppText>
-          </View>
+    </View>
         </Pressable>
       </ScrollView>
     </Screen>

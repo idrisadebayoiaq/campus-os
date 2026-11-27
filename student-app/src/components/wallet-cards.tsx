@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { Pressable, StyleSheet, View } from "react-native";
 import { AppText } from "@/src/components/ui";
-import { formatNaira } from "@/src/lib/campus";
+import { maskNaira, usePayAuth } from "@/src/lib/pay-auth";
 import { useTheme } from "@/src/theme/ThemeProvider";
 
 export const WALLET_CARD_HEIGHT = 208;
@@ -40,6 +40,7 @@ export function DebitCard({
   frozen?: boolean;
 }) {
   const colors = useTheme();
+  const { hidden, toggleHidden } = usePayAuth();
   const digits = card?.last4 ? card.last4 : "••••";
   return (
     <View style={[styles.card, { backgroundColor: colors.heroBg }]}>
@@ -67,11 +68,19 @@ export function DebitCard({
         </View>
         <View style={{ flex: 1 }} />
         <View style={{ alignItems: "flex-end" }}>
-          <AppText size={11} style={{ color: colors.heroMuted }}>
-            Balance
-          </AppText>
+          <Pressable
+            onPress={toggleHidden}
+            hitSlop={10}
+            style={{ flexDirection: "row", alignItems: "center", gap: 6 }}
+            accessibilityLabel={hidden ? "Show balance" : "Hide balance"}
+          >
+            <AppText size={11} style={{ color: colors.heroMuted }}>
+              Balance
+            </AppText>
+            <Ionicons name={hidden ? "eye-off-outline" : "eye-outline"} size={16} color={colors.heroMuted} />
+          </Pressable>
           <AppText size={28} weight="700" style={{ color: colors.heroFg }} numberOfLines={1}>
-            {formatNaira(balance)}
+            {maskNaira(balance, hidden)}
           </AppText>
         </View>
       </View>
@@ -123,6 +132,7 @@ export function PayoutCard({
   onOpen: () => void;
 }) {
   const colors = useTheme();
+  const { hidden } = usePayAuth();
   return (
     <View style={[styles.card, { backgroundColor: colors.accent }]}>
       <View style={[styles.circle, { width: 200, height: 200, right: -60, top: -80, backgroundColor: "rgba(255,255,255,0.22)" }]} />
@@ -141,10 +151,10 @@ export function PayoutCard({
           Available to withdraw
         </AppText>
         <AppText size={32} weight="700" style={{ color: colors.onAccent }} numberOfLines={1}>
-          {formatNaira(available)}
+          {maskNaira(available, hidden)}
         </AppText>
         <AppText size={12} style={{ color: colors.onAccent, opacity: 0.8 }}>
-          {onHold > 0 ? `${formatNaira(onHold)} on hold until buyers confirm` : "Paid out after the buyer confirms the handover"}
+          {onHold > 0 ? `${maskNaira(onHold, hidden)} on hold until buyers confirm` : "Paid out after the buyer confirms the handover"}
         </AppText>
       </View>
 

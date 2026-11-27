@@ -95,6 +95,11 @@ export default function SettingsScreen() {
           href: "/change-password",
         },
         {
+          title: "Payment password & fingerprint",
+          icon: "lock-closed-outline",
+          href: "/payment-security",
+        },
+        {
           title: "Verify student ID",
           icon: "shield-checkmark-outline",
           href: "/verify",

@@ -5,6 +5,7 @@ import { ChipRow, Group, Hero, KeyValue, ListRow, Notice, PageShell, Panel, Sect
 import { AppText, Button, Input } from "@/src/components/ui";
 import { useAuth } from "@/src/lib/auth";
 import { formatNaira } from "@/src/lib/campus";
+import { usePayAuth } from "@/src/lib/pay-auth";
 import { callPaystack } from "@/src/lib/payments";
 import { supabase } from "@/src/lib/supabase";
 import { notify } from "@/src/lib/feedback";
@@ -22,6 +23,7 @@ type Summary = {
 
 export default function PayoutScreen() {
   const { user } = useAuth();
+  const { confirm } = usePayAuth();
   const params = useLocalSearchParams<{ to?: string }>();
   const [to, setTo] = useState<"bank" | "wallet">(params.to === "bank" ? "bank" : "wallet");
   const [s, setS] = useState<Summary | null>(null);
@@ -83,6 +85,7 @@ export default function PayoutScreen() {
 
   async function moveToWallet() {
     if (walletProblem || busy) return;
+    if (!(await confirm(`Move ${formatNaira(walletAmount)} to your wallet`))) return;
     setBusy(true);
     setError(null);
     setDone(null);
@@ -104,6 +107,7 @@ export default function PayoutScreen() {
       {
         text: "Withdraw",
         onPress: async () => {
+          if (!(await confirm(`Withdraw ${formatNaira(available)} to your bank`))) return;
           setBusy(true);
           setError(null);
           setDone(null);

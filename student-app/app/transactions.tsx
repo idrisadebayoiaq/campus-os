@@ -6,6 +6,7 @@ import { TxGrouped } from "@/src/components/tx-rows";
 import { AppText, Button } from "@/src/components/ui";
 import { useAuth } from "@/src/lib/auth";
 import { formatNaira } from "@/src/lib/campus";
+import { useWalletGate, WalletLocked } from "@/src/lib/pay-auth";
 import { loadTransactions, TYPE_FILTERS, type Tx } from "@/src/lib/transactions";
 import { supabase } from "@/src/lib/supabase";
 import { useTheme } from "@/src/theme/ThemeProvider";
@@ -28,6 +29,7 @@ function startOfDay(d: Date) {
 
 export default function TransactionsScreen() {
   const { user } = useAuth();
+  const gate = useWalletGate();
   const colors = useTheme();
   const [type, setType] = useState("all");
   const [range, setRange] = useState("all");
@@ -94,6 +96,14 @@ export default function TransactionsScreen() {
   }, [rows]);
 
   const filtered = type !== "all" || range !== "all";
+
+  if (!gate.open) {
+    return (
+      <PageShell title="History">
+        <WalletLocked onUnlock={() => void gate.unlock()} />
+      </PageShell>
+    );
+  }
 
   return (
     <PageShell

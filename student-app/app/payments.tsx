@@ -4,6 +4,7 @@ import { View } from "react-native";
 import { AppText, Button } from "@/src/components/ui";
 import { Empty, Hero, Notice, PageShell, Panel, Pill, Section, type Tone } from "@/src/components/page";
 import { useAuth } from "@/src/lib/auth";
+import { usePayAuth } from "@/src/lib/pay-auth";
 import { formatNaira } from "@/src/lib/campus";
 import { supabase } from "@/src/lib/supabase";
 import { notify, toast } from "@/src/lib/feedback";
@@ -37,6 +38,7 @@ const STATUS: Record<string, { label: string; tone: Tone }> = {
 
 export default function PaymentRequestsScreen() {
   const { user } = useAuth();
+  const { confirm } = usePayAuth();
   const [rows, setRows] = useState<Request[]>([]);
   const [balance, setBalance] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -77,6 +79,7 @@ export default function PaymentRequestsScreen() {
       {
         text: "Pay",
         onPress: async () => {
+          if (!(await confirm(`Pay ${formatNaira(r.amount)} for ${r.title}`))) return;
           setBusy(r.id);
           const { error } = await supabase.rpc("pay_payment_request", { p_request: r.id });
           setBusy(null);

@@ -4,6 +4,7 @@ import { View } from "react-native";
 import { Empty, Notice, PageShell, Panel, Pill, type Tone } from "@/src/components/page";
 import { AppText, Button } from "@/src/components/ui";
 import { useAuth } from "@/src/lib/auth";
+import { usePayAuth } from "@/src/lib/pay-auth";
 import { formatNaira } from "@/src/lib/campus";
 import { notify, toast } from "@/src/lib/feedback";
 import { supabase } from "@/src/lib/supabase";
@@ -42,6 +43,7 @@ const when = (iso: string) =>
 
 export default function ViewingsScreen() {
   const { user } = useAuth();
+  const { confirm } = usePayAuth();
   const [rows, setRows] = useState<Viewing[]>([]);
   const [offers, setOffers] = useState<Offer[]>([]);
   const [balance, setBalance] = useState(0);
@@ -118,6 +120,7 @@ export default function ViewingsScreen() {
         {
           text: "Pay and move in",
           onPress: async () => {
+            if (!(await confirm(`Pay ${formatNaira(o.amount)} and move in`))) return;
             setBusy(o.id);
             const { error } = await supabase.rpc("pay_payment_request", { p_request: o.id });
             setBusy(null);

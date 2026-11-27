@@ -5,6 +5,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { AppText, Button, Input } from "@/src/components/ui";
 import { Empty, Group, KeyValue, ListRow, PageShell, Panel, Section } from "@/src/components/page";
 import { useAuth } from "@/src/lib/auth";
+import { maskNaira, usePayAuth } from "@/src/lib/pay-auth";
 import { formatNaira } from "@/src/lib/campus";
 import { cartCount, cartSubtotal, clearCart, useCart } from "@/src/lib/cart";
 import { notify } from "@/src/lib/feedback";
@@ -17,6 +18,7 @@ type Quote = { deliverable: boolean; fee: number; min_order: number; distance_km
 
 export default function CheckoutScreen() {
   const { user } = useAuth();
+  const { confirm, hidden } = usePayAuth();
   const colors = useTheme();
   const cart = useCart();
 
@@ -96,12 +98,13 @@ export default function CheckoutScreen() {
       if (subtotal < Number(quote.min_order)) return `Delivery minimum is ${formatNaira(Number(quote.min_order))}`;
     }
     if (!walletOn) return "Wallet is unavailable right now";
-    if (short) return `Wallet balance is ${formatNaira(walletBalance)}`;
+    if (short) return `Wallet balance is ${maskNaira(walletBalance, hidden)}`;
     return null;
-  }, [open, delivery, place, quote, subtotal, walletOn, walletBalance, short]);
+  }, [open, delivery, place, quote, subtotal, walletOn, walletBalance, short, hidden]);
 
   async function submit() {
     if (!user || !businessId || blocked) return;
+    if (!(await confirm(`Pay ${formatNaira(estimate)} from your wallet`))) return;
     setPlacing(true);
     const address = delivery ? [detail.trim(), place?.label].filter(Boolean).join(" · ") : null;
     const { data: placed, error } = await supabase.rpc("place_food_order", {
@@ -232,7 +235,7 @@ export default function CheckoutScreen() {
       <Section title="Order">
         <Group>
           <ListRow icon="bag-handle-outline" title={`${count} item${count === 1 ? "" : "s"}`} value={formatNaira(subtotal)} onPress={() => router.back()} />
-          <ListRow icon="wallet-outline" title="Wallet" value={formatNaira(walletBalance)} valueTone={short ? "danger" : "neutral"} onPress={() => router.push("/wallet")} />
+          <ListRow icon="wallet-outline" title="Wallet" value={maskNaira(walletBalance, hidden)} valueTone={short ? "danger" : "neutral"} onPress={() => router.push("/wallet")} />
         </Group>
       </Section>
 

@@ -5,6 +5,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { Group, ListRow } from "@/src/components/page";
 import { AppText, Avatar, Screen, TAB_BAR_CLEARANCE } from "@/src/components/ui";
 import { useAuth } from "@/src/lib/auth";
+import { maskNaira, usePayAuth } from "@/src/lib/pay-auth";
 import { formatNaira, getStudentCampus, type StudentCampus } from "@/src/lib/campus";
 import { notify } from "@/src/lib/feedback";
 import { usePremium } from "@/src/lib/premium-state";
@@ -24,6 +25,7 @@ type ProfileBits = {
 
 export default function ProfileScreen() {
   const { user, signOut } = useAuth();
+  const { hidden: balanceHidden } = usePayAuth();
   const { isExamPrep } = useStudentKind();
   const premium = usePremium();
   const colors = useTheme();
@@ -182,7 +184,7 @@ export default function ProfileScreen() {
         </Pressable>
 
         <View style={styles.tiles}>
-          <Tile icon="wallet-outline" label="Wallet" value={balance == null ? "…" : formatNaira(balance)} onPress={go("/wallet")} />
+          <Tile icon="wallet-outline" label="Wallet" value={balance == null ? "…" : maskNaira(balance, balanceHidden)} onPress={go("/wallet")} />
           <Tile icon="bag-handle-outline" label="Orders" value={activeOrders ? `${activeOrders} active` : "None active"} onPress={go("/orders")} />
           <Tile icon="notifications-outline" label="Alerts" value={unread ? `${unread} new` : "All read"} onPress={go("/notifications")} />
         </View>

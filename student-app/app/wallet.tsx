@@ -10,6 +10,7 @@ import { useAuth } from "@/src/lib/auth";
 import { formatNaira } from "@/src/lib/campus";
 import { notify } from "@/src/lib/feedback";
 import { callPaystack } from "@/src/lib/payments";
+import { usePayAuth, useWalletGate, WalletLocked } from "@/src/lib/pay-auth";
 import { PAY_RETURN_URL, usePaySheet } from "@/src/lib/pay-sheet";
 import { supabase } from "@/src/lib/supabase";
 import { loadTransactions, type Tx } from "@/src/lib/transactions";
@@ -56,6 +57,8 @@ export default function WalletScreen() {
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const { payByCard } = usePaySheet();
+  const { confirm } = usePayAuth();
+  const gate = useWalletGate();
 
   const cardWidth = width - 40;
 
@@ -129,6 +132,7 @@ export default function WalletScreen() {
 
   async function topUp() {
     if (problem || busy) return;
+    if (!(await confirm(`Add ${formatNaira(value)} to your wallet`, { allowRecent: true }))) return;
     setBusy(true);
     setMessage(null);
     const res = await callPaystack(supabase, { action: "init-topup", amount: value, callback_url: PAY_RETURN_URL });
@@ -156,6 +160,14 @@ export default function WalletScreen() {
   const canTopUp = info.enabled && !frozen;
   const showSeller = !!seller?.is_seller;
   const snap = cardWidth + CARD_GAP;
+
+  if (!gate.open) {
+    return (
+      <PageShell title="My wallet" subtitle="Pay for everything in CampusOS from here">
+        <WalletLocked onUnlock={() => void gate.unlock()} />
+      </PageShell>
+    );
+  }
 
   return (
     <PageShell
@@ -273,6 +285,7 @@ export default function WalletScreen() {
           <ListRow icon="bag-handle-outline" title="Purchases & sales" subtitle="Marketplace orders, handovers and disputes" onPress={() => router.push("/market-orders")} />
           <ListRow icon="receipt-outline" title="Payment requests" subtitle="Rent, deposits and fees sent to you" onPress={() => router.push("/payments")} />
           <ListRow icon="cash-outline" title="Earnings & bank account" subtitle="Your sales money and where it is paid" onPress={() => router.push("/earnings")} />
+          <ListRow icon="lock-closed-outline" title="Payment password & fingerprint" subtitle="Protect your wallet and payments" onPress={() => router.push("/payment-security")} />
         </Group>
       </Section>
     </PageShell>
