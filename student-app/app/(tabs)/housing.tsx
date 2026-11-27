@@ -31,6 +31,7 @@ import {
   loadSavedLocation,
   type SavedLocation,
 } from "@/src/lib/location";
+import { useStudentKind } from "@/src/lib/student-kind";
 import { supabase } from "@/src/lib/supabase";
 import { PremiumBadge } from "@/src/components/premium-badge";
 import { levelLabel, loadBizMeta, loadFeatured, metaLine, trackEvent, type BizMeta } from "@/src/lib/trust";
@@ -89,6 +90,8 @@ function areaName(property: HousingUnit["properties"]) {
 export default function HousingScreen() {
   const { user } = useAuth();
   const colors = useTheme();
+  const { isExamPrep, goals } = useStudentKind();
+  const examCampusId = goals.campusId;
   const [campus, setCampus] = useState<StudentCampus | null>(null);
   const [units, setUnits] = useState<HousingUnit[]>([]);
   const [loading, setLoading] = useState(true);
@@ -210,7 +213,9 @@ export default function HousingScreen() {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [user]);
+    // examCampusId: reload when an exam candidate picks a different school
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user, examCampusId]);
 
   useEffect(() => {
     setLoading(true);
@@ -330,15 +335,19 @@ export default function HousingScreen() {
       ) : !campus ? (
         <View style={{ padding: 20 }}>
           <EmptyState
-            title="Choose your campus first"
-            description="Pick your school in Campus settings, then refresh here."
+            title={isExamPrep ? "Choose the school you want" : "Choose your campus first"}
+            description={
+              isExamPrep
+                ? "Pick the school you plan to attend in Exam goals and we will show houses around it."
+                : "Pick your school in Campus settings, then refresh here."
+            }
           />
           <Pressable
-            onPress={() => router.push("/onboarding")}
+            onPress={() => router.push(isExamPrep ? "/exam-goals" : "/onboarding")}
             style={[styles.cta, { backgroundColor: colors.accent }]}
           >
             <AppText weight="700" style={{ color: colors.onAccent }}>
-              Set campus
+              {isExamPrep ? "Choose school" : "Set campus"}
             </AppText>
           </Pressable>
         </View>

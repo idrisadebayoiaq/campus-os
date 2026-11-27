@@ -104,11 +104,12 @@ const EXAM_MORE_MENU = [
 export function FloatingTabBar({ state }: TabBarProps) {
   const colors = useTheme();
   const { isExamPrep } = useStudentKind();
-  // Exam candidates have no school yet, so Housing makes way for the Study hub.
+  // Exam candidates browse housing and the market around the school they want. The AI tab makes
+  // way for the Study hub (the AI tutor stays in the menu and on Home).
   const primaryTabs = isExamPrep
-    ? PRIMARY_TABS.map((t) => (t.name === "housing" ? EXAM_STUDY_TAB : t))
+    ? PRIMARY_TABS.map((t) => (t.name === "ai" ? EXAM_STUDY_TAB : t))
     : PRIMARY_TABS;
-  const primaryNames = isExamPrep ? new Set(["index", "study", "marketplace", "ai"]) : PRIMARY_TAB_NAMES;
+  const primaryNames = isExamPrep ? new Set(["index", "housing", "marketplace", "study"]) : PRIMARY_TAB_NAMES;
   const moreMenu = isExamPrep ? EXAM_MORE_MENU : MORE_MENU;
   const insets = useSafeAreaInsets();
   const segments = useSegments();

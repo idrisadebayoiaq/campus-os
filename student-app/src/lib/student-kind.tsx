@@ -16,6 +16,8 @@ export type ExamGoals = {
   date: string | null;
   school: string | null;
   course: string | null;
+  /** Campus of the school they want, used to show housing and marketplace listings there */
+  campusId: string | null;
 };
 
 type Ctx = {
@@ -27,7 +29,7 @@ type Ctx = {
   refresh: () => Promise<void>;
 };
 
-const EMPTY: ExamGoals = { exams: [], subjects: [], date: null, school: null, course: null };
+const EMPTY: ExamGoals = { exams: [], subjects: [], date: null, school: null, course: null, campusId: null };
 
 const StudentKindContext = createContext<Ctx>({
   kind: "enrolled",
@@ -56,7 +58,7 @@ export function StudentKindProvider({ children }: { children: ReactNode }) {
     try {
       const { data } = await supabase
         .from("student_profiles")
-        .select("kind, exam_targets, exam_subjects, exam_date, target_school, target_course")
+        .select("kind, exam_targets, exam_subjects, exam_date, target_school, target_course, target_campus_id")
         .eq("user_id", uid)
         .maybeSingle();
       if (data) {
@@ -67,6 +69,7 @@ export function StudentKindProvider({ children }: { children: ReactNode }) {
           date: (data.exam_date as string | null) ?? null,
           school: (data.target_school as string | null) ?? null,
           course: (data.target_course as string | null) ?? null,
+          campusId: (data.target_campus_id as string | null) ?? null,
         });
       } else {
         setKind("enrolled");

@@ -1,7 +1,8 @@
 import { Ionicons } from "@expo/vector-icons";
 import { Redirect, router } from "expo-router";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Pressable, View } from "react-native";
+import { DropdownField, PickerSheet } from "@/src/components/picker-sheet";
 import { StudyShell } from "@/src/components/study";
 import { AppText, Button, Field, Input } from "@/src/components/ui";
 import { EXAMS, EXAM_SUBJECTS, isIsoDate } from "@/src/lib/exams";
@@ -11,13 +12,33 @@ import { supabase } from "@/src/lib/supabase";
 import { useTheme } from "@/src/theme/ThemeProvider";
 import { radii } from "@/src/theme/tokens";
 
+type SchoolCampus = { id: string; name: string; city: string | null; state: string | null };
+type School = {
+  id: string;
+  name: string;
+  short_name: string | null;
+  institution_type: string;
+  campuses: SchoolCampus[] | SchoolCampus | null;
+};
+
+const SCHOOL_TYPES = ["university", "polytechnic", "college_of_education", "college", "monotechnic", "other"];
+
+function campusesOf(s: School | null | undefined): SchoolCampus[] {
+  if (!s?.campuses) return [];
+  return Array.isArray(s.campuses) ? s.campuses : [s.campuses];
+}
+
 export default function ExamGoalsScreen() {
   const colors = useTheme();
   const { isExamPrep, goals, loading, refresh } = useStudentKind();
   const [exams, setExams] = useState<string[]>([]);
   const [subjects, setSubjects] = useState<string[]>([]);
   const [date, setDate] = useState("");
-  const [school, setSchool] = useState("");
+  const [schools, setSchools] = useState<School[]>([]);
+  const [schoolId, setSchoolId] = useState("");
+  const [campusId, setCampusId] = useState("");
+  const [schoolOpen, setSchoolOpen] = useState(false);
+  const [campusOpen, setCampusOpen] = useState(false);
   const [course, setCourse] = useState("");
   const [saving, setSaving] = useState(false);
   const [switching, setSwitching] = useState(false);
@@ -27,9 +48,48 @@ export default function ExamGoalsScreen() {
     setExams(goals.exams);
     setSubjects(goals.subjects);
     setDate(goals.date ?? "");
-    setSchool(goals.school ?? "");
+    setCampusId(goals.campusId ?? "");
     setCourse(goals.course ?? "");
   }, [goals]);
+
+  useEffect(() => {
+    let cancelled = false;
+    void supabase
+      .from("institutions")
+      .select("id, name, short_name, institution_type, campuses(id, name, city, state)")
+      .eq("is_active", true)
+      .in("institution_type", SCHOOL_TYPES)
+      .order("name")
+      .then(({ data }) => {
+        if (!cancelled) setSchools((data as School[]) || []);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // Once the schools load, find the school that owns the saved campus.
+  useEffect(() => {
+    if (!campusId || schoolId) return;
+    const owner = schools.find((s) => campusesOf(s).some((c) => c.id === campusId));
+    if (owner) setSchoolId(owner.id);
+  }, [campusId, schoolId, schools]);
+
+  const school = schools.find((s) => s.id === schoolId) || null;
+  const schoolCampuses = campusesOf(school);
+  const campus = schoolCampuses.find((c) => c.id === campusId) || null;
+  const schoolItems = useMemo(
+    () =>
+      schools.map((s) => ({
+        id: s.id,
+        label: s.name,
+        sub: [s.short_name, s.institution_type.replaceAll("_", " "), campusesOf(s)[0]?.city].filter(Boolean).join(" · "),
+        keywords: campusesOf(s)
+          .map((c) => `${c.name} ${c.city ?? ""} ${c.state ?? ""}`)
+          .join(" "),
+      })),
+    [schools],
+  );
 
   if (!loading && !isExamPrep) return <Redirect href="/(tabs)" />;
 
@@ -52,8 +112,9 @@ export default function ExamGoalsScreen() {
       p_exams: exams,
       p_subjects: subjects,
       p_date: date.trim() || null,
-      p_school: school.trim() || null,
+      p_school: school?.name ?? null,
       p_course: course.trim() || null,
+      p_campus: campusId || null,
     });
     setSaving(false);
     if (err) {
@@ -148,9 +209,27 @@ export default function ExamGoalsScreen() {
           autoCapitalize="none"
         />
       </Field>
-      <Field label="School you want" hint="Optional">
-        <Input placeholder="e.g. University of Ibadan" value={school} onChangeText={setSchool} />
-      </Field>
+      <View style={{ gap: 12 }}>
+        <DropdownField
+          label="School you want (optional)"
+          value={school?.name}
+          placeholder={schools.length ? "Choose a school" : "Loading schools…"}
+          disabled={schools.length === 0}
+          onPress={() => setSchoolOpen(true)}
+        />
+        {school ? (
+          <DropdownField
+            label="Campus"
+            value={campus ? [campus.name, campus.city].filter(Boolean).join(" · ") : null}
+            placeholder="Choose a campus"
+            disabled={schoolCampuses.length <= 1}
+            onPress={() => setCampusOpen(true)}
+          />
+        ) : null}
+        <AppText muted size={12}>
+          Pick a school to see houses and marketplace items around it before you resume.
+        </AppText>
+      </View>
       <Field label="Course you want" hint="Optional">
         <Input placeholder="e.g. Medicine and Surgery" value={course} onChangeText={setCourse} />
       </Field>
@@ -175,6 +254,37 @@ export default function ExamGoalsScreen() {
         </AppText>
         <Button title="I have been admitted" variant="secondary" onPress={admitted} loading={switching} />
       </View>
+      <PickerSheet
+        visible={schoolOpen}
+        title="Choose a school"
+        searchPlaceholder="Search school or city…"
+        items={schoolItems}
+        selectedId={schoolId}
+        onSelect={(i) => {
+          const s = schools.find((x) => x.id === i.id);
+          setSchoolId(i.id);
+          setCampusId(campusesOf(s)[0]?.id ?? "");
+          setSchoolOpen(false);
+        }}
+        onClose={() => setSchoolOpen(false)}
+        emptyText="No school matches. Try the abbreviation or the city."
+      />
+      <PickerSheet
+        visible={campusOpen}
+        title="Choose a campus"
+        searchable={false}
+        items={schoolCampuses.map((c) => ({
+          id: c.id,
+          label: c.name,
+          sub: [c.city, c.state].filter(Boolean).join(", ") || undefined,
+        }))}
+        selectedId={campusId}
+        onSelect={(i) => {
+          setCampusId(i.id);
+          setCampusOpen(false);
+        }}
+        onClose={() => setCampusOpen(false)}
+      />
     </StudyShell>
   );
 }

@@ -40,7 +40,7 @@ function json(data: unknown, status = 200) {
 type Msg = { body: string | null; sender_id: string | null; message_type: string };
 
 async function askModel(system: string, turns: { role: "user" | "assistant"; content: string }[]) {
-  const key = Deno.env.get("OPENROUTER_API_KEY");
+  const key = Deno.env.get("OPENROUTER_API_KEY")?.trim().replace(/^["']|["']$/g, "");
   if (!key) throw new Error("not_configured");
 
   const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {

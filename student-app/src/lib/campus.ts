@@ -31,7 +31,7 @@ export async function getStudentCampus(
     .eq("is_primary", true)
     .maybeSingle();
 
-  if (!data) return null;
+  if (!data) return targetSchoolCampus(client, userId);
 
   const institution = Array.isArray(data.institutions)
     ? data.institutions[0]
@@ -46,6 +46,38 @@ export async function getStudentCampus(
     campusName: campus?.name ?? "Campus",
     city: campus?.city ?? null,
     state: campus?.state ?? null,
+  };
+}
+
+/**
+ * Exam candidates are not in a school yet. They browse housing and the marketplace around the
+ * school they want to attend, which they choose in Exam goals.
+ */
+async function targetSchoolCampus(client: SupabaseClient, userId: string): Promise<StudentCampus | null> {
+  const { data: profile } = await client
+    .from("student_profiles")
+    .select("target_campus_id")
+    .eq("user_id", userId)
+    .maybeSingle();
+  const campusId = profile?.target_campus_id as string | null | undefined;
+  if (!campusId) return null;
+
+  const { data } = await client
+    .from("campuses")
+    .select("id, name, city, state, institution_id, institutions(name)")
+    .eq("id", campusId)
+    .maybeSingle();
+  if (!data) return null;
+
+  const institution = Array.isArray(data.institutions) ? data.institutions[0] : data.institutions;
+  return {
+    membershipId: "",
+    institutionId: data.institution_id,
+    campusId: data.id,
+    institutionName: institution?.name ?? "School",
+    campusName: data.name ?? "Campus",
+    city: data.city ?? null,
+    state: data.state ?? null,
   };
 }
 

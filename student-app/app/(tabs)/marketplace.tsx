@@ -32,6 +32,7 @@ import {
   type MarketMode,
   type MarketplaceChip,
 } from "@/src/lib/market-discovery";
+import { useStudentKind } from "@/src/lib/student-kind";
 import { supabase } from "@/src/lib/supabase";
 import { PremiumBadge } from "@/src/components/premium-badge";
 import { levelLabel, loadBizMeta, loadFeatured, metaLine, type BizMeta } from "@/src/lib/trust";
@@ -63,6 +64,13 @@ export default function MarketHubScreen() {
   const { user } = useAuth();
   const colors = useTheme();
   const params = useLocalSearchParams<{ mode?: string; chip?: string }>();
+  const { isExamPrep, goals } = useStudentKind();
+  const examCampusId = goals.campusId;
+  const [hasCampus, setHasCampus] = useState(true);
+  const bizChips = useMemo(
+    () => (isExamPrep ? BUSINESS_CHIPS.filter((c) => c.key !== "food") : BUSINESS_CHIPS),
+    [isExamPrep],
+  );
 
   const [mode, setMode] = useState<MarketMode>(
     params.mode === "marketplace" ? "marketplace" : "business",
@@ -93,6 +101,7 @@ export default function MarketHubScreen() {
     if (!user) return;
     try {
       const campus = await getStudentCampus(supabase, user.id);
+      setHasCampus(Boolean(campus));
       if (!campus) {
         setBusinesses([]);
         setListings([]);
@@ -108,11 +117,13 @@ export default function MarketHubScreen() {
           .eq("campus_id", campus.campusId)
           .eq("is_active", true)
           .eq("setup_complete", true)
-          .in("business_type", [
-            "food_vendor",
-            "campus_service",
-            "marketplace_seller",
-          ])
+          // Exam candidates are not on campus yet, so no restaurants for them.
+          .in(
+            "business_type",
+            isExamPrep
+              ? ["campus_service", "marketplace_seller"]
+              : ["food_vendor", "campus_service", "marketplace_seller"],
+          )
           .order("display_name", { ascending: true })
           .limit(80),
         supabase
@@ -140,7 +151,7 @@ export default function MarketHubScreen() {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [user]);
+  }, [user, isExamPrep, examCampusId]);
 
   useEffect(() => {
     setLoading(true);
@@ -235,7 +246,7 @@ export default function MarketHubScreen() {
       <FlatList
         horizontal
         data={
-          (mode === "business" ? BUSINESS_CHIPS : MARKETPLACE_CHIPS) as {
+          (mode === "business" ? bizChips : MARKETPLACE_CHIPS) as {
             key: string;
             label: string;
           }[]
@@ -272,6 +283,25 @@ export default function MarketHubScreen() {
       {loading ? (
         <View style={styles.center}>
           <ActivityIndicator color={colors.fg} />
+        </View>
+      ) : !hasCampus ? (
+        <View style={{ padding: 20, gap: 14 }}>
+          <EmptyState
+            title={isExamPrep ? "Choose the school you want" : "Choose your campus first"}
+            description={
+              isExamPrep
+                ? "Pick the school you plan to attend in Exam goals and we will show what students sell around it."
+                : "Pick your school in Campus settings, then refresh here."
+            }
+          />
+          <Pressable
+            onPress={() => router.push(isExamPrep ? "/exam-goals" : "/onboarding")}
+            style={{ backgroundColor: colors.accent, borderRadius: radii.pill, paddingVertical: 14, alignItems: "center" }}
+          >
+            <AppText weight="700" style={{ color: colors.onAccent }}>
+              {isExamPrep ? "Choose school" : "Set campus"}
+            </AppText>
+          </Pressable>
         </View>
       ) : mode === "business" ? (
         <FlatList
