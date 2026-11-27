@@ -39,6 +39,8 @@ import {
   sendTextMessage,
   type ChatMessage,
 } from "@/src/lib/messaging";
+import { stripMarkdown } from "@/src/lib/markdown";
+import { RichText } from "@/src/components/rich-text";
 import { speakText, stopSpeaking } from "@/src/lib/speech";
 import { TICKET_STATUS_LABEL, type SupportTicketInfo } from "@/src/lib/support";
 import { supabase } from "@/src/lib/supabase";
@@ -247,7 +249,7 @@ export default function ChatThreadScreen() {
       setAiThinking(true);
       try {
         const { data } = await supabase.functions.invoke("study-tutor", {
-          body: { conversationId: id, action: "welcome" },
+          body: { conversationId: id, action: "welcome", rich: true },
         });
         const hello = (data as { message?: ChatMessage } | null)?.message;
         if (hello) setMessages((prev) => (prev.some((m) => m.id === hello.id) ? prev : [...prev, hello]));
@@ -348,7 +350,7 @@ export default function ChatThreadScreen() {
       return;
     }
     setSpeakingId(msgId);
-    void speakText(text, {
+    void speakText(stripMarkdown(text), {
       rate: aiVoice.rate,
       onDone: () => setSpeakingId((cur) => (cur === msgId ? null : cur)),
       onError: () => {
@@ -364,7 +366,7 @@ export default function ChatThreadScreen() {
     setError(null);
     try {
       const { data, error: fnError } = await supabase.functions.invoke("study-tutor", {
-        body: { conversationId: id, message: userText },
+        body: { conversationId: id, message: userText, rich: true },
       });
       let json = (data ?? {}) as {
         error?: string;
@@ -729,6 +731,7 @@ export default function ChatThreadScreen() {
                       alignSelf: mine ? "flex-end" : "flex-start",
                       backgroundColor: mine ? palette.mine : palette.theirs,
                     },
+                    fromAi && !isAudio ? styles.bubbleWide : null,
                     firstOfGroup && (mine ? styles.tailMine : styles.tailTheirs),
                   ]}
                 >
@@ -747,9 +750,13 @@ export default function ChatThreadScreen() {
                       <View style={[styles.wave, { backgroundColor: colors.muted }]} />
                     </Pressable>
                   ) : (
-                    <AppText size={15} style={{ color: colors.fg, lineHeight: 21 }}>
-                      {item.body}
-                    </AppText>
+                    fromAi && item.body ? (
+                      <RichText text={item.body} />
+                    ) : (
+                      <AppText size={15} style={{ color: colors.fg, lineHeight: 21 }}>
+                        {item.body}
+                      </AppText>
+                    )
                   )}
                   <View style={styles.meta}>
                     {fromAi && item.body ? (
@@ -1011,6 +1018,7 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 1 },
     elevation: 1,
   },
+  bubbleWide: { maxWidth: "94%", paddingHorizontal: 12, paddingTop: 10, paddingBottom: 6 },
   tailMine: { borderTopRightRadius: 3 },
   tailTheirs: { borderTopLeftRadius: 3 },
   meta: {

@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { stripMarkdown } from "@/src/lib/markdown";
 
 export type ConversationKind =
   | "direct"
@@ -120,6 +121,7 @@ export function previewForMessage(msg: {
   if (msg.message_type === "audio") return "Voice message";
   if (msg.message_type === "image") return "Photo";
   if (msg.message_type === "system") return msg.body || "Update";
+  if (msg.message_type === "assistant" && msg.body) return stripMarkdown(msg.body).replace(/\s*\n+\s*/g, " ");
   return msg.body || null;
 }
 

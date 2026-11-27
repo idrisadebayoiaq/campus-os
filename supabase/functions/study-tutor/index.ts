@@ -83,7 +83,7 @@ async function askGroq(system: string, turns: Turn[]): Promise<Answer> {
       body: JSON.stringify({
         model,
         temperature: 0.5,
-        max_tokens: 1400,
+        max_tokens: 2400,
         messages: [{ role: "system", content: system }, ...turns],
       }),
     });
@@ -122,7 +122,7 @@ async function askGemini(system: string, turns: Turn[]): Promise<Answer> {
     body: JSON.stringify({
       systemInstruction: { parts: [{ text: system }] },
       contents: turns.map((t) => ({ role: t.role === "user" ? "user" : "model", parts: [{ text: t.content }] })),
-      generationConfig: { temperature: 0.5, maxOutputTokens: 1400 },
+      generationConfig: { temperature: 0.5, maxOutputTokens: 2400 },
     }),
   });
   if (!res.ok) {
@@ -150,7 +150,7 @@ async function askOpenAI(system: string, turns: Turn[]): Promise<Answer> {
     body: JSON.stringify({
       model,
       temperature: 0.5,
-      max_tokens: 1400,
+      max_tokens: 2400,
       messages: [{ role: "system", content: system }, ...turns],
     }),
   });
@@ -186,7 +186,7 @@ async function askOpenRouter(system: string, turns: Turn[]): Promise<Answer> {
       models: [MODEL, FALLBACK],
       messages: [{ role: "system", content: system }, ...turns],
       temperature: 0.5,
-      max_tokens: 1400,
+      max_tokens: 2400,
       // Keep thinking short so replies stay fast and cheap.
       reasoning: { effort: "low", exclude: true },
       provider: { sort: "price", allow_fallbacks: true },
@@ -269,11 +269,235 @@ async function studyContext(admin: Admin, userId: string, examPrep: boolean, use
       .limit(14);
     if (data?.length) {
       lines.push(`Courses this semester: ${data.map((c) => `${c.code ?? ""} ${c.title ?? ""}`.trim()).join("; ")}.`);
-      const hard = data.filter((c) => c.difficulty === "hard").map((c) => c.code || c.title);
+      const hard = data.filter((c) => Number(c.difficulty) >= 4).map((c) => c.code || c.title);
       if (hard.length) lines.push(`They find these hard: ${hard.join(", ")}.`);
     }
   }
   return { text: lines.filter(Boolean).join(" "), programme: programme || department, school, examPrep };
+}
+
+const PLAIN_FORMAT = `FORMAT: the chat shows plain text only. No markdown, no headings, no asterisks, no tables. Use short paragraphs and numbered steps like "1)". Write maths in plain text (for example x^2 + 3x = 10, sqrt(16) = 4). Keep replies under about 250 words unless the student asks for more detail.`;
+
+const RICH_FORMAT = `FORMAT: the app renders Markdown, so write every reply as a clean, well-spaced, easy-to-scan answer:
+1. Open with the direct answer or a one or two line summary. Never start with filler like "Great question".
+2. Use short paragraphs (1 to 3 sentences) separated by a blank line. Never write a wall of text.
+3. For anything longer than a few lines, split it into sections with "## " headings (for example ## Idea, ## Steps, ## Example, ## Quick recap). Skip headings for short answers.
+4. Use numbered lists for steps and "- " bullets for points. Put **bold** on key terms and important numbers.
+5. Put definitions, formulas, rules, key takeaways, memory tricks and warnings in a blockquote that starts with a bold label, for example:
+> **Definition:** a stack is a last-in, first-out data structure.
+> **Remember:** the exam loves this one.
+6. Use a Markdown table whenever you compare things, list a timetable or plan, or show terms with meanings (header row, then a |---|---| row, short cells, at most 5 columns).
+7. Use a diagram when a process, cycle, hierarchy or relationship is easier to see than to read. Write it in a fenced block:
+\`\`\`flow
+Question -> Plan -> Solve -> Check
+\`\`\`
+one chain per line using "->" (at most 8 short steps per chain), or
+\`\`\`mindmap
+Photosynthesis
+  Inputs
+    Water
+    Carbon dioxide
+  Outputs
+    Glucose
+    Oxygen
+\`\`\`
+with the topic on the first line and sub-topics indented by two spaces. Never use mermaid or any other diagram syntax.
+8. Show maths step by step, one step per line, inside a plain fenced block (no language), in plain text such as x^2 + 3x = 10 or sqrt(16) = 4. Never use LaTeX or dollar signs.
+9. No HTML and no images. Use at most one emoji, and only when it genuinely helps.
+10. Length: a simple question gets under 120 words; an explanation about 200 to 300 words; plans, tables and worked solutions can be as long as they need. When useful, finish with one short next step or question.`;
+
+const PLAN_RULES = `STUDY PLANS: when the student asks for a study plan, revision timetable, what to do first, or how to handle deadlines, you MUST build it from THE STUDENT'S REAL SCHEDULE below instead of generic advice.
+- Start with a short "What I found" summary: number of classes, the nearest deadlines and exams, and anything overdue.
+- Never put study in a class slot or live class. Use free gaps between classes, evenings and weekends.
+- Protect sleep (no study from 11 PM to 6 AM), meals and at least one lighter evening or rest block.
+- Order work by deadline first, then by hard courses and exam dates. Finish each assignment a day before it is due, and mark OVERDUE items as urgent.
+- Use focused sessions of 25 to 50 minutes with short breaks, and include a short revision of the day's classes.
+- If something clashes (two deadlines on one day, an exam right after a class), point it out and say how you handled it.
+- Present the plan as a Markdown table with the columns Day | Time | Focus | What to do. Default to the next 7 days starting today (Nigeria time) unless they ask for another range. Only list days that have something.
+- After the table, add a short "Priorities" list and one blockquote tip. Offer to adjust for their free hours, or to turn it into a daily or exam-countdown plan. They can save the sessions in Study > Planner.
+- Use only the facts below. If a time or date is missing, say so rather than inventing it.
+THE STUDENT'S REAL SCHEDULE (accurate and current):`;
+
+// ---- Schedule awareness: lets the tutor build a plan from the student's real week ----
+
+const PLAN_INTENT =
+  /\b(plan|planner|planning|schedule|timetable|time[\s-]?table|revision|revise|routine|deadline|deadlines|due|assignment|assignments|exam|exams|test|tests|prioriti[sz]e|organi[sz]e|manage my time|catch up|my (classes|lectures|week)|what (should|do) i (study|read|do|focus)|how (do|should) i (prepare|start|study))\b/i;
+
+const LAGOS = "Africa/Lagos";
+const DOW = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
+function lagosWhen(iso: string) {
+  return new Intl.DateTimeFormat("en-GB", {
+    timeZone: LAGOS,
+    weekday: "short",
+    day: "numeric",
+    month: "short",
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: true,
+  })
+    .format(new Date(iso))
+    .replace(",", "");
+}
+
+function lagosNow() {
+  return new Intl.DateTimeFormat("en-GB", {
+    timeZone: LAGOS,
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: true,
+  }).format(new Date());
+}
+
+function inDays(iso: string) {
+  const hours = (new Date(iso).getTime() - Date.now()) / 3600000;
+  if (hours < 0) return "OVERDUE";
+  if (hours < 24) return "due within 24 hours";
+  return `in ${Math.round(hours / 24)} day${Math.round(hours / 24) === 1 ? "" : "s"}`;
+}
+
+const hm = (t?: string | null) => String(t ?? "").slice(0, 5);
+
+async function scheduleContext(admin: Admin, userId: string) {
+  const now = new Date();
+  const nowIso = now.toISOString();
+  const horizon = new Date(now.getTime() + 28 * 86400000).toISOString();
+
+  const [timetable, tasks, enrolled, exams, blocks, sessions] = await Promise.all([
+    admin
+      .from("timetable_entries")
+      .select("course_code, course_title, day_of_week, start_time, end_time, venue, lecturer")
+      .eq("user_id", userId)
+      .order("day_of_week")
+      .order("start_time"),
+    admin
+      .from("academic_tasks")
+      .select("title, course_code, due_at, priority, description")
+      .eq("user_id", userId)
+      .eq("is_done", false)
+      .order("due_at", { ascending: true, nullsFirst: false })
+      .limit(20),
+    admin.from("class_enrollments").select("class_id, status").eq("student_user_id", userId),
+    admin
+      .from("exam_entries")
+      .select("course_code, title, starts_at, venue")
+      .eq("user_id", userId)
+      .gte("starts_at", nowIso)
+      .lte("starts_at", horizon)
+      .order("starts_at")
+      .limit(12),
+    admin
+      .from("study_plan_blocks")
+      .select("title, starts_at, ends_at, kind")
+      .eq("user_id", userId)
+      .gte("ends_at", nowIso)
+      .lte("starts_at", new Date(now.getTime() + 14 * 86400000).toISOString())
+      .order("starts_at")
+      .limit(20),
+    admin
+      .from("study_sessions")
+      .select("minutes")
+      .eq("user_id", userId)
+      .gte("created_at", new Date(now.getTime() - 7 * 86400000).toISOString()),
+  ]);
+
+  const classIds = (enrolled.data ?? [])
+    .filter((e) => !["removed", "dropped", "left", "declined", "rejected"].includes(String(e.status)))
+    .map((e) => e.class_id);
+
+  // deno-lint-ignore no-explicit-any
+  let lectureAssignments: any[] = [];
+  // deno-lint-ignore no-explicit-any
+  let live: any[] = [];
+  if (classIds.length) {
+    const [assign, subs, sess] = await Promise.all([
+      admin
+        .from("class_assignments")
+        .select("id, title, due_at, max_score, class_offerings(course_code, course_title)")
+        .in("class_id", classIds)
+        .gte("due_at", new Date(now.getTime() - 3 * 86400000).toISOString())
+        .lte("due_at", horizon)
+        .order("due_at")
+        .limit(20),
+      admin.from("class_assignment_submissions").select("assignment_id").eq("student_user_id", userId),
+      admin
+        .from("class_live_sessions")
+        .select("title, scheduled_at, ends_at, mode, status, class_offerings(course_code)")
+        .in("class_id", classIds)
+        .gte("scheduled_at", nowIso)
+        .lte("scheduled_at", new Date(now.getTime() + 14 * 86400000).toISOString())
+        .neq("status", "cancelled")
+        .order("scheduled_at")
+        .limit(12),
+    ]);
+    const done = new Set((subs.data ?? []).map((s) => s.assignment_id));
+    lectureAssignments = (assign.data ?? []).filter((a) => !done.has(a.id));
+    live = sess.data ?? [];
+  }
+
+  const lines: string[] = [];
+  const entries = timetable.data ?? [];
+  if (entries.length) {
+    lines.push("WEEKLY CLASS TIMETABLE (repeats every week):");
+    for (const t of entries) {
+      lines.push(
+        `- ${DOW[t.day_of_week] ?? "?"} ${hm(t.start_time)}-${hm(t.end_time)} ${t.course_code ?? ""} ${t.course_title ?? ""}`.trim() +
+          `${t.venue ? ` at ${t.venue}` : ""}${t.lecturer ? ` (${t.lecturer})` : ""}`,
+      );
+    }
+  } else {
+    lines.push("WEEKLY CLASS TIMETABLE: none saved yet (they can add it in Study > Timetable).");
+  }
+
+  const personal = (tasks.data ?? []).map(
+    (t) =>
+      `- ${t.course_code ? `${t.course_code}: ` : ""}${t.title}${t.due_at ? `, due ${lagosWhen(t.due_at)} (${inDays(t.due_at)})` : ", no due date"}${t.priority ? `, priority ${t.priority}` : ""}${t.description ? ` - ${String(t.description).slice(0, 100)}` : ""}`,
+  );
+  const fromClass = lectureAssignments.map((a) => {
+    const c = Array.isArray(a.class_offerings) ? a.class_offerings[0] : a.class_offerings;
+    return `- ${c?.course_code ? `${c.course_code}: ` : ""}${a.title} (set by lecturer, not submitted yet), due ${lagosWhen(a.due_at)} (${inDays(a.due_at)})`;
+  });
+  if (personal.length || fromClass.length) {
+    lines.push("", "ASSIGNMENTS AND TASKS NOT DONE YET:", ...fromClass, ...personal);
+  } else {
+    lines.push("", "ASSIGNMENTS AND TASKS NOT DONE YET: none recorded.");
+  }
+
+  if (exams.data?.length) {
+    lines.push(
+      "",
+      "UPCOMING EXAMS AND TESTS:",
+      ...exams.data.map((x) => `- ${x.course_code ? `${x.course_code} ` : ""}${x.title ?? "Exam"}, ${lagosWhen(x.starts_at)} (${inDays(x.starts_at)})${x.venue ? ` at ${x.venue}` : ""}`),
+    );
+  }
+  if (live.length) {
+    lines.push(
+      "",
+      "UPCOMING LIVE ONLINE CLASSES:",
+      ...live.map((s) => {
+        const c = Array.isArray(s.class_offerings) ? s.class_offerings[0] : s.class_offerings;
+        return `- ${c?.course_code ? `${c.course_code} ` : ""}${s.title}, ${lagosWhen(s.scheduled_at)}`;
+      }),
+    );
+  }
+  if (blocks.data?.length) {
+    lines.push(
+      "",
+      "STUDY BLOCKS THEY ALREADY PLANNED (do not double-book these):",
+      ...blocks.data.map((b) => `- ${lagosWhen(b.starts_at)} to ${lagosWhen(b.ends_at)}: ${b.title}`),
+    );
+  }
+  const mins = (sessions.data ?? []).reduce((n, s) => n + Number(s.minutes ?? 0), 0);
+  lines.push("", `STUDY TIME LOGGED IN THE LAST 7 DAYS: ${mins >= 60 ? `${Math.floor(mins / 60)}h ${mins % 60}m` : `${mins} minutes`}.`);
+
+  return {
+    text: lines.join("\n"),
+    empty: !entries.length && !personal.length && !fromClass.length && !exams.data?.length,
+  };
 }
 
 async function transcribe(file: File) {
@@ -296,7 +520,17 @@ async function transcribe(file: File) {
   return String(data?.text ?? "").trim();
 }
 
-// The chat shows plain text, so strip any markdown the model slips in.
+// New app versions render markdown (tables, quotes, diagrams): only tidy it.
+function tidy(text: string) {
+  return text
+    .replace(/<think>[\s\S]*?<\/think>/gi, "")
+    .replace(/\r/g, "")
+    .replace(/[ \t]+\n/g, "\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
+// Older app versions show plain text, so strip any markdown the model slips in.
 function plain(text: string) {
   return text
     .replace(/```[a-z]*\n?/gi, "")
@@ -325,7 +559,7 @@ Deno.serve(async (req) => {
   } = await userClient.auth.getUser();
   if (!user) return json({ error: "Sign in to use the AI tutor." }, 401);
 
-  let body: { conversationId?: string; action?: string } = {};
+  let body: { conversationId?: string; action?: string; rich?: boolean } = {};
   let audio: File | null = null;
   try {
     if ((req.headers.get("content-type") ?? "").includes("multipart/form-data")) {
@@ -342,6 +576,7 @@ Deno.serve(async (req) => {
   const conversationId = String(body.conversationId ?? "");
   if (!conversationId) return json({ error: "Missing conversation" }, 400);
   const action = body.action === "welcome" || body.action === "transcribe" ? body.action : "reply";
+  const rich = body.rich === true;
 
   const admin = createClient(url, service, { auth: { persistSession: false } });
 
@@ -457,6 +692,15 @@ Deno.serve(async (req) => {
     const name = me?.preferred_name || me?.first_name || me?.full_name?.split(" ")[0] || "";
     const language = profile?.language && profile.language !== "auto" ? profile.language : "";
 
+    // Pull the real timetable, assignments and exams only when they are asking about plans or deadlines.
+    const lastAsked = turns
+      .filter((t) => t.role === "user")
+      .slice(-2)
+      .map((t) => t.content)
+      .join(" \n ");
+    const planning = action === "reply" && PLAN_INTENT.test(lastAsked);
+    const sched = planning ? await scheduleContext(admin, user.id).catch(() => null) : null;
+
     const system = [
       `You are ${profile?.display_name || "CampusOS Tutor"}, a study tutor inside CampusOS, a campus app for Nigerian university and polytechnic students.`,
       name ? `The student's name is ${name}.` : "",
@@ -475,7 +719,13 @@ Deno.serve(async (req) => {
       `If you are not sure about a fact, say so instead of guessing. Never invent references or statistics.`,
       `If the student seems stressed or in danger, be kind and suggest talking to someone they trust or the school's counselling unit.`,
       `Politely steer unrelated requests back to studying and student life.`,
-      `FORMAT: the chat shows plain text only. No markdown, no headings, no asterisks, no tables. Use short paragraphs and numbered steps like "1)". Write maths in plain text (for example x^2 + 3x = 10, sqrt(16) = 4). Keep replies under about 250 words unless the student asks for more detail.`,
+      rich ? RICH_FORMAT : PLAIN_FORMAT,
+      planning && sched ? PLAN_RULES : "",
+      planning && sched ? `${sched.text}` : "",
+      planning && sched?.empty
+        ? "The student has saved almost nothing in the app yet. Say so kindly in one line, tell them they can add classes in Study > Timetable and tasks in Study > Assignments, then still give a sensible starter plan and ask for their free hours and deadlines."
+        : "",
+      `Current date and time in Nigeria: ${lagosNow()}.`,
       profile?.system_notes ? `The student asked you to remember: ${String(profile.system_notes).slice(0, 500)}` : "",
     ]
       .filter(Boolean)
@@ -491,7 +741,7 @@ Deno.serve(async (req) => {
             content: `(Not from the student.) Write your first message to ${name || "the student"}: one short friendly greeting by name, one line showing you know what they study (${ctx.text || subject}), then offer three specific things you can help with right now for ${subject}, each on its own line starting with "1)", "2)", "3)". Under 70 words. No questions about what they study.`,
           },
         ]);
-        greeting = plain(out.text);
+        greeting = rich ? tidy(out.text) : plain(out.text);
       } catch {
         // A template greeting is better than none.
       }
@@ -524,7 +774,7 @@ Deno.serve(async (req) => {
       return json({ error: text }, code === "not_configured" || code === "provider_auth" ? 503 : 502);
     }
 
-    const reply = plain(answer.text);
+    const reply = rich ? tidy(answer.text) : plain(answer.text);
     const { data: saved, error: saveError } = await admin
       .from("messages")
       .insert({
@@ -550,7 +800,7 @@ Deno.serve(async (req) => {
 
     return json({
       message: saved,
-      speakLocally: profile?.reply_mode === "voice_only" ? reply.slice(0, 3900) : undefined,
+      speakLocally: profile?.reply_mode === "voice_only" ? plain(reply).slice(0, 3900) : undefined,
     });
   } catch (e) {
     const message = e instanceof Error ? e.message : (e as { message?: string })?.message;
