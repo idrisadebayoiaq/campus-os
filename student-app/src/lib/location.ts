@@ -67,7 +67,10 @@ function toPlace(f: PhotonFeature): Place {
  * uses Mapbox geocoding; otherwise we fall back to free OpenStreetMap services. Never put a secret
  * ("sk.") token here, it is shipped inside the app.
  */
-export const MAPBOX_TOKEN = (process.env.EXPO_PUBLIC_MAPBOX_TOKEN ?? "").trim();
+// Expo only inlines literal process.env.EXPO_PUBLIC_* references, so both names are spelled out.
+export const MAPBOX_TOKEN = (
+  process.env.EXPO_PUBLIC_MAPBOX_PUBLIC_TOKEN ?? process.env.EXPO_PUBLIC_MAPBOX_TOKEN ?? ""
+).trim();
 export const mapboxEnabled = MAPBOX_TOKEN.startsWith("pk.");
 
 const MAPBOX_GEOCODE = "https://api.mapbox.com/search/geocode/v6";
