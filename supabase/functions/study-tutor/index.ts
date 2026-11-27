@@ -64,7 +64,8 @@ async function askModel(system: string, turns: { role: "user" | "assistant"; con
   });
   if (!res.ok) {
     const detail = (await res.text().catch(() => "")).slice(0, 300);
-    console.error(`openrouter_${res.status}`, detail);
+    // Key length and prefix only (never the key) so a wrong or truncated secret is easy to spot.
+    console.error(`openrouter_${res.status}`, detail, `key_len=${key.length} key_prefix=${key.slice(0, 8)}`);
     // 401/402/403 mean the provider key or credit is the problem, not the student.
     throw new Error(res.status === 401 || res.status === 402 || res.status === 403 ? "provider_auth" : `model_${res.status}`);
   }
