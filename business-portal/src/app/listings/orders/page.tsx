@@ -30,7 +30,7 @@ export default async function OrdersPage() {
   const { data: orders } = await supabase
     .from("food_orders")
     .select(
-      "id, business_id, status, total, notes, created_at, prep_minutes, decline_reason, student_id, fulfilment, delivery_address, delivery_fee, discount, promo_code, payment_method, payment_status, food_order_items(name, quantity, unit_price, options, menu_items(image_url))",
+      "id, business_id, status, total, notes, created_at, prep_minutes, decline_reason, student_id, fulfilment, delivery_address, delivery_fee, discount, promo_code, payment_method, payment_status, receipt_no, issue_reported_at, delivered_by, food_order_items(name, quantity, unit_price, options, menu_items(image_url))",
     )
     .in("business_id", ids)
     .order("created_at", { ascending: false })

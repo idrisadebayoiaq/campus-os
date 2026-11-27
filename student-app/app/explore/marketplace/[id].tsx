@@ -158,7 +158,7 @@ export default function MarketplaceDetailScreen() {
           onPress: async () => {
             setBusy(true);
             setStatus(null);
-            const { error } = await supabase.rpc("market_place_order", { p_listing: item.id });
+            const { data: placed, error } = await supabase.rpc("market_place_order", { p_listing: item.id });
             setBusy(false);
             if (error) {
               if (error.message.includes("Not enough wallet")) {
@@ -172,6 +172,8 @@ export default function MarketplaceDetailScreen() {
               return;
             }
             router.push("/market-orders");
+            const orderId = (Array.isArray(placed) ? placed[0] : placed)?.id as string | undefined;
+            if (orderId) router.push({ pathname: "/receipt", params: { kind: "market", id: orderId, fresh: "1" } });
           },
         },
       ],

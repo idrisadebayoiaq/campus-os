@@ -1,3 +1,4 @@
+import { router } from "expo-router";
 import { View } from "react-native";
 import { Group, ListRow } from "@/src/components/page";
 import { AppText } from "@/src/components/ui";
@@ -15,6 +16,7 @@ function Row({ tx, showDay }: { tx: Tx; showDay: boolean }) {
       subtitle={`${tx.subtitle} · ${when}${extra ? ` · ${extra}` : ""}`}
       value={`${credit ? "+" : "-"}${formatNaira(Math.abs(tx.amount))}`}
       valueTone={tx.status === "failed" ? "danger" : credit ? "success" : "neutral"}
+      onPress={() => router.push({ pathname: "/receipt", params: { kind: "tx", id: tx.id } })}
     />
   );
 }

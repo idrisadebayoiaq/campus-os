@@ -104,7 +104,7 @@ export default function CheckoutScreen() {
     if (!user || !businessId || blocked) return;
     setPlacing(true);
     const address = delivery ? [detail.trim(), place?.label].filter(Boolean).join(" · ") : null;
-    const { error } = await supabase.rpc("place_food_order", {
+    const { data: placed, error } = await supabase.rpc("place_food_order", {
       p_business: businessId,
       p_items: cart.lines.map((l) => ({ menu_item_id: l.menuItemId, quantity: l.quantity, option_ids: l.options.map((o) => o.id) })),
       p_notes: note.trim() || null,
@@ -121,9 +121,11 @@ export default function CheckoutScreen() {
       return;
     }
     clearCart();
-    notify("Order placed", "Track it in My orders.", undefined, { tone: "success" });
     if (router.canDismiss()) router.dismissAll();
+    // My orders sits underneath so back from the receipt lands there.
     router.push("/orders");
+    const orderId = (Array.isArray(placed) ? placed[0] : placed)?.id as string | undefined;
+    if (orderId) router.push({ pathname: "/receipt", params: { kind: "food", id: orderId, fresh: "1" } });
   }
 
   if (!cart.lines.length) {

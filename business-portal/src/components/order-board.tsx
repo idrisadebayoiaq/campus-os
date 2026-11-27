@@ -23,6 +23,9 @@ export type Order = {
   promo_code: string | null;
   payment_method: string;
   payment_status: string;
+  receipt_no?: string | null;
+  issue_reported_at?: string | null;
+  delivered_by?: string | null;
   food_order_items:
     | {
         name: string;
@@ -119,6 +122,7 @@ export function OrderBoard({
   const [rejecting, setRejecting] = useState<string | null>(null);
   const [reason, setReason] = useState("");
   const [busy, setBusy] = useState<string | null>(null);
+  const [codes, setCodes] = useState<Record<string, string>>({});
 
   const counts = Object.fromEntries(
     TABS.map((t) => [t.key, orders.filter((o) => (t.statuses as readonly string[]).includes(o.status)).length]),
@@ -135,6 +139,26 @@ export function OrderBoard({
     setBusy(null);
     if (e) setError(e.message);
     else router.refresh();
+  }
+
+  // The student shows a 4-digit code on their receipt. It finishes the order (and pays the kitchen).
+  async function confirmDelivery(id: string) {
+    setBusy(id);
+    setError(null);
+    const supabase = createClient();
+    const { data, error: e } = await supabase.rpc("confirm_food_delivery", { p_order: id, p_code: (codes[id] ?? "").trim() });
+    setBusy(null);
+    if (e) {
+      setError(e.message);
+      return;
+    }
+    const res = data as { ok?: boolean; message?: string } | null;
+    if (!res?.ok) {
+      setError(res?.message ?? "Could not confirm");
+      return;
+    }
+    setCodes((c) => ({ ...c, [id]: "" }));
+    router.refresh();
   }
 
   async function reject(id: string) {
@@ -341,9 +365,37 @@ export function OrderBoard({
                   </Button>
                 ) : null}
                 {order.status === "ready" ? (
-                  <Button type="button" disabled={busy === order.id} onClick={() => update(order.id, { status: "completed" })}>
-                    {order.fulfilment === "delivery" ? "Delivered" : "Handed to student"}
-                  </Button>
+                  <div className="space-y-2">
+                    {order.issue_reported_at ? (
+                      <p className="rounded-md border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-700">
+                        The student reported a problem with this order. Contact them or enter their code once they have it.
+                      </p>
+                    ) : null}
+                    <p className="text-sm text-muted">
+                      {order.fulfilment === "delivery"
+                        ? "Ask the student for the 4-digit code on their receipt when you hand over the order."
+                        : "Ask the student for the 4-digit code on their receipt."}{" "}
+                      They can also confirm in their app.
+                    </p>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <input
+                        value={codes[order.id] ?? ""}
+                        onChange={(e) => setCodes((c) => ({ ...c, [order.id]: e.target.value.replace(/\D/g, "").slice(0, 4) }))}
+                        inputMode="numeric"
+                        maxLength={4}
+                        placeholder="Code"
+                        aria-label="Delivery code"
+                        className="h-11 w-28 rounded-full border border-border bg-bg px-4 text-center text-lg tracking-[0.3em] outline-none focus:border-accent"
+                      />
+                      <Button
+                        type="button"
+                        disabled={busy === order.id || (codes[order.id] ?? "").length !== 4}
+                        onClick={() => confirmDelivery(order.id)}
+                      >
+                        {order.fulfilment === "delivery" ? "Confirm delivered" : "Confirm handed over"}
+                      </Button>
+                    </div>
+                  </div>
                 ) : null}
                 {(order.status === "accepted" || order.status === "preparing") && rejecting === order.id ? (
                   <div className="space-y-2 rounded-md border border-border p-3">

@@ -6,7 +6,7 @@ import { Empty, PageShell, Pill, Segmented, type Tone } from "@/src/components/p
 import { AppText, Button } from "@/src/components/ui";
 import { useAuth } from "@/src/lib/auth";
 import { formatNaira } from "@/src/lib/campus";
-import { notify } from "@/src/lib/feedback";
+import { notify, toast } from "@/src/lib/feedback";
 import { callPaystack } from "@/src/lib/payments";
 import { PAY_RETURN_URL, usePaySheet } from "@/src/lib/pay-sheet";
 import { supabase } from "@/src/lib/supabase";
@@ -28,6 +28,8 @@ type Order = {
   discount: number;
   payment_method: string;
   payment_status: string;
+  receipt_no: string | null;
+  issue_reported_at: string | null;
   business_profiles: Biz | Biz[] | null;
   food_order_items: { name: string; quantity: number; options: { name: string }[] | null }[] | null;
 };
@@ -96,6 +98,7 @@ function minutesLeft(o: Order) {
 export default function OrdersScreen() {
   const { user } = useAuth();
   const [orders, setOrders] = useState<Order[]>([]);
+  const [codes, setCodes] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [tab, setTab] = useState<"active" | "past">("active");
@@ -106,12 +109,21 @@ export default function OrdersScreen() {
     const { data } = await supabase
       .from("food_orders")
       .select(
-        "id, status, total, created_at, prep_minutes, decline_reason, accepted_at, business_id, fulfilment, delivery_address, discount, payment_method, payment_status, business_profiles(display_name, logo_url), food_order_items(name, quantity, options)",
+        "id, status, total, created_at, prep_minutes, decline_reason, accepted_at, business_id, fulfilment, delivery_address, discount, payment_method, payment_status, receipt_no, issue_reported_at, business_profiles(display_name, logo_url), food_order_items(name, quantity, options)",
       )
       .eq("student_id", user.id)
       .order("created_at", { ascending: false })
       .limit(50);
-    setOrders((data as unknown as Order[]) ?? []);
+    const rows = (data as unknown as Order[]) ?? [];
+    setOrders(rows);
+    // Delivery codes for orders still in progress (only the student can read these).
+    const liveIds = rows.filter((o) => LIVE.has(o.status)).map((o) => o.id);
+    if (liveIds.length) {
+      const { data: c } = await supabase.from("food_order_codes").select("order_id, code").in("order_id", liveIds);
+      setCodes(Object.fromEntries(((c ?? []) as { order_id: string; code: string }[]).map((x) => [x.order_id, x.code])));
+    } else {
+      setCodes({});
+    }
     setLoading(false);
     setRefreshing(false);
   }, [user]);
@@ -154,6 +166,7 @@ export default function OrdersScreen() {
         successText: "Payment received. The kitchen has your order.",
       });
       if (paid.status === "failed") notify("Payment not completed", "Your card was not charged.", undefined, { tone: "danger" });
+      else if (paid.status === "success") router.push({ pathname: "/receipt", params: { kind: "food", id: order.id, fresh: "1" } });
       void load();
       return;
     }
@@ -169,6 +182,28 @@ export default function OrdersScreen() {
           const { error } = await supabase.rpc("request_refund", { p_order: order.id, p_reason: "Requested from the app" });
           if (error) notify("Couldn't request refund", error.message, undefined, { tone: "danger" });
           else notify("Refund requested", undefined, undefined, { tone: "success" });
+          void load();
+        },
+      },
+    ]);
+  }
+
+  async function received(order: Order) {
+    const { error } = await supabase.rpc("confirm_food_received", { p_order: order.id });
+    if (error) notify("Couldn't confirm", error.message, undefined, { tone: "danger" });
+    else toast.success(order.fulfilment === "delivery" ? "Marked as delivered" : "Marked as collected");
+    void load();
+  }
+
+  function report(order: Order) {
+    notify("Report a problem?", "We will tell the kitchen your order has not arrived.", [
+      { text: "Not now", style: "cancel" },
+      {
+        text: "Report problem",
+        onPress: async () => {
+          const { error } = await supabase.rpc("report_food_issue", { p_order: order.id, p_note: null });
+          if (error) notify("Couldn't report", error.message, undefined, { tone: "danger" });
+          else toast.success("The kitchen has been told");
           void load();
         },
       },
@@ -220,6 +255,9 @@ export default function OrdersScreen() {
           <OrderCard
             key={o.id}
             order={o}
+            code={codes[o.id]}
+            onReceived={() => void received(o)}
+            onReport={() => report(o)}
             onPay={() => void payNow(o)}
             onCancel={() => cancel(o)}
             onRefund={() => requestRefund(o)}
@@ -232,11 +270,17 @@ export default function OrdersScreen() {
 
 function OrderCard({
   order: o,
+  code,
+  onReceived,
+  onReport,
   onPay,
   onCancel,
   onRefund,
 }: {
   order: Order;
+  code?: string;
+  onReceived: () => void;
+  onReport: () => void;
   onPay: () => void;
   onCancel: () => void;
   onRefund: () => void;
@@ -267,7 +311,7 @@ function OrderCard({
             {b.display_name}
           </AppText>
           <AppText muted size={12}>
-            #{o.id.slice(0, 6).toUpperCase()} ·{" "}
+            {o.receipt_no ?? `#${o.id.slice(0, 6).toUpperCase()}`} ·{" "}
             {new Date(o.created_at).toLocaleString(undefined, { day: "numeric", month: "short", hour: "numeric", minute: "2-digit" })}
           </AppText>
         </View>
@@ -339,8 +383,37 @@ function OrderCard({
         </AppText>
       </View>
 
+      {live && code && o.status !== "placed" ? (
+        <View style={[styles.codeRow, { backgroundColor: colors.accentSoft }]}>
+          <View style={{ flex: 1 }}>
+            <AppText size={12} weight="700">
+              {o.fulfilment === "delivery" ? "DELIVERY CODE" : "PICKUP CODE"}
+            </AppText>
+            <AppText muted size={12}>
+              Show it when your order arrives
+            </AppText>
+          </View>
+          <AppText weight="700" size={26} style={{ letterSpacing: 6 }}>
+            {code}
+          </AppText>
+        </View>
+      ) : null}
       {o.payment_method === "card" && o.payment_status === "pending" && live ? (
         <Button title="Pay now" compact onPress={onPay} />
+      ) : null}
+      {o.status === "ready" ? (
+        <View style={styles.actions}>
+          <Button title={o.fulfilment === "delivery" ? "I received it" : "I collected it"} compact onPress={onReceived} style={{ flex: 1 }} />
+          {o.issue_reported_at ? null : <Button title="Report" compact variant="secondary" onPress={onReport} style={{ flex: 1 }} />}
+        </View>
+      ) : null}
+      {o.payment_status !== "pending" ? (
+        <Button
+          title="View receipt"
+          compact
+          variant="secondary"
+          onPress={() => router.push({ pathname: "/receipt", params: { kind: "food", id: o.id } })}
+        />
       ) : null}
       {o.status === "placed" ? <Button title="Cancel order" compact variant="danger" onPress={onCancel} /> : null}
       {done ? (
@@ -367,4 +440,5 @@ const styles = StyleSheet.create({
   itemRow: { flexDirection: "row", alignItems: "center" },
   foot: { flexDirection: "row", alignItems: "center", gap: 10 },
   actions: { flexDirection: "row", gap: 10 },
+  codeRow: { flexDirection: "row", alignItems: "center", gap: 12, borderRadius: radii.md, paddingHorizontal: 14, paddingVertical: 10 },
 });

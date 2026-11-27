@@ -143,7 +143,7 @@ export default function WalletScreen() {
       });
       if (paid.status === "success") {
         setShowTopUp(false);
-        notify("Wallet topped up", `${formatNaira(Number(res.data.credit ?? value))} added to your wallet.`, undefined, { tone: "success" });
+        router.push({ pathname: "/receipt", params: { kind: "topup", ref: paid.reference, fresh: "1" } });
       } else if (paid.status === "failed") {
         notify("Payment not completed", "Your card was not charged. Try again or use another card.", undefined, { tone: "danger" });
       }
