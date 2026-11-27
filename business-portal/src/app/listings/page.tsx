@@ -186,9 +186,13 @@ export default async function ListingsPage() {
                       · {item.kind} · {item.category}
                     </span>
                   </span>
-                  <span className="text-muted">
-                    {item.price != null ? `₦${Number(item.price).toLocaleString()}` : "Ask"} ·{" "}
-                    {item.status}
+                  <span className="flex items-center gap-4">
+                    <span className="text-muted">
+                      {item.price != null ? `₦${Number(item.price).toLocaleString()}` : "Ask"} · {item.status}
+                    </span>
+                    <Link href={`/listings/market/${item.id}`} className="underline underline-offset-2">
+                      Photos & videos
+                    </Link>
                   </span>
                 </div>
               ))}
