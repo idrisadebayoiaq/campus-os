@@ -94,11 +94,27 @@ function mapboxToPlace(f: MapboxFeature): Place {
  * otherwise Carto/OpenStreetMap.
  */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-export function addBaseTiles(L: any, map: any, dark: boolean) {
+export function addBaseTiles(L: any, map: any, dark: boolean, hooks?: { onLoad?: () => void; onFail?: () => void }) {
+  let loaded = 0;
+  let cartoErrors = 0;
+  let failed = false;
+  const noteLoad = () => {
+    loaded += 1;
+    if (loaded === 1) hooks?.onLoad?.();
+  };
   const carto = L.tileLayer(
     `https://{s}.basemaps.cartocdn.com/${dark ? "dark_all" : "rastertiles/voyager"}/{z}/{x}/{y}{r}.png`,
     { subdomains: "abcd", maxZoom: 20, attribution: "&copy; OpenStreetMap &copy; CARTO" },
   );
+  // Every provider failed and nothing ever drew: tell the picker so it can offer manual entry.
+  carto.on("tileload", noteLoad);
+  carto.on("tileerror", () => {
+    cartoErrors += 1;
+    if (cartoErrors >= 4 && loaded === 0 && !failed) {
+      failed = true;
+      hooks?.onFail?.();
+    }
+  });
   if (!mapboxEnabled) {
     carto.addTo(map);
     return;
@@ -109,9 +125,10 @@ export function addBaseTiles(L: any, map: any, dark: boolean) {
     { maxZoom: 19, attribution: "&copy; Mapbox &copy; OpenStreetMap" },
   );
   let bad = 0;
+  mb.on("tileload", noteLoad);
   mb.on("tileerror", () => {
     bad += 1;
-    if (bad >= 3 && map.hasLayer(mb)) {
+    if (bad >= 3 && loaded === 0 && map.hasLayer(mb)) {
       map.removeLayer(mb);
       carto.addTo(map);
     }

@@ -12,7 +12,13 @@ import {
   type Place,
 } from "@/lib/geo";
 
-export type PickedPlace = LatLng & { label: string; city?: string; state?: string };
+export type PickedPlace = LatLng & {
+  label: string;
+  city?: string;
+  state?: string;
+  /** True when the address was typed by hand and the coordinates are only the campus centre */
+  approximate?: boolean;
+};
 
 /**
  * Search + drag-the-map location picker. Renders hidden inputs so it works
@@ -25,6 +31,7 @@ export function LocationPicker({
   required,
   addressLabel = "Address shown on CampusOS",
   addressHint = "Add a landmark if it helps people find you, e.g. \"Opposite the main gate\".",
+  allowApproximate = false,
   onChange,
 }: {
   names?: { address: string; lat: string; lng: string };
@@ -33,6 +40,11 @@ export function LocationPicker({
   required?: boolean;
   addressLabel?: string;
   addressHint?: string;
+  /**
+   * When the map can't be used, accept a typed address and report the `bias` point (e.g. the campus centre)
+   * as approximate coordinates, so the form can still be completed.
+   */
+  allowApproximate?: boolean;
   onChange?: (place: PickedPlace | null) => void;
 }) {
   const mapEl = useRef<HTMLDivElement>(null);
@@ -54,36 +66,61 @@ export function LocationPicker({
   const [open, setOpen] = useState(false);
   const [searching, setSearching] = useState(false);
   const [geoError, setGeoError] = useState<string | null>(null);
+  // Manual entry: the person filling in the form types the address instead of using the map.
+  const [manual, setManual] = useState(false);
+  const [mapFailed, setMapFailed] = useState(false);
+  const mapDrew = useRef(false);
+  const showManual = manual || mapFailed;
 
   // Build the Leaflet map once on the client.
   useEffect(() => {
     let cancelled = false;
+    // If no map tile has drawn after a few seconds, assume the map is blocked and offer typing instead.
+    const watchdog = setTimeout(() => {
+      if (!mapDrew.current) setMapFailed(true);
+    }, 8000);
     void (async () => {
-      const L = (await import("leaflet")).default;
-      if (cancelled || !mapEl.current || map.current) return;
-      const start = defaultValue ?? bias ?? NIGERIA_CENTER;
-      const zoom = defaultValue ? 17 : bias ? 14 : 6;
-      const m = L.map(mapEl.current, { zoomControl: true, attributionControl: true }).setView(
-        [start.lat, start.lng],
-        zoom,
-      );
-      const dark = document.documentElement.dataset.theme === "dark";
-      addBaseTiles(L, m, dark);
-      m.on("movestart", () => setMoving(true));
-      m.on("moveend", () => {
-        setMoving(false);
-        const c = m.getCenter();
-        setTouched(true);
-        setCenter({ lat: c.lat, lng: c.lng });
-      });
-      map.current = m;
+      try {
+        const L = (await import("leaflet")).default;
+        if (cancelled || !mapEl.current || map.current) return;
+        const start = defaultValue ?? bias ?? NIGERIA_CENTER;
+        const zoom = defaultValue ? 17 : bias ? 14 : 6;
+        const m = L.map(mapEl.current, { zoomControl: true, attributionControl: true }).setView(
+          [start.lat, start.lng],
+          zoom,
+        );
+        const dark = document.documentElement.dataset.theme === "dark";
+        addBaseTiles(L, m, dark, {
+          onLoad: () => {
+            mapDrew.current = true;
+            setMapFailed(false);
+          },
+          onFail: () => setMapFailed(true),
+        });
+        m.on("movestart", () => setMoving(true));
+        m.on("moveend", () => {
+          setMoving(false);
+          const c = m.getCenter();
+          setTouched(true);
+          setCenter({ lat: c.lat, lng: c.lng });
+        });
+        map.current = m;
+      } catch {
+        setMapFailed(true);
+      }
     })();
     return () => {
       cancelled = true;
+      clearTimeout(watchdog);
       map.current?.remove();
       map.current = null;
     };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // The map container stays mounted while hidden; redraw it when it comes back.
+  useEffect(() => {
+    if (!showManual) setTimeout(() => map.current?.invalidateSize(), 60);
+  }, [showManual]);
 
   // Recentre when the bias (e.g. selected campus) changes and nothing was picked yet.
   useEffect(() => {
@@ -119,8 +156,15 @@ export function LocationPicker({
 
   useEffect(() => {
     if (!onChange) return;
-    onChange(center && address ? { ...center, label: address, ...meta } : null);
-  }, [center, address, meta]); // eslint-disable-line react-hooks/exhaustive-deps
+    if (center && address) {
+      onChange({ ...center, label: address, ...meta });
+    } else if (showManual && allowApproximate && address.trim() && bias) {
+      // Typed by hand with no pin: use the campus centre so the form can still be completed.
+      onChange({ lat: bias.lat, lng: bias.lng, label: address.trim(), approximate: true });
+    } else {
+      onChange(null);
+    }
+  }, [center, address, meta, showManual, allowApproximate, bias?.lat, bias?.lng]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Debounced autocomplete.
   useEffect(() => {
@@ -256,7 +300,11 @@ export function LocationPicker({
         ) : null}
       </div>
 
-      <div className="relative h-64 overflow-hidden rounded-2xl border border-border bg-surface sm:h-72">
+      <div
+        className={`relative h-64 overflow-hidden rounded-2xl border border-border bg-surface sm:h-72 ${
+          showManual ? "hidden" : ""
+        }`}
+      >
         <div ref={mapEl} className="absolute inset-0 z-0" />
         <div className="pointer-events-none absolute inset-0 z-[500] flex items-center justify-center">
           <div
@@ -277,6 +325,26 @@ export function LocationPicker({
       </div>
       {geoError ? <p className="text-xs text-danger">{geoError}</p> : null}
 
+      {mapFailed ? (
+        <p className="rounded-xl border border-border bg-surface px-3 py-2 text-xs text-muted">
+          The map couldn&apos;t load on this connection, so just type the address below. You can still use the search box
+          above to attach exact coordinates.
+        </p>
+      ) : (
+        <button
+          type="button"
+          onClick={() => setManual((v) => !v)}
+          className="text-xs font-medium text-muted underline underline-offset-2 hover:text-fg"
+        >
+          {manual ? "Use the map instead" : "Map not working? Enter the address yourself"}
+        </button>
+      )}
+      {showManual && allowApproximate && !center ? (
+        <p className="text-xs text-muted">
+          Without a pin we place you near your campus centre for now. You can set the exact spot later when the map works.
+        </p>
+      ) : null}
+
       <div className="space-y-1.5">
         <label className="block text-sm font-medium text-fg">{addressLabel}</label>
         <input
@@ -284,7 +352,13 @@ export function LocationPicker({
           value={address}
           onChange={(e) => setAddress(e.target.value)}
           required={required}
-          placeholder={resolving ? "Getting address…" : "Pick a spot on the map"}
+          placeholder={
+            resolving
+              ? "Getting address…"
+              : showManual
+                ? "Type the street, area and town, e.g. 12 Market Road, Bodija, Ibadan"
+                : "Pick a spot on the map, or type the address"
+          }
           className="h-11 w-full rounded-2xl px-3 text-sm text-fg outline-none"
         />
         <p className="text-xs text-muted">{addressHint}</p>

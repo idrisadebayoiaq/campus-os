@@ -138,7 +138,11 @@ export function SetupWizard({
   }
 
   async function saveProfile() {
-    if (!location) throw new Error("Pick your business location on the map.");
+    if (!location) {
+      throw new Error(
+        "Enter your business address, or pick the spot on the map. If the map isn't loading, choose your campus and type the address.",
+      );
+    }
     const supabase = createClient();
     const { error: updateError } = await supabase
       .from("business_profiles")
@@ -319,6 +323,7 @@ export function SetupWizard({
                 defaultValue={location}
                 bias={campusCenter}
                 required
+                allowApproximate
                 addressLabel="Address students see"
                 onChange={setLocation}
               />
