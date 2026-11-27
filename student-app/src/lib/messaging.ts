@@ -19,9 +19,19 @@ export type ConversationListItem = {
   lastMessage: string | null;
   lastMessageType: MessageType | string;
   unread: boolean;
+  unreadCount?: number;
+  lastFromMe?: boolean;
+  lastAt?: string | null;
   muted: boolean;
   businessId?: string | null;
+  /** The other person in a one-to-one chat, or the business name. */
+  peerName?: string | null;
+  peerAvatar?: string | null;
 };
+
+export type ChatPerson = { id: string; name: string; avatarUrl: string | null; role: string };
+
+const GENERIC_SUBJECT = /^(chat|group|group chat)$/i;
 
 export type ChatMessage = {
   id: string;
@@ -56,6 +66,7 @@ export type AiCompanionProfile = {
 
 export const INBOX_FILTERS = [
   { key: "all", label: "All" },
+  { key: "unread", label: "Unread" },
   { key: "direct", label: "Personal" },
   { key: "group", label: "Groups" },
   { key: "listing", label: "Housing" },
@@ -70,11 +81,13 @@ export function conversationTitle(input: {
   subject: string | null;
   peerName?: string | null;
 }) {
+  const generic = !input.subject || GENERIC_SUBJECT.test(input.subject.trim());
   if (input.kind === "ai") return input.subject || input.peerName || "CampusOS Tutor";
-  if (input.subject) return input.subject;
-  if (input.kind === "support") return "CampusOS Support";
+  if (input.kind === "direct") return input.peerName || (!generic ? input.subject : null) || "Chat";
+  if (input.kind === "group") return (!generic && input.subject) || "Group chat";
+  if (input.kind === "support") return (!generic && input.subject) || "CampusOS Support";
+  if (!generic && input.subject) return input.subject!;
   if (input.peerName) return input.peerName;
-  if (input.kind === "group") return "Group chat";
   if (input.kind === "listing") return "Housing chat";
   if (input.kind === "order") return "Business chat";
   return "Chat";
@@ -198,13 +211,6 @@ export async function ensureAiConversation(
     throw new Error("Could not create AI profile");
   }
 
-  await supabase.from("messages").insert({
-    conversation_id: conversation.id,
-    sender_id: null,
-    message_type: "system",
-    body: "Hi — I'm your CampusOS tutor. Ask study questions anytime. Tap my name above to set preferences (text or voice replies).",
-  });
-
   await supabase
     .from("conversations")
     .update({ subject: profile.display_name })
@@ -214,6 +220,72 @@ export async function ensureAiConversation(
     conversationId: conversation.id as string,
     profile,
   };
+}
+
+type Face = { name: string | null; avatarUrl: string | null; person: ChatPerson | null; members: ChatPerson[] };
+
+/** Names of the other people in chats the signed-in user belongs to. */
+export async function loadChatFaces(
+  supabase: SupabaseClient,
+  userId: string,
+  convs: { id: string; kind: string; businessId: string | null }[],
+): Promise<Map<string, Face>> {
+  const out = new Map<string, Face>();
+  if (!convs.length) return out;
+  const ids = convs.map((c) => c.id);
+  const { data: parts } = await supabase
+    .from("conversation_participants")
+    .select("conversation_id, user_id, role")
+    .in("conversation_id", ids);
+  const rows = (parts ?? []) as { conversation_id: string; user_id: string; role: string | null }[];
+  const peerIds = [...new Set(rows.map((r) => r.user_id).filter((id) => id !== userId))];
+  const { data: people } = peerIds.length
+    ? await supabase.rpc("chat_people", { p_ids: peerIds })
+    : { data: [] as { id: string; display_name: string; avatar_url: string | null }[] };
+  const byId = new Map(
+    ((people ?? []) as { id: string; display_name: string; avatar_url: string | null }[]).map((p) => [p.id, p]),
+  );
+  const bizIds = [...new Set(convs.map((c) => c.businessId).filter((id): id is string => Boolean(id)))];
+  const { data: businesses } = bizIds.length
+    ? await supabase.from("business_profiles").select("id, display_name, logo_url").in("id", bizIds)
+    : { data: [] as { id: string; display_name: string; logo_url: string | null }[] };
+  const bizById = new Map(
+    ((businesses ?? []) as { id: string; display_name: string; logo_url: string | null }[]).map((b) => [b.id, b]),
+  );
+
+  for (const conv of convs) {
+    const others = rows.filter((r) => r.conversation_id === conv.id && r.user_id !== userId);
+    const first = others[0];
+    const personRow = first ? byId.get(first.user_id) : undefined;
+    const person: ChatPerson | null = first
+      ? {
+          id: first.user_id,
+          name: personRow?.display_name || "Student",
+          avatarUrl: personRow?.avatar_url ?? null,
+          role: first.role || "member",
+        }
+      : null;
+    const biz = conv.businessId ? bizById.get(conv.businessId) : undefined;
+    const everyone = rows
+      .filter((r) => r.conversation_id === conv.id)
+      .map((r) => {
+        const row = byId.get(r.user_id);
+        return {
+          id: r.user_id,
+          name: r.user_id === userId ? "You" : row?.display_name || "Student",
+          avatarUrl: row?.avatar_url ?? null,
+          role: r.role || "member",
+        };
+      });
+    const oneToOne = conv.kind !== "group" && others.length <= 1;
+    out.set(conv.id, {
+      name: oneToOne ? biz?.display_name || person?.name || null : null,
+      avatarUrl: oneToOne ? biz?.logo_url || person?.avatarUrl || null : null,
+      person: oneToOne ? person : null,
+      members: oneToOne ? [] : everyone,
+    });
+  }
+  return out;
 }
 
 export async function loadConversations(
@@ -261,24 +333,28 @@ export async function loadConversations(
   const { data: recentMessages } = convIds.length
     ? await supabase
         .from("messages")
-        .select("conversation_id, body, created_at, message_type")
+        .select("conversation_id, body, created_at, message_type, sender_id")
         .in("conversation_id", convIds)
         .is("deleted_at", null)
         .order("created_at", { ascending: false })
+        .limit(1500)
     : {
         data: [] as {
           conversation_id: string;
           body: string;
           created_at: string;
           message_type: string;
+          sender_id: string | null;
         }[],
       };
 
   const lastByConv = new Map<
     string,
-    { body: string; created_at: string; message_type: string }
+    { body: string; created_at: string; message_type: string; sender_id: string | null }
   >();
+  const unreadBy = new Map<string, number>();
   const clearedBy = new Map(partMeta.map((c) => [c.id, c.clearedAt]));
+  const readBy = new Map(partMeta.map((c) => [c.id, c.last_read_at]));
   for (const msg of recentMessages || []) {
     const clearedAt = clearedBy.get(msg.conversation_id);
     if (clearedAt && new Date(msg.created_at) <= new Date(clearedAt)) continue;
@@ -287,16 +363,30 @@ export async function loadConversations(
         body: msg.body,
         created_at: msg.created_at,
         message_type: msg.message_type || "text",
+        sender_id: msg.sender_id ?? null,
       });
+    }
+    const readAt = readBy.get(msg.conversation_id);
+    if (msg.sender_id !== userId && msg.message_type !== "system" && (!readAt || new Date(msg.created_at) > new Date(readAt))) {
+      unreadBy.set(msg.conversation_id, (unreadBy.get(msg.conversation_id) ?? 0) + 1);
     }
   }
 
+  const faces = await loadChatFaces(
+    supabase,
+    userId,
+    partMeta.map((c) => ({ id: c.id, kind: c.kind, businessId: c.businessId })),
+  );
+
   const rows: ConversationListItem[] = partMeta.map((c) => {
     const last = lastByConv.get(c.id);
+    const face = faces.get(c.id);
     return {
       id: c.id,
       kind: c.kind,
       subject: c.subject,
+      peerName: face?.name ?? null,
+      peerAvatar: face?.avatarUrl ?? null,
       updated_at: c.updated_at,
       lastMessage: previewForMessage(last ?? null),
       lastMessageType: last?.message_type || "text",
@@ -307,6 +397,9 @@ export async function loadConversations(
           (!c.last_read_at ||
             new Date(last.created_at) > new Date(c.last_read_at)),
       ),
+      unreadCount: unreadBy.get(c.id) ?? 0,
+      lastFromMe: last?.sender_id === userId,
+      lastAt: last?.created_at ?? null,
     };
   });
 
@@ -589,7 +682,7 @@ export async function startDirectChat(
     peerProfile?.preferred_name ||
     peerProfile?.first_name ||
     peerProfile?.full_name ||
-    "Chat";
+    null;
 
   const { data: conversation, error } = await supabase
     .from("conversations")

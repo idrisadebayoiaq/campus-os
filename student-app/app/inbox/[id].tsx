@@ -3,6 +3,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
+  Animated,
   BackHandler,
   FlatList,
   Image,
@@ -15,28 +16,43 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import {
+  RecordingPresets,
+  requestRecordingPermissionsAsync,
+  setAudioModeAsync,
+  useAudioRecorder,
+} from "expo-audio";
 import { AppText, Avatar } from "@/src/components/ui";
 import { AiAvatar } from "@/src/lib/ai-avatars";
 import { PremiumBadge } from "@/src/components/premium-badge";
 import { useAuth } from "@/src/lib/auth";
 import { loadPremiumIds } from "@/src/lib/premium";
+import { setOpenConversation } from "@/src/lib/push";
 import { useStudyLock } from "@/src/lib/study-lock";
 import { formatNaira } from "@/src/lib/campus";
 import {
   clearConversation,
   conversationTitle,
   deleteConversation,
+  loadChatFaces,
   deleteMessage,
   kindLabel,
   markConversationRead,
   sendTextMessage,
   type ChatMessage,
 } from "@/src/lib/messaging";
-import { speakText } from "@/src/lib/speech";
+import { speakText, stopSpeaking } from "@/src/lib/speech";
 import { TICKET_STATUS_LABEL, type SupportTicketInfo } from "@/src/lib/support";
 import { supabase } from "@/src/lib/supabase";
-import { useTheme } from "@/src/theme/ThemeProvider";
-import { radii } from "@/src/theme/tokens";
+import { useTheme, useThemeControls } from "@/src/theme/ThemeProvider";
+
+const CHAT = {
+  light: { wall: "#F3F0FA", mine: "#DCD3FF", theirs: "#FFFFFF", chip: "#E6E0F7", composer: "#FFFFFF" },
+  dark: { wall: "#130E1F", mine: "#4A3D73", theirs: "#2A2140", chip: "#2A2140", composer: "#241C36" },
+};
+const READ_BLUE = "#3B9EEB";
+const NAME_COLORS = ["#7C5CD6", "#D9480F", "#0B7285", "#2B8A3E", "#C2255C", "#1971C2", "#A6730D"];
+const GROUP_GAP_MS = 5 * 60 * 1000;
 
 function dayKey(iso: string) {
   const d = new Date(iso);
@@ -50,11 +66,18 @@ function dayLabel(iso: string) {
   yest.setDate(today.getDate() - 1);
   if (dayKey(iso) === dayKey(today.toISOString())) return "Today";
   if (dayKey(iso) === dayKey(yest.toISOString())) return "Yesterday";
-  return d.toLocaleDateString(undefined, {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-  });
+  const sameYear = d.getFullYear() === today.getFullYear();
+  return d.toLocaleDateString(undefined, { day: "numeric", month: "long", ...(sameYear ? {} : { year: "numeric" }) });
+}
+
+function timeLabel(iso: string) {
+  return new Date(iso).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
+}
+
+function nameColor(id: string) {
+  let h = 0;
+  for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) | 0;
+  return NAME_COLORS[Math.abs(h) % NAME_COLORS.length];
 }
 
 export default function ChatThreadScreen() {
@@ -64,10 +87,13 @@ export default function ChatThreadScreen() {
   }>();
   const { user } = useAuth();
   const colors = useTheme();
+  const { resolved } = useThemeControls();
+  const palette = resolved === "dark" ? CHAT.dark : CHAT.light;
   const insets = useSafeAreaInsets();
   const listRef = useRef<FlatList<ChatMessage>>(null);
+  const recorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
 
-  const [title, setTitle] = useState("Chat");
+  const [title, setTitle] = useState("");
   const [kind, setKind] = useState("direct");
   const [subtitle, setSubtitle] = useState("");
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -77,14 +103,39 @@ export default function ChatThreadScreen() {
   const [aiThinking, setAiThinking] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [aiAvatar, setAiAvatar] = useState<string | null>(null);
+  const [aiVoice, setAiVoice] = useState<{ on: boolean; rate: number }>({ on: false, rate: 1 });
+  const [speakingId, setSpeakingId] = useState<string | null>(null);
+  const [recording, setRecording] = useState<{ startedAt: number } | null>(null);
+  const [recordSecs, setRecordSecs] = useState(0);
+  const [transcribing, setTranscribing] = useState(false);
   const [ticket, setTicket] = useState<SupportTicketInfo | null>(null);
   const [rated, setRated] = useState(false);
   const [peerPremium, setPeerPremium] = useState(false);
+  const [peerAvatar, setPeerAvatar] = useState<string | null>(null);
+  const [peerReadAt, setPeerReadAt] = useState<string | null>(null);
+  const [names, setNames] = useState<Record<string, string>>({});
+  const welcomed = useRef(false);
   const { allowPath } = useStudyLock();
   const [listing, setListing] = useState<{ title: string; price: number | null; image: string | null; href: string } | null>(null);
 
   const isAi = kind === "ai";
   const isSupport = kind === "support";
+  const isGroup = kind === "group";
+
+  const loadPeerReads = useCallback(async () => {
+    if (!id || !user) return;
+    const { data: parts } = await supabase
+      .from("conversation_participants")
+      .select("user_id, last_read_at")
+      .eq("conversation_id", id);
+    const others = ((parts ?? []) as { user_id: string; last_read_at: string | null }[]).filter(
+      (p) => p.user_id !== user.id,
+    );
+    // A message is "read" once every other member has opened the chat after it.
+    const reads = others.map((p) => p.last_read_at).filter((r): r is string => Boolean(r));
+    setPeerReadAt(reads.length === others.length && reads.length ? reads.sort()[0] : null);
+    return others.map((p) => p.user_id);
+  }, [id, user]);
 
   const loadMessages = useCallback(async () => {
     if (!id || !user) return;
@@ -98,7 +149,7 @@ export default function ChatThreadScreen() {
     const [{ data: conv }, { data: msgsAll }] = await Promise.all([
       supabase
         .from("conversations")
-        .select("kind, subject, listing_enquiry_id")
+        .select("kind, subject, listing_enquiry_id, business_id")
         .eq("id", id)
         .maybeSingle(),
       supabase
@@ -113,18 +164,26 @@ export default function ChatThreadScreen() {
     if (conv) {
       if (conv.kind === "ai") allowPath(`/inbox/${id}`);
       setKind(conv.kind);
+      const faces = await loadChatFaces(supabase, user.id, [
+        { id, kind: conv.kind, businessId: (conv.business_id as string | null) ?? null },
+      ]);
+      const face = faces.get(id);
       setTitle(
         conversationTitle({
           kind: conv.kind,
           subject: conv.subject,
+          peerName: face?.name,
         }),
       );
+      setPeerAvatar(face?.avatarUrl ?? null);
       setSubtitle(
         conv.kind === "ai"
-          ? "AI tutor · tap for settings"
+          ? "AI tutor"
           : conv.kind === "support"
-            ? "CampusOS team · usually replies within a day"
-            : kindLabel(conv.kind),
+            ? "CampusOS Support"
+            : conv.kind === "direct"
+              ? ""
+              : kindLabel(conv.kind),
       );
       if (conv.listing_enquiry_id) {
         const { data: enq } = await supabase
@@ -157,22 +216,31 @@ export default function ChatThreadScreen() {
         }
       }
       if (conv.kind !== "ai" && conv.kind !== "support") {
-        const { data: parts } = await supabase.from("conversation_participants").select("user_id").eq("conversation_id", id);
-        const peers = ((parts ?? []) as { user_id: string }[]).map((p) => p.user_id).filter((p) => p !== user.id);
+        const peers = (await loadPeerReads()) ?? [];
         if (peers.length === 1) {
           const premium = await loadPremiumIds(supabase, peers);
           setPeerPremium(premium.has(peers[0]));
         } else {
           setPeerPremium(false);
+          if (peers.length > 1) {
+            setSubtitle(`${peers.length + 1} members`);
+            const { data: people } = await supabase.rpc("chat_people", { p_ids: peers });
+            setNames(
+              Object.fromEntries(
+                ((people ?? []) as { id: string; display_name: string }[]).map((p) => [p.id, p.display_name]),
+              ),
+            );
+          }
         }
       }
       if (conv.kind === "ai") {
         const { data: ai } = await supabase
           .from("ai_companion_profiles")
-          .select("avatar_url")
+          .select("avatar_url, reply_mode, speech_rate")
           .eq("conversation_id", id)
           .maybeSingle();
         setAiAvatar((ai?.avatar_url as string | null) ?? null);
+        setAiVoice({ on: ai?.reply_mode === "voice_only", rate: Number(ai?.speech_rate ?? 1) || 1 });
       }
     }
     const msgs = ((msgsAll as ChatMessage[]) || []).filter(
@@ -181,12 +249,39 @@ export default function ChatThreadScreen() {
     setMessages(msgs);
     await markConversationRead(supabase, id, user.id);
     setLoading(false);
-  }, [id, user, allowPath]);
+
+    // First time in the tutor chat: the tutor says hello using the student's profile.
+    if (conv?.kind === "ai" && !welcomed.current && !msgs.some((m) => m.message_type !== "system")) {
+      welcomed.current = true;
+      setAiThinking(true);
+      try {
+        const { data } = await supabase.functions.invoke("study-tutor", {
+          body: { conversationId: id, action: "welcome" },
+        });
+        const hello = (data as { message?: ChatMessage } | null)?.message;
+        if (hello) setMessages((prev) => (prev.some((m) => m.id === hello.id) ? prev : [...prev, hello]));
+      } catch {
+        /* the student can still start typing */
+      } finally {
+        setAiThinking(false);
+      }
+    }
+  }, [id, user, allowPath, loadPeerReads]);
 
   useFocusEffect(
     useCallback(() => {
       void loadMessages();
     }, [loadMessages]),
+  );
+
+  useFocusEffect(
+    useCallback(() => {
+      setOpenConversation(id ?? null);
+      return () => {
+        setOpenConversation(null);
+        stopSpeaking();
+      };
+    }, [id]),
   );
 
   // If this chat is the only screen on the stack (opened from a notification or a
@@ -220,6 +315,7 @@ export default function ChatThreadScreen() {
             prev.some((m) => m.id === row.id) ? prev : [...prev, row],
           );
           if (user) void markConversationRead(supabase, id, user.id);
+          if (row.sender_id && row.sender_id !== user?.id) void loadPeerReads();
         },
       )
       .on(
@@ -239,7 +335,7 @@ export default function ChatThreadScreen() {
     return () => {
       void supabase.removeChannel(channel);
     };
-  }, [id, user]);
+  }, [id, user, loadPeerReads]);
 
   useEffect(() => {
     if (!messages.length) return;
@@ -247,6 +343,29 @@ export default function ChatThreadScreen() {
       listRef.current?.scrollToEnd({ animated: true });
     });
   }, [messages.length, aiThinking]);
+
+  useEffect(() => {
+    if (!recording) return;
+    const t = setInterval(() => setRecordSecs(Math.floor((Date.now() - recording.startedAt) / 1000)), 250);
+    return () => clearInterval(t);
+  }, [recording]);
+
+  function speak(msgId: string, text: string) {
+    if (speakingId === msgId) {
+      stopSpeaking();
+      setSpeakingId(null);
+      return;
+    }
+    setSpeakingId(msgId);
+    void speakText(text, {
+      rate: aiVoice.rate,
+      onDone: () => setSpeakingId((cur) => (cur === msgId ? null : cur)),
+      onError: () => {
+        setSpeakingId(null);
+        setError("Your phone's text-to-speech is off. Turn on Google Speech Services in Android settings.");
+      },
+    });
+  }
 
   async function requestAiReply(userText: string) {
     if (!id) return;
@@ -279,14 +398,9 @@ export default function ChatThreadScreen() {
         return;
       }
       if (json.message) {
-        setMessages((prev) =>
-          prev.some((m) => m.id === json.message!.id)
-            ? prev
-            : [...prev, json.message!],
-        );
-      }
-      if (json.speakLocally) {
-        speakText(json.speakLocally, 0.95);
+        const reply = json.message;
+        setMessages((prev) => (prev.some((m) => m.id === reply.id) ? prev : [...prev, reply]));
+        if (json.speakLocally) speak(reply.id, json.speakLocally);
       }
     } catch {
       setError("Network error talking to AI.");
@@ -295,10 +409,8 @@ export default function ChatThreadScreen() {
     }
   }
 
-  async function onSend() {
-    if (!id || !user || !draft.trim() || sending) return;
-    const body = draft.trim();
-    setDraft("");
+  async function sendBody(body: string) {
+    if (!id || !user) return;
     setSending(true);
     setError(null);
     try {
@@ -308,12 +420,8 @@ export default function ChatThreadScreen() {
         body,
         clientId: cryptoRandom(),
       });
-      setMessages((prev) =>
-        prev.some((m) => m.id === row.id) ? prev : [...prev, row],
-      );
-      if (isAi) {
-        void requestAiReply(body);
-      }
+      setMessages((prev) => (prev.some((m) => m.id === row.id) ? prev : [...prev, row]));
+      if (isAi) void requestAiReply(body);
     } catch (e) {
       setError(errorText(e, "Send failed"));
       setDraft(body);
@@ -322,10 +430,81 @@ export default function ChatThreadScreen() {
     }
   }
 
+  async function onSend() {
+    if (!draft.trim() || sending) return;
+    const body = draft.trim();
+    setDraft("");
+    await sendBody(body);
+  }
+
+  async function startRecording() {
+    setError(null);
+    try {
+      const perm = await requestRecordingPermissionsAsync();
+      if (!perm.granted) {
+        setError("Allow microphone access to send voice notes.");
+        return;
+      }
+      stopSpeaking();
+      await setAudioModeAsync({ allowsRecording: true, playsInSilentMode: true });
+      await recorder.prepareToRecordAsync();
+      recorder.record();
+      setRecordSecs(0);
+      setRecording({ startedAt: Date.now() });
+    } catch {
+      setError("Couldn't start the microphone.");
+    }
+  }
+
+  async function finishRecording(send: boolean) {
+    if (!recording) return;
+    setRecording(null);
+    try {
+      await recorder.stop();
+    } catch {
+      /* already stopped */
+    }
+    await setAudioModeAsync({ allowsRecording: false, playsInSilentMode: true }).catch(() => undefined);
+    const uri = recorder.uri;
+    if (!send || !uri || !id) return;
+    if (Date.now() - recording.startedAt < 800) {
+      setError("Hold on a little longer, then tap send.");
+      return;
+    }
+    setTranscribing(true);
+    try {
+      const { data: s } = await supabase.auth.getSession();
+      const form = new FormData();
+      form.append("conversationId", id);
+      form.append("file", { uri, name: "voice.m4a", type: "audio/m4a" } as unknown as Blob);
+      const res = await fetch(`${process.env.EXPO_PUBLIC_SUPABASE_URL}/functions/v1/study-tutor`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${s.session?.access_token ?? ""}`,
+          apikey: process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY ?? "",
+        },
+        body: form,
+      });
+      const json = (await res.json().catch(() => ({}))) as { text?: string; error?: string };
+      if (!res.ok || !json.text) {
+        setError(json.error || "Couldn't understand that voice note.");
+        return;
+      }
+      await sendBody(json.text);
+    } catch {
+      setError("Network error sending the voice note.");
+    } finally {
+      setTranscribing(false);
+    }
+  }
+
   function onMessageMenu(msg: ChatMessage) {
     if (msg.message_type === "system") return;
     const canDelete = msg.sender_id === user?.id || isAi;
     const buttons: { text: string; style?: "cancel" | "destructive"; onPress?: () => void }[] = [];
+    if (isAi && msg.sender_id !== user?.id && msg.body) {
+      buttons.push({ text: "Read aloud", onPress: () => speak(msg.id, msg.body) });
+    }
     if (canDelete) {
       buttons.push({
         text: "Delete message",
@@ -339,45 +518,48 @@ export default function ChatThreadScreen() {
         },
       });
     }
+    if (!buttons.length) return;
     buttons.push({ text: "Cancel", style: "cancel" });
-    Alert.alert(canDelete ? "Message" : "Message options", canDelete ? undefined : "You can only delete your own messages.", buttons);
+    Alert.alert("Message", undefined, buttons);
   }
 
   function onChatMenu() {
     if (!id) return;
-    const buttons: { text: string; style?: "cancel" | "destructive"; onPress?: () => void }[] = [
-      {
-        text: isAi ? "Clear AI chat history" : "Clear chat",
-        onPress: () =>
-          Alert.alert(
-            isAi ? "Clear AI chat history?" : "Clear this chat?",
-            isAi
-              ? "The tutor will forget this conversation. This can't be undone."
-              : "Messages are removed for you only. The other person keeps their copy.",
-            [
-              { text: "Cancel", style: "cancel" },
-              {
-                text: "Clear",
-                style: "destructive",
-                onPress: () => {
-                  clearConversation(supabase, id)
-                    .then(() => {
-                      setMessages([]);
-                      setError(null);
-                    })
-                    .catch((e) => setError(errorText(e, "Could not clear the chat")));
-                },
+    const buttons: { text: string; style?: "cancel" | "destructive"; onPress?: () => void }[] = [];
+    if (isAi) {
+      buttons.push({ text: "Tutor settings", onPress: () => router.push(`/inbox/ai-profile?conversationId=${id}`) });
+    } else if (!isSupport) {
+      buttons.push({ text: isGroup ? "Group info" : "View contact", onPress: () => router.push(`/inbox/info?id=${id}`) });
+    }
+    buttons.push({
+      text: "Clear chat",
+      onPress: () =>
+        Alert.alert(
+          "Clear this chat?",
+          isAi ? "Your tutor forgets this conversation." : "Only your copy is cleared.",
+          [
+            { text: "Cancel", style: "cancel" },
+            {
+              text: "Clear",
+              style: "destructive",
+              onPress: () => {
+                clearConversation(supabase, id)
+                  .then(() => {
+                    setMessages([]);
+                    setError(null);
+                  })
+                  .catch((e) => setError(errorText(e, "Could not clear the chat")));
               },
-            ],
-          ),
-      },
-    ];
+            },
+          ],
+        ),
+    });
     if (!isSupport) {
       buttons.push({
         text: "Delete chat",
         style: "destructive",
         onPress: () =>
-          Alert.alert("Delete this chat?", "It's removed from your list. It comes back only if someone writes again.", [
+          Alert.alert("Delete this chat?", "It comes back if someone writes again.", [
             { text: "Cancel", style: "cancel" },
             {
               text: "Delete",
@@ -411,23 +593,28 @@ export default function ChatThreadScreen() {
         : msg.body && msg.body !== "Voice message"
           ? msg.body
           : null;
-    if (text) speakText(text, 0.95);
+    if (text) speak(msg.id, text);
   }
 
   if (loading) {
     return (
-      <View style={[styles.center, { backgroundColor: colors.bg, flex: 1 }]}>
+      <View style={[styles.center, { backgroundColor: palette.wall, flex: 1 }]}>
         <ActivityIndicator color={colors.fg} />
       </View>
     );
   }
 
+  const status = aiThinking && isAi ? "typing…" : subtitle;
+  const canSend = Boolean(draft.trim()) && !sending;
+  const showMic = isAi && !draft.trim();
+
   return (
     <View style={{ flex: 1, backgroundColor: colors.bg, paddingTop: insets.top }}>
-      <View style={[styles.top, { borderBottomColor: colors.border }]}>
+      <View style={[styles.top, { borderBottomColor: colors.border, backgroundColor: colors.bg }]}>
         <Pressable
           onPress={() => (router.canGoBack() ? router.back() : router.replace("/(tabs)"))}
           style={styles.iconBtn}
+          accessibilityLabel="Back"
         >
           <Ionicons name="arrow-back" size={22} color={colors.fg} />
         </Pressable>
@@ -439,7 +626,7 @@ export default function ChatThreadScreen() {
               <Ionicons name="headset" size={20} color={colors.fg} />
             </View>
           ) : (
-            <Avatar label={title} size={40} />
+            <Avatar label={title || "?"} size={40} uri={peerAvatar} />
           )}
           <View style={{ flex: 1 }}>
             <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
@@ -448,9 +635,11 @@ export default function ChatThreadScreen() {
               </AppText>
               {peerPremium ? <PremiumBadge /> : null}
             </View>
-            <AppText muted size={12} numberOfLines={1}>
-              {subtitle}
-            </AppText>
+            {status ? (
+              <AppText size={12} numberOfLines={1} style={{ color: aiThinking && isAi ? colors.success : colors.muted }}>
+                {status}
+              </AppText>
+            ) : null}
           </View>
         </Pressable>
         <Pressable onPress={onChatMenu} style={styles.iconBtn} accessibilityLabel="Chat options">
@@ -485,7 +674,7 @@ export default function ChatThreadScreen() {
       ) : null}
 
       <KeyboardAvoidingView
-        style={{ flex: 1 }}
+        style={{ flex: 1, backgroundColor: palette.wall }}
         behavior="padding"
         keyboardVerticalOffset={Platform.OS === "ios" ? insets.top + 56 : 24}
       >
@@ -493,131 +682,149 @@ export default function ChatThreadScreen() {
           ref={listRef}
           data={messages}
           keyExtractor={(item) => item.id}
-          contentContainerStyle={{ padding: 14, paddingBottom: 20, gap: 6 }}
-          renderItem={({
-            item,
-            index,
-          }: {
-            item: ChatMessage;
-            index: number;
-          }) => {
+          contentContainerStyle={{ paddingHorizontal: 10, paddingTop: 8, paddingBottom: 12 }}
+          ListEmptyComponent={
+            !aiThinking ? (
+              <View style={[styles.chip, { backgroundColor: palette.chip, marginTop: 24 }]}>
+                <AppText size={12} muted style={{ textAlign: "center" }}>
+                  {isAi ? "Ask anything about your courses." : "No messages yet"}
+                </AppText>
+              </View>
+            ) : undefined
+          }
+          renderItem={({ item, index }: { item: ChatMessage; index: number }) => {
             const mine = item.sender_id === user?.id;
             const prev = messages[index - 1];
-            const showDay =
-              !prev || dayKey(prev.created_at) !== dayKey(item.created_at);
-            const isAudio = item.message_type === "audio";
+            const showDay = !prev || dayKey(prev.created_at) !== dayKey(item.created_at);
+            const firstOfGroup =
+              showDay ||
+              !prev ||
+              prev.sender_id !== item.sender_id ||
+              prev.message_type === "system" ||
+              new Date(item.created_at).getTime() - new Date(prev.created_at).getTime() > GROUP_GAP_MS;
+            const dayChip = showDay ? (
+              <View style={[styles.chip, { backgroundColor: palette.chip }]}>
+                <AppText size={12} weight="600" muted>
+                  {dayLabel(item.created_at)}
+                </AppText>
+              </View>
+            ) : null;
+
             if (item.message_type === "system") {
               return (
                 <View>
-                  {showDay ? (
-                    <AppText muted size={11} style={styles.day}>
-                      {dayLabel(item.created_at)}
+                  {dayChip}
+                  <View style={[styles.chip, { backgroundColor: palette.chip, maxWidth: "86%" }]}>
+                    <AppText muted size={12} style={{ textAlign: "center" }}>
+                      {item.body}
                     </AppText>
-                  ) : null}
-                  <AppText muted size={12} style={styles.system}>
-                    {item.body}
-                  </AppText>
+                  </View>
                 </View>
               );
             }
+
+            const isAudio = item.message_type === "audio";
+            const fromAi = isAi && !mine;
+            const read = mine && peerReadAt && new Date(peerReadAt) >= new Date(item.created_at);
+            const senderName = isGroup && !mine && firstOfGroup && item.sender_id ? names[item.sender_id] : null;
             return (
-              <View>
-                {showDay ? (
-                  <AppText muted size={11} style={styles.day}>
-                    {dayLabel(item.created_at)}
-                  </AppText>
-                ) : null}
+              <View style={{ marginTop: firstOfGroup ? 8 : 2 }}>
+                {dayChip}
                 <Pressable
                   onLongPress={() => onMessageMenu(item)}
                   delayLongPress={350}
                   style={[
                     styles.bubble,
-                    mine
-                      ? {
-                          alignSelf: "flex-end",
-                          backgroundColor: colors.accent,
-                        }
-                      : {
-                          alignSelf: "flex-start",
-                          backgroundColor: colors.surface,
-                        },
+                    {
+                      alignSelf: mine ? "flex-end" : "flex-start",
+                      backgroundColor: mine ? palette.mine : palette.theirs,
+                    },
+                    firstOfGroup && (mine ? styles.tailMine : styles.tailTheirs),
                   ]}
                 >
+                  {senderName ? (
+                    <AppText size={12} weight="700" style={{ color: nameColor(item.sender_id!), marginBottom: 2 }}>
+                      {senderName}
+                    </AppText>
+                  ) : null}
                   {isAudio ? (
-                    <Pressable
-                      onPress={() => playVoice(item)}
-                      style={styles.audioRow}
-                    >
+                    <Pressable onPress={() => playVoice(item)} style={styles.audioRow}>
                       <Ionicons
-                        name="play-circle"
-                        size={28}
-                        color={mine ? colors.onAccent : colors.fg}
+                        name={speakingId === item.id ? "pause-circle" : "play-circle"}
+                        size={30}
+                        color={colors.fg}
                       />
-                      <AppText
-                        size={14}
-                        weight="600"
-                        style={{ color: mine ? colors.onAccent : colors.fg }}
-                      >
-                        Voice message
-                      </AppText>
+                      <View style={[styles.wave, { backgroundColor: colors.muted }]} />
                     </Pressable>
                   ) : (
-                    <AppText
-                      size={15}
-                      style={{ color: mine ? colors.onAccent : colors.fg }}
-                    >
+                    <AppText size={15} style={{ color: colors.fg, lineHeight: 21 }}>
                       {item.body}
                     </AppText>
                   )}
-                  <AppText
-                    size={10}
-                    style={{
-                      alignSelf: "flex-end",
-                      marginTop: 4,
-                      color: mine ? colors.onAccent : colors.muted,
-                      opacity: 0.75,
-                    }}
-                  >
-                    {new Date(item.created_at).toLocaleTimeString(undefined, {
-                      hour: "2-digit",
-                      minute: "2-digit",
-                    })}
-                    {item.edited_at ? " · edited" : ""}
-                  </AppText>
+                  <View style={styles.meta}>
+                    {fromAi && item.body ? (
+                      <Pressable
+                        onPress={() => speak(item.id, item.body)}
+                        hitSlop={10}
+                        accessibilityLabel={speakingId === item.id ? "Stop reading" : "Read aloud"}
+                        style={{ marginRight: "auto" }}
+                      >
+                        <Ionicons
+                          name={speakingId === item.id ? "stop-circle" : "volume-medium-outline"}
+                          size={16}
+                          color={speakingId === item.id ? colors.success : colors.muted}
+                        />
+                      </Pressable>
+                    ) : null}
+                    {item.edited_at ? (
+                      <AppText size={10} muted>
+                        edited
+                      </AppText>
+                    ) : null}
+                    <AppText size={10} muted>
+                      {timeLabel(item.created_at)}
+                    </AppText>
+                    {mine && !isAi ? (
+                      <Ionicons
+                        name={read ? "checkmark-done" : "checkmark"}
+                        size={14}
+                        color={read ? READ_BLUE : colors.muted}
+                      />
+                    ) : null}
+                  </View>
                 </Pressable>
               </View>
             );
           }}
           ListFooterComponent={
-            aiThinking ? (
-              <AppText muted size={12} style={{ marginTop: 8 }}>
-                Tutor is typing…
-              </AppText>
-            ) : error ? (
-              <View style={[styles.errorBanner, { backgroundColor: colors.surface, borderColor: colors.danger }]}>
-                <Ionicons name="alert-circle" size={20} color={colors.danger} />
-                <View style={{ flex: 1 }}>
-                  <AppText weight="700" size={13}>
-                    Message not sent
-                  </AppText>
-                  <AppText muted size={12}>
-                    {error}
+            <View>
+              {aiThinking ? <TypingBubble color={palette.theirs} dot={colors.muted} /> : null}
+              {transcribing ? (
+                <View style={[styles.bubble, styles.tailMine, { alignSelf: "flex-end", backgroundColor: palette.mine, marginTop: 8 }]}>
+                  <AppText size={13} muted>
+                    Sending voice note…
                   </AppText>
                 </View>
-                <Pressable onPress={() => setError(null)} hitSlop={10}>
-                  <Ionicons name="close" size={16} color={colors.muted} />
-                </Pressable>
-              </View>
-            ) : (
-              <View />
-            )
+              ) : null}
+              {error ? (
+                <View style={[styles.errorBanner, { backgroundColor: palette.theirs, borderColor: colors.danger }]}>
+                  <Ionicons name="alert-circle" size={18} color={colors.danger} />
+                  <AppText size={13} style={{ flex: 1 }}>
+                    {error}
+                  </AppText>
+                  <Pressable onPress={() => setError(null)} hitSlop={10}>
+                    <Ionicons name="close" size={16} color={colors.muted} />
+                  </Pressable>
+                </View>
+              ) : null}
+            </View>
           }
         />
 
         {ticket?.status === "resolved" && !ticket.rating && !rated ? (
           <View style={[styles.rateBar, { backgroundColor: colors.surface, borderTopColor: colors.border }]}>
             <AppText size={13} weight="600">
-              Ticket resolved — how did we do?
+              Rate this help
             </AppText>
             <View style={{ flexDirection: "row", gap: 6 }}>
               {[1, 2, 3, 4, 5].map((n) => (
@@ -637,48 +844,93 @@ export default function ChatThreadScreen() {
           </View>
         ) : rated ? (
           <AppText muted size={12} style={{ textAlign: "center", paddingVertical: 8 }}>
-            Thanks for rating the support team.
+            Thanks for rating.
           </AppText>
         ) : null}
 
-        <View
-          style={[
-            styles.composer,
-            {
-              borderTopColor: colors.border,
-              paddingBottom: Math.max(insets.bottom, 10),
-              backgroundColor: colors.bg,
-            },
-          ]}
-        >
-          <TextInput
-            value={draft}
-            onChangeText={setDraft}
-            placeholder={
-              isAi ? "Ask your tutor…" : isSupport ? "Describe what you need…" : "Message"
-            }
-            placeholderTextColor={colors.muted}
-            multiline
-            style={[
-              styles.input,
-              { backgroundColor: colors.inputBg, borderColor: colors.inputBorder, borderWidth: 1.5, color: colors.fg },
-            ]}
-          />
-          <Pressable
-            onPress={() => void onSend()}
-            disabled={sending || !draft.trim()}
-            style={[
-              styles.send,
-              {
-                backgroundColor: colors.accent,
-                opacity: sending || !draft.trim() ? 0.5 : 1,
-              },
-            ]}
-          >
-            <Ionicons name="send" size={18} color={colors.onAccent} />
-          </Pressable>
+        <View style={[styles.composer, { paddingBottom: Math.max(insets.bottom, 8) }]}>
+          {recording ? (
+            <View style={[styles.inputPill, { backgroundColor: palette.composer }]}>
+              <Pressable onPress={() => void finishRecording(false)} hitSlop={10} accessibilityLabel="Cancel voice note">
+                <Ionicons name="trash-outline" size={20} color={colors.danger} />
+              </Pressable>
+              <View style={[styles.recDot, { backgroundColor: colors.danger }]} />
+              <AppText size={15} weight="600" style={{ flex: 1 }}>
+                {Math.floor(recordSecs / 60)}:{String(recordSecs % 60).padStart(2, "0")}
+              </AppText>
+              <AppText size={12} muted>
+                Recording
+              </AppText>
+            </View>
+          ) : (
+            <View style={[styles.inputPill, { backgroundColor: palette.composer }]}>
+              <TextInput
+                value={draft}
+                onChangeText={setDraft}
+                placeholder={isAi ? "Ask your tutor" : "Message"}
+                placeholderTextColor={colors.muted}
+                multiline
+                style={[styles.input, { color: colors.fg }]}
+              />
+            </View>
+          )}
+          {recording ? (
+            <Pressable
+              onPress={() => void finishRecording(true)}
+              style={[styles.send, { backgroundColor: colors.inverseBg }]}
+              accessibilityLabel="Send voice note"
+            >
+              <Ionicons name="send" size={18} color={colors.inverseFg} />
+            </Pressable>
+          ) : showMic ? (
+            <Pressable
+              onPress={() => void startRecording()}
+              disabled={transcribing || aiThinking}
+              style={[styles.send, { backgroundColor: colors.inverseBg, opacity: transcribing || aiThinking ? 0.5 : 1 }]}
+              accessibilityLabel="Record a voice note"
+            >
+              <Ionicons name="mic" size={20} color={colors.inverseFg} />
+            </Pressable>
+          ) : (
+            <Pressable
+              onPress={() => void onSend()}
+              disabled={!canSend}
+              style={[styles.send, { backgroundColor: colors.inverseBg, opacity: canSend ? 1 : 0.5 }]}
+              accessibilityLabel="Send"
+            >
+              <Ionicons name="send" size={18} color={colors.inverseFg} />
+            </Pressable>
+          )}
         </View>
       </KeyboardAvoidingView>
+    </View>
+  );
+}
+
+function TypingBubble({ color, dot }: { color: string; dot: string }) {
+  const anim = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    const loop = Animated.loop(Animated.timing(anim, { toValue: 3, duration: 900, useNativeDriver: true }));
+    loop.start();
+    return () => loop.stop();
+  }, [anim]);
+  return (
+    <View style={[styles.bubble, styles.tailTheirs, styles.typing, { backgroundColor: color, alignSelf: "flex-start", marginTop: 8 }]}>
+      {[0, 1, 2].map((i) => (
+        <Animated.View
+          key={i}
+          style={[
+            styles.typingDot,
+            {
+              backgroundColor: dot,
+              opacity: anim.interpolate({
+                inputRange: [0, 1, 2, 3],
+                outputRange: [i === 0 ? 1 : 0.35, i === 1 ? 1 : 0.35, i === 2 ? 1 : 0.35, i === 0 ? 1 : 0.35],
+              }),
+            },
+          ]}
+        />
+      ))}
     </View>
   );
 }
@@ -704,20 +956,20 @@ const styles = StyleSheet.create({
   errorBanner: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 10,
-    marginTop: 8,
-    padding: 12,
-    borderRadius: radii.md,
+    gap: 8,
+    marginTop: 10,
+    padding: 10,
+    borderRadius: 12,
     borderWidth: StyleSheet.hairlineWidth,
   },
   center: { alignItems: "center", justifyContent: "center" },
   top: {
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 8,
-    paddingVertical: 8,
+    paddingHorizontal: 4,
+    paddingVertical: 6,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    gap: 4,
+    gap: 2,
   },
   iconBtn: {
     width: 40,
@@ -749,36 +1001,71 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  day: { textAlign: "center", marginVertical: 10 },
-  system: { textAlign: "center", marginVertical: 6, paddingHorizontal: 24 },
+  chip: {
+    alignSelf: "center",
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    borderRadius: 10,
+    marginVertical: 8,
+  },
   bubble: {
     maxWidth: "82%",
-    borderRadius: 16,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    marginVertical: 2,
+    minWidth: 76,
+    borderRadius: 14,
+    paddingHorizontal: 10,
+    paddingTop: 6,
+    paddingBottom: 4,
+    shadowColor: "#000",
+    shadowOpacity: 0.06,
+    shadowRadius: 1,
+    shadowOffset: { width: 0, height: 1 },
+    elevation: 1,
   },
-  audioRow: { flexDirection: "row", alignItems: "center", gap: 8 },
+  tailMine: { borderTopRightRadius: 3 },
+  tailTheirs: { borderTopLeftRadius: 3 },
+  meta: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "flex-end",
+    gap: 4,
+    marginTop: 2,
+  },
+  audioRow: { flexDirection: "row", alignItems: "center", gap: 8, minWidth: 160 },
+  wave: { flex: 1, height: 3, borderRadius: 2, opacity: 0.5 },
+  typing: { flexDirection: "row", gap: 5, paddingVertical: 12, minWidth: 0 },
+  typingDot: { width: 7, height: 7, borderRadius: 4 },
   composer: {
     flexDirection: "row",
     alignItems: "flex-end",
-    gap: 8,
-    paddingHorizontal: 12,
-    paddingTop: 10,
-    borderTopWidth: StyleSheet.hairlineWidth,
+    gap: 6,
+    paddingHorizontal: 8,
+    paddingTop: 6,
+  },
+  inputPill: {
+    flex: 1,
+    minHeight: 46,
+    borderRadius: 23,
+    paddingHorizontal: 14,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    shadowColor: "#000",
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    shadowOffset: { width: 0, height: 1 },
+    elevation: 1,
   },
   input: {
     flex: 1,
-    minHeight: 44,
     maxHeight: 120,
-    borderRadius: radii.pill,
-    paddingHorizontal: 16,
     paddingVertical: 10,
+    fontSize: 16,
   },
+  recDot: { width: 10, height: 10, borderRadius: 5 },
   send: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: 46,
+    height: 46,
+    borderRadius: 23,
     alignItems: "center",
     justifyContent: "center",
   },

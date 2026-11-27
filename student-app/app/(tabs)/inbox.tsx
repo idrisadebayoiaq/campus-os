@@ -40,10 +40,17 @@ import { radii } from "@/src/theme/tokens";
 function when(iso: string) {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return "";
-  const diff = Date.now() - d.getTime();
-  if (diff < 60 * 60 * 1000) return `${Math.max(1, Math.round(diff / 60000))}m`;
-  if (diff < 24 * 60 * 60 * 1000) return `${Math.round(diff / 3600000)}h`;
-  return d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+  const today = new Date();
+  const yest = new Date();
+  yest.setDate(today.getDate() - 1);
+  if (d.toDateString() === today.toDateString()) {
+    return d.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
+  }
+  if (d.toDateString() === yest.toDateString()) return "Yesterday";
+  if (today.getTime() - d.getTime() < 6 * 86400000) {
+    return d.toLocaleDateString(undefined, { weekday: "long" });
+  }
+  return d.toLocaleDateString(undefined, { day: "numeric", month: "numeric", year: "2-digit" });
 }
 
 export default function InboxScreen() {
@@ -54,6 +61,7 @@ export default function InboxScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState<string>("all");
+  const [search, setSearch] = useState("");
   const [composeOpen, setComposeOpen] = useState(false);
   const [peerEmail, setPeerEmail] = useState("");
   const [groupTitle, setGroupTitle] = useState("");
@@ -96,12 +104,22 @@ export default function InboxScreen() {
   }, [user, refresh]);
 
   const visible = useMemo(() => {
-    if (filter === "all") return rows;
-    if (filter === "order") {
-      return rows.filter((r) => r.kind === "order" || r.kind === "listing");
-    }
-    return rows.filter((r) => r.kind === filter);
-  }, [rows, filter]);
+    const q = search.trim().toLowerCase();
+    const byKind =
+      filter === "all"
+        ? rows
+        : filter === "unread"
+          ? rows.filter((r) => r.unread)
+          : filter === "order"
+            ? rows.filter((r) => r.kind === "order" || r.kind === "listing")
+            : rows.filter((r) => r.kind === filter);
+    if (!q) return byKind;
+    return byKind.filter((r) =>
+      `${conversationTitle({ kind: r.kind, subject: r.subject, peerName: r.peerName })} ${r.lastMessage ?? ""}`
+        .toLowerCase()
+        .includes(q),
+    );
+  }, [rows, filter, search]);
 
   function onRowMenu(conversationId: string, title: string) {
     Alert.alert(title, undefined, [
@@ -154,7 +172,7 @@ export default function InboxScreen() {
       }
       if (!peerId) {
         setComposeError(
-          "No CampusOS account found. Check the email address and try again.",
+          "No CampusOS account found.",
         );
         return;
       }
@@ -195,20 +213,32 @@ export default function InboxScreen() {
   return (
     <Screen padded={false} tabClearance>
       <View style={styles.header}>
-        <View style={{ flex: 1 }}>
-          <AppText size={24} weight="700">
-            Chats
-          </AppText>
-          <AppText muted size={13}>
-            Classmates, groups, agents and businesses · hold a chat to clear or delete it
-          </AppText>
-        </View>
+        <AppText size={26} weight="700" style={{ flex: 1 }}>
+          Chats
+        </AppText>
         <Pressable
           onPress={() => setComposeOpen(true)}
-          style={[styles.fabSmall, { backgroundColor: colors.accent }]}
+          style={[styles.fabSmall, { backgroundColor: colors.inverseBg }]}
+          accessibilityLabel="New chat"
         >
-          <Ionicons name="add" size={22} color={colors.onAccent} />
+          <Ionicons name="create-outline" size={20} color={colors.inverseFg} />
         </Pressable>
+      </View>
+
+      <View style={[styles.search, { backgroundColor: colors.surface }]}>
+        <Ionicons name="search" size={17} color={colors.muted} />
+        <TextInput
+          value={search}
+          onChangeText={setSearch}
+          placeholder="Search"
+          placeholderTextColor={colors.muted}
+          style={{ flex: 1, color: colors.fg, fontSize: 15, paddingVertical: 8 }}
+        />
+        {search ? (
+          <Pressable onPress={() => setSearch("")} hitSlop={10}>
+            <Ionicons name="close-circle" size={17} color={colors.muted} />
+          </Pressable>
+        ) : null}
       </View>
 
       <FlatList
@@ -279,8 +309,8 @@ export default function InboxScreen() {
           ListEmptyComponent={
             <View style={{ padding: 20 }}>
               <EmptyState
-                title="No chats yet"
-                description="Start a direct or group chat, or message an agent or business from their listing."
+                title={search || filter !== "all" ? "No matching chats" : "No chats yet"}
+                description={search || filter !== "all" ? "" : "Tap the pencil to start one."}
               />
             </View>
           }
@@ -288,42 +318,45 @@ export default function InboxScreen() {
             const title = conversationTitle({
               kind: item.kind,
               subject: item.subject,
+              peerName: item.peerName,
             });
+            const count = item.unreadCount ?? (item.unread ? 1 : 0);
+            const tag = item.kind === "listing" || item.kind === "order" ? kindLabel(item.kind) : null;
             return (
               <Pressable
                 onPress={() => router.push(`/inbox/${item.id}`)}
                 onLongPress={() => onRowMenu(item.id, title)}
-                style={({ pressed }) => [
-                  styles.row,
-                  {
-                    backgroundColor: pressed ? colors.surface : "transparent",
-                    borderBottomColor: colors.border,
-                  },
-                ]}
+                style={({ pressed }) => [styles.row, { backgroundColor: pressed ? colors.surface : "transparent" }]}
               >
-                <Avatar label={title} size={52} />
-                <View style={{ flex: 1, gap: 2 }}>
+                <Avatar label={title} size={52} uri={item.peerAvatar} />
+                <View style={[styles.rowBody, { borderBottomColor: colors.border }]}>
                   <View style={styles.rowTop}>
-                    <AppText weight="700" size={15} numberOfLines={1} style={{ flex: 1 }}>
+                    <AppText weight="700" size={16} numberOfLines={1} style={{ flex: 1 }}>
                       {title}
                     </AppText>
-                    <AppText muted size={11}>
-                      {when(item.updated_at)}
+                    <AppText size={12} weight={count ? "700" : "400"} style={{ color: count ? colors.success : colors.muted }}>
+                      {when(item.lastAt ?? item.updated_at)}
                     </AppText>
                   </View>
                   <View style={styles.rowTop}>
-                    <AppText muted size={13} numberOfLines={1} style={{ flex: 1 }}>
-                      {item.lastMessage || kindLabel(item.kind)}
+                    {item.lastFromMe ? <Ionicons name="checkmark-done" size={16} color={colors.muted} /> : null}
+                    <AppText muted size={14} numberOfLines={1} style={{ flex: 1 }}>
+                      {item.lastMessage || (tag ?? "Tap to chat")}
                     </AppText>
-                    {item.unread ? (
-                      <View
-                        style={[
-                          styles.unread,
-                          { backgroundColor: colors.accent },
-                        ]}
-                      />
+                    {item.muted ? <Ionicons name="volume-mute" size={15} color={colors.muted} /> : null}
+                    {count ? (
+                      <View style={[styles.unread, { backgroundColor: colors.success }]}>
+                        <AppText size={11} weight="700" style={{ color: "#fff" }}>
+                          {count > 99 ? "99+" : count}
+                        </AppText>
+                      </View>
                     ) : null}
                   </View>
+                  {tag && item.lastMessage ? (
+                    <AppText size={11} weight="600" style={{ color: colors.accent }}>
+                      {tag}
+                    </AppText>
+                  ) : null}
                 </View>
               </Pressable>
             );
@@ -347,7 +380,7 @@ export default function InboxScreen() {
               New chat
             </AppText>
             <AppText muted size={13}>
-              Direct message by email
+              Email or name
             </AppText>
             <TextInput
               value={peerEmail}
@@ -366,12 +399,12 @@ export default function InboxScreen() {
               style={[styles.primaryBtn, { backgroundColor: colors.accent }]}
             >
               <AppText weight="700" style={{ color: colors.onAccent }}>
-                Start direct chat
+                Start chat
               </AppText>
             </Pressable>
 
             <AppText muted size={13} style={{ marginTop: 8 }}>
-              Or create a group
+              New group
             </AppText>
             <TextInput
               value={groupTitle}
@@ -434,23 +467,40 @@ const styles = StyleSheet.create({
     borderRadius: radii.pill,
   },
   center: { flex: 1, alignItems: "center", justifyContent: "center" },
+  search: {
+    marginHorizontal: 16,
+    marginBottom: 10,
+    paddingHorizontal: 12,
+    borderRadius: radii.pill,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
   row: {
     flexDirection: "row",
     alignItems: "center",
     gap: 12,
-    paddingHorizontal: 16,
+    paddingLeft: 16,
+  },
+  rowBody: {
+    flex: 1,
+    gap: 3,
     paddingVertical: 12,
+    paddingRight: 16,
     borderBottomWidth: StyleSheet.hairlineWidth,
   },
   rowTop: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 8,
+    gap: 6,
   },
   unread: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
+    minWidth: 20,
+    height: 20,
+    borderRadius: 10,
+    paddingHorizontal: 5,
+    alignItems: "center",
+    justifyContent: "center",
   },
   modalBackdrop: {
     flex: 1,

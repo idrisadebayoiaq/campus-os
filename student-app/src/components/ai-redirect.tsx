@@ -15,7 +15,7 @@ import { useTheme } from "@/src/theme/ThemeProvider";
 type RedirectProps = { title?: string; subtitle?: string };
 
 /**
- * Opens the WhatsApp-style AI companion chat. Students in school use it free (with limits);
+ * Opens the AI tutor chat. Students in school use it free (with limits);
  * exam candidates need Premium, so they see an unlock card first.
  */
 export function AiConversationRedirect(props: RedirectProps) {
@@ -103,10 +103,6 @@ function TutorOpener({
           }}
         >
           <AppText size={15}>{error}</AppText>
-          <AppText muted size={13}>
-            Check your connection and try again. Your tutor chat will open here
-            once it’s ready.
-          </AppText>
           <Button title="Retry" onPress={() => setAttempt((n) => n + 1)} />
         </View>
       </StudyShell>
@@ -115,11 +111,8 @@ function TutorOpener({
 
   return (
     <StudyShell title={title} subtitle={subtitle}>
-      <View style={{ paddingVertical: 48, alignItems: "center", gap: 12 }}>
+      <View style={{ paddingVertical: 48, alignItems: "center" }}>
         <ActivityIndicator color={colors.fg} />
-        <AppText muted size={13}>
-          Preparing your tutor…
-        </AppText>
       </View>
     </StudyShell>
   );

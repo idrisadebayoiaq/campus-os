@@ -311,10 +311,11 @@ async function askModel(input: {
   userId: string;
   question: string;
 }): Promise<{ decision: Decision; model: string } | null> {
+  const groq = Deno.env.get("GROQ_API_KEY")?.trim().replace(/^["']|["']$/g, "");
   const openrouter = Deno.env.get("OPENROUTER_API_KEY");
   const gemini = Deno.env.get("GEMINI_API_KEY");
   const openai = Deno.env.get("OPENAI_API_KEY");
-  if (!openrouter && !gemini && !openai) return null;
+  if (!groq && !openrouter && !gemini && !openai) return null;
 
   const system = [
     `You are the CampusOS Assistant, the first line of customer support for CampusOS, a campus app in Nigeria.`,
@@ -347,6 +348,32 @@ async function askModel(input: {
     .map((m) => ({ role: m.sender_id === input.userId ? "user" : "assistant", text: m.body }));
 
   try {
+    if (groq) {
+      const model = Deno.env.get("GROQ_SUPPORT_MODEL") || "openai/gpt-oss-20b";
+      const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${groq}` },
+        body: JSON.stringify({
+          model,
+          temperature: 0.2,
+          max_tokens: 800,
+          response_format: { type: "json_object" },
+          messages: [
+            { role: "system", content: system },
+            ...turns.map((t) => ({ role: t.role, content: t.text })),
+          ],
+        }),
+      });
+      if (!res.ok) {
+        console.error(`support_groq_${res.status}`, (await res.text().catch(() => "")).slice(0, 200));
+        return null;
+      }
+      const data = await res.json();
+      const text: string | undefined = data?.choices?.[0]?.message?.content;
+      if (!text) return null;
+      const cleaned = text.replace(/^```(?:json)?\s*/i, "").replace(/```\s*$/, "").trim();
+      return { decision: JSON.parse(cleaned) as Decision, model: (data?.model as string) || model };
+    }
     if (openrouter) {
       const model = Deno.env.get("SUPPORT_MODEL") || "mistralai/mistral-small-3.2-24b-instruct";
       const fallback = Deno.env.get("SUPPORT_FALLBACK_MODEL") || "google/gemini-2.5-flash-lite";

@@ -177,7 +177,7 @@ export default function AiProfileScreen() {
           <Ionicons name="chevron-back" size={20} color={colors.fg} />
         </Pressable>
         <AppText size={18} weight="700">
-          AI profile
+          Tutor settings
         </AppText>
         <View style={{ width: 40 }} />
       </View>
@@ -207,7 +207,7 @@ export default function AiProfileScreen() {
               {name.trim() || "CampusOS Tutor"}
             </AppText>
             <AppText muted size={13} style={{ marginTop: 2 }}>
-              {aiAvatarFor(avatarKey).name} · your study companion
+              {aiAvatarFor(avatarKey).name}
             </AppText>
             <Pressable
               onPress={() => router.push("/inbox/ai-avatar")}
@@ -232,7 +232,7 @@ export default function AiProfileScreen() {
           </Section>
 
           <Section title="How it replies">
-            <Label hint="You always type. Your tutor answers in text or voice.">Reply mode</Label>
+            <Label hint="Voice reads every reply aloud.">Reply mode</Label>
             <Segmented options={REPLY_MODES} value={replyMode} onChange={setReplyMode} />
             <View style={[styles.divider, { backgroundColor: colors.border }]} />
             <Label>Explanation style</Label>
@@ -246,20 +246,18 @@ export default function AiProfileScreen() {
             <Chips options={LANGUAGES} value={language} onChange={setLanguage} />
           </Section>
 
-          {replyMode === "voice_only" ? (
-            <Section title="Voice speed">
-              <Chips options={SPEEDS} value={speechRate} onChange={setSpeechRate} />
-            </Section>
-          ) : null}
+          <Section title="Voice speed">
+            <Chips options={SPEEDS} value={speechRate} onChange={setSpeechRate} />
+          </Section>
 
           <Section title="Context">
             <View style={styles.switchRow}>
               <View style={{ flex: 1, gap: 2 }}>
                 <AppText size={14} weight="600">
-                  Use my courses
+                  Use my study profile
                 </AppText>
                 <AppText muted size={12}>
-                  Answers draw on your timetable and course list.
+                  Programme, level and courses.
                 </AppText>
               </View>
               <Switch
@@ -275,7 +273,7 @@ export default function AiProfileScreen() {
                   Save chat history
                 </AppText>
                 <AppText muted size={12}>
-                  Your tutor remembers earlier questions.
+                  Remembers earlier questions.
                 </AppText>
               </View>
               <Switch
@@ -286,13 +284,13 @@ export default function AiProfileScreen() {
             </View>
           </Section>
 
-          <Section title="About you">
+          <Section title="Notes for your tutor">
             <TextInput
               value={notes}
               onChangeText={setNotes}
               multiline
               maxLength={500}
-              placeholder="e.g. 200L Computer Science, I learn best with examples."
+              placeholder="e.g. I learn best with examples."
               placeholderTextColor={colors.muted}
               style={[
                 styles.input,

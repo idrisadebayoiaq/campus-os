@@ -5,7 +5,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { AppText, Avatar } from "@/src/components/ui";
 import { useAuth } from "@/src/lib/auth";
-import { conversationTitle, kindLabel } from "@/src/lib/messaging";
+import { conversationTitle, kindLabel, loadChatFaces, type ChatPerson } from "@/src/lib/messaging";
 import { supabase } from "@/src/lib/supabase";
 import { useTheme } from "@/src/theme/ThemeProvider";
 import { radii } from "@/src/theme/tokens";
@@ -16,26 +16,18 @@ export default function ChatInfoScreen() {
   const colors = useTheme();
   const insets = useSafeAreaInsets();
   const [title, setTitle] = useState("Chat");
+  const [about, setAbout] = useState<string | null>(null);
   const [kind, setKind] = useState("");
-  const [members, setMembers] = useState<
-    { id: string; name: string; role: string }[]
-  >([]);
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+  const [members, setMembers] = useState<ChatPerson[]>([]);
   const [muted, setMuted] = useState(false);
 
   useEffect(() => {
     if (!id || !user) return;
     let cancelled = false;
     async function load() {
-      const [{ data: conv }, { data: parts }, { data: me }] = await Promise.all([
-        supabase
-          .from("conversations")
-          .select("kind, subject")
-          .eq("id", id)
-          .maybeSingle(),
-        supabase
-          .from("conversation_participants")
-          .select("user_id, role")
-          .eq("conversation_id", id),
+      const [{ data: conv }, { data: me }] = await Promise.all([
+        supabase.from("conversations").select("kind, subject, business_id").eq("id", id).maybeSingle(),
         supabase
           .from("conversation_participants")
           .select("muted")
@@ -43,37 +35,21 @@ export default function ChatInfoScreen() {
           .eq("user_id", user!.id)
           .maybeSingle(),
       ]);
-      if (cancelled) return;
-      if (conv) {
-        setKind(conv.kind);
-        setTitle(
-          conversationTitle({ kind: conv.kind, subject: conv.subject }),
-        );
-      }
+      if (cancelled || !conv) return;
+      const faces = await loadChatFaces(supabase, user!.id, [
+        { id, kind: conv.kind, businessId: (conv.business_id as string | null) ?? null },
+      ]);
+      const face = faces.get(id);
+      setKind(conv.kind);
+      setMembers(face?.members ?? []);
+      setAvatarUrl(face?.person?.avatarUrl ?? face?.avatarUrl ?? null);
+      setTitle(
+        face?.person?.name ||
+          conversationTitle({ kind: conv.kind, subject: conv.subject, peerName: face?.name }),
+      );
+      const generic = !conv.subject || /^(chat|group|group chat)$/i.test(conv.subject.trim());
+      setAbout(!generic && conv.subject !== face?.person?.name ? conv.subject : null);
       setMuted(Boolean(me?.muted));
-
-      const userIds = (parts || []).map((p) => p.user_id as string);
-      const { data: profiles } = userIds.length
-        ? await supabase
-            .from("profiles")
-            .select("id, preferred_name, first_name, full_name")
-            .in("id", userIds)
-        : { data: [] as { id: string; preferred_name: string | null; first_name: string | null; full_name: string | null }[] };
-
-      const nameById = new Map(
-        (profiles || []).map((p) => [
-          p.id,
-          p.preferred_name || p.first_name || p.full_name || "Member",
-        ]),
-      );
-
-      setMembers(
-        (parts || []).map((p) => ({
-          id: p.user_id as string,
-          name: nameById.get(p.user_id as string) || "Member",
-          role: (p.role as string) || "member",
-        })),
-      );
     }
     void load();
     return () => {
@@ -107,11 +83,11 @@ export default function ChatInfoScreen() {
       </View>
       <ScrollView contentContainerStyle={{ padding: 20, gap: 14 }}>
         <View style={{ alignItems: "center", gap: 8 }}>
-          <Avatar label={title} size={88} />
+          <Avatar label={title} size={88} uri={avatarUrl} />
           <AppText size={20} weight="700">
             {title}
           </AppText>
-          <AppText muted>{kindLabel(kind)}</AppText>
+          <AppText muted>{kind === "group" ? kindLabel(kind) : about || kindLabel(kind)}</AppText>
         </View>
 
         <Pressable
@@ -126,25 +102,22 @@ export default function ChatInfoScreen() {
           <AppText style={{ flex: 1 }}>{muted ? "Unmute" : "Mute"}</AppText>
         </Pressable>
 
-        {(kind === "group" || members.length > 0) && (
+        {kind === "group" && members.length > 0 ? (
           <>
             <AppText weight="700">Members · {members.length}</AppText>
             {members.map((m) => (
-              <View
-                key={m.id}
-                style={[styles.row, { backgroundColor: colors.surface }]}
-              >
-                <Avatar label={m.name} size={36} />
+              <View key={m.id} style={[styles.row, { backgroundColor: colors.surface }]}>
+                <Avatar label={m.name} size={36} uri={m.avatarUrl} />
                 <View style={{ flex: 1 }}>
                   <AppText weight="600">{m.name}</AppText>
                   <AppText muted size={12}>
-                    {m.role}
+                    {m.id === user?.id ? "You" : m.role}
                   </AppText>
                 </View>
               </View>
             ))}
           </>
-        )}
+        ) : null}
       </ScrollView>
     </View>
   );

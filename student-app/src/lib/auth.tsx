@@ -38,6 +38,13 @@ type AuthContextValue = {
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
+const beforeSignOut: (() => Promise<void>)[] = [];
+
+/** Runs while the session is still valid, just before signing out. */
+export function onBeforeSignOut(fn: () => Promise<void>) {
+  beforeSignOut.push(fn);
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
@@ -190,6 +197,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
       },
       async signOut() {
+        await Promise.all(beforeSignOut.map((fn) => fn().catch(() => undefined)));
         try {
           await supabase.auth.signOut();
         } catch {

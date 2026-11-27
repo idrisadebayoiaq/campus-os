@@ -29,10 +29,7 @@ export default async function BusinessInboxPage() {
 
   return (
     <Container className="space-y-6 py-8">
-      <PageHeader
-        title="Inbox"
-        subtitle="Student messages for your listings and orders — WhatsApp-style"
-      />
+      <PageHeader title="Inbox" />
       <BusinessInbox userId={user.id} displayName={displayName} />
     </Container>
   );

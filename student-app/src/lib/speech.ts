@@ -1,38 +1,46 @@
-/** Optional expo-speech wrapper — no-ops if the native module isn't installed yet. */
+import * as Speech from "expo-speech";
 
-type SpeechModule = {
-  speak: (text: string, options?: { rate?: number }) => void;
-  stop: () => void;
+type SpeakOptions = {
+  rate?: number;
+  onStart?: () => void;
+  onDone?: () => void;
+  onError?: (message: string) => void;
 };
 
-function getSpeech(): SpeechModule | null {
-  try {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const mod = require("expo-speech") as SpeechModule | undefined;
-    if (!mod || typeof mod.speak !== "function") return null;
-    return mod;
-  } catch {
-    return null;
-  }
-}
+let speakingId = 0;
 
-export function speakText(text: string, rate = 0.95) {
-  const speech = getSpeech();
-  if (!speech) return false;
+/** Reads text aloud with the phone's text-to-speech engine. */
+export async function speakText(text: string, rateOrOptions: number | SpeakOptions = 1) {
+  const opts: SpeakOptions = typeof rateOrOptions === "number" ? { rate: rateOrOptions } : rateOrOptions;
+  const clean = text.replace(/\s+/g, " ").trim();
+  if (!clean) return false;
+  const id = ++speakingId;
   try {
-    speech.stop();
-    speech.speak(text, { rate });
+    if (await Speech.isSpeakingAsync()) {
+      await Speech.stop();
+      // Android drops an utterance queued in the same tick as stop().
+      await new Promise((r) => setTimeout(r, 150));
+    }
+    if (id !== speakingId) return false;
+    Speech.speak(clean.slice(0, 3900), {
+      rate: opts.rate ?? 1,
+      pitch: 1,
+      onStart: opts.onStart,
+      onDone: opts.onDone,
+      onStopped: opts.onDone,
+      onError: (e) => {
+        opts.onDone?.();
+        opts.onError?.(e?.message || "Voice isn't available on this phone.");
+      },
+    });
     return true;
-  } catch {
+  } catch (e) {
+    opts.onError?.(e instanceof Error ? e.message : "Voice isn't available on this phone.");
     return false;
   }
 }
 
 export function stopSpeaking() {
-  const speech = getSpeech();
-  try {
-    speech?.stop();
-  } catch {
-    /* ignore */
-  }
+  speakingId++;
+  void Speech.stop().catch(() => undefined);
 }

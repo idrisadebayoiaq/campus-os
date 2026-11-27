@@ -8,6 +8,7 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 import { AuthProvider } from "@/src/lib/auth";
 import { FeedbackProvider } from "@/src/lib/feedback";
 import { PaySheetProvider } from "@/src/lib/pay-sheet";
+import { usePushNotifications } from "@/src/lib/push";
 import { StudentKindProvider } from "@/src/lib/student-kind";
 import { TenancyProvider } from "@/src/lib/tenancy";
 import { StudyLockProvider } from "@/src/lib/study-lock";
@@ -52,6 +53,7 @@ export default function RootLayout() {
 function RootNavigator() {
   const colors = useTheme();
   const { resolved } = useThemeControls();
+  usePushNotifications();
 
   return (
     <>

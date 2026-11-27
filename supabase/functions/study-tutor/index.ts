@@ -1,12 +1,15 @@
 // CampusOS AI Tutor: replies in the student's AI chat (conversations.kind = 'ai').
 //
 // Secret (Supabase › Edge Functions › Secrets):
-//   OPENROUTER_API_KEY   – required
-//   TUTOR_MODEL          – optional override (default: deepseek/deepseek-v4.1-flash)
-//   TUTOR_FALLBACK_MODEL – optional override (default: qwen/qwen3.7-flash)
+//   GROQ_API_KEY         – used first (https://console.groq.com/keys)
+//   GROQ_TUTOR_MODEL     – optional (default: openai/gpt-oss-20b)
+//   OPENROUTER_API_KEY   – used only if Groq is not set
+//   TUTOR_MODEL          – optional OpenRouter override
 //
 // The client has already saved the student's message; this function reads the chat,
 // asks the model and stores the reply as an 'assistant' message.
+// action "welcome" writes a personal first greeting in an empty chat.
+// A multipart upload (file + conversationId) is a voice note: Groq Whisper turns it into text.
 
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
@@ -47,10 +50,12 @@ const secret = (name: string) => Deno.env.get(name)?.trim().replace(/^["']|["']$
 // Tries every configured provider in order, so one dead key does not take the tutor down.
 async function askModel(system: string, turns: Turn[]): Promise<Answer> {
   const attempts: { name: string; run: () => Promise<Answer> }[] = [];
-  if (secret("OPENROUTER_API_KEY")) attempts.push({ name: "openrouter", run: () => askOpenRouter(system, turns) });
+  if (secret("GROQ_API_KEY")) attempts.push({ name: "groq", run: () => askGroq(system, turns) });
   if (secret("GEMINI_API_KEY")) attempts.push({ name: "gemini", run: () => askGemini(system, turns) });
   if (secret("OPENAI_API_KEY")) attempts.push({ name: "openai", run: () => askOpenAI(system, turns) });
+  if (secret("OPENROUTER_API_KEY")) attempts.push({ name: "openrouter", run: () => askOpenRouter(system, turns) });
   if (!attempts.length) throw new Error("not_configured");
+  console.log("tutor_providers", attempts.map((a) => a.name).join(","));
 
   let lastError = "model_error";
   for (const a of attempts) {
@@ -62,6 +67,50 @@ async function askModel(system: string, turns: Turn[]): Promise<Answer> {
     }
   }
   throw new Error(lastError);
+}
+
+async function askGroq(system: string, turns: Turn[]): Promise<Answer> {
+  const key = secret("GROQ_API_KEY");
+  const models = [
+    Deno.env.get("GROQ_TUTOR_MODEL") || "openai/gpt-oss-20b",
+    Deno.env.get("GROQ_TUTOR_FALLBACK") || "llama-3.1-8b-instant",
+  ];
+  let last = "model_error";
+  for (const model of models) {
+    const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
+      body: JSON.stringify({
+        model,
+        temperature: 0.5,
+        max_tokens: 1400,
+        messages: [{ role: "system", content: system }, ...turns],
+      }),
+    });
+    if (res.status === 401 || res.status === 403) {
+      console.error(`groq_${res.status}`, (await res.text().catch(() => "")).slice(0, 200));
+      throw new Error("provider_auth");
+    }
+    if (!res.ok) {
+      last = `model_${res.status}`;
+      console.error(`groq_${res.status} ${model}`, (await res.text().catch(() => "")).slice(0, 200));
+      continue;
+    }
+    const data = await res.json();
+    const message = data?.choices?.[0]?.message;
+    const text: string | undefined = message?.content;
+    if (!text?.trim()) {
+      last = "empty";
+      continue;
+    }
+    return {
+      text: text.trim(),
+      model: (data?.model as string) || model,
+      promptTokens: Number(data?.usage?.prompt_tokens ?? 0),
+      completionTokens: Number(data?.usage?.completion_tokens ?? 0),
+    };
+  }
+  throw new Error(last);
 }
 
 async function askGemini(system: string, turns: Turn[]): Promise<Answer> {
@@ -161,6 +210,92 @@ async function askOpenRouter(system: string, turns: Turn[]): Promise<Answer> {
   };
 }
 
+type Admin = ReturnType<typeof createClient>;
+
+// Everything the tutor should know about what the student studies.
+async function studyContext(admin: Admin, userId: string, examPrep: boolean, useCourses: boolean) {
+  const [{ data: sp }, { data: enrol }] = await Promise.all([
+    admin
+      .from("student_profiles")
+      .select(
+        "academic_level, programme_name, department_name, faculty_name, programme_type, current_semester, study_mode, current_cgpa, target_cgpa, exam_targets, exam_subjects, exam_date, target_school, target_course",
+      )
+      .eq("user_id", userId)
+      .maybeSingle(),
+    admin
+      .from("student_enrollments")
+      .select("institutions(name, short_name), campuses(name), programmes(name), departments(name)")
+      .eq("user_id", userId)
+      .order("is_primary", { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+  ]);
+  // deno-lint-ignore no-explicit-any
+  const e = (enrol ?? {}) as any;
+  const school = e.institutions?.name || e.institutions?.short_name || "";
+  const programme = sp?.programme_name || e.programmes?.name || "";
+  const department = sp?.department_name || e.departments?.name || "";
+  const lines: string[] = [];
+
+  if (examPrep) {
+    const exams = (sp?.exam_targets ?? []).map((x: string) => x.toUpperCase().replace("_", "-")).join(", ");
+    const subjects = (sp?.exam_subjects ?? []).join(", ");
+    lines.push(
+      `The student is preparing for ${exams || "a secondary-school or entrance exam"} and is not in university yet.`,
+      subjects ? `Exam subjects: ${subjects}.` : "",
+      sp?.exam_date ? `Exam date: ${sp.exam_date}.` : "",
+      sp?.target_course ? `They want to study ${sp.target_course}${sp?.target_school ? ` at ${sp.target_school}` : ""}.` : "",
+      "Teach to the JAMB/WAEC/NECO syllabus. Prefer exam-style practice: short multiple-choice questions with four options, wait for their answer, then explain. Point out common exam traps and time-saving tricks.",
+    );
+  } else {
+    const level = sp?.academic_level ? `${String(sp.academic_level).replace(/l$/i, "")}L` : "";
+    const who = [level, programme || department].filter(Boolean).join(" ");
+    lines.push(
+      who || school ? `The student is a ${who || "student"}${school ? ` at ${school}` : ""}${e.campuses?.name ? ` (${e.campuses.name})` : ""}.` : "",
+      department && programme && department !== programme ? `Department: ${department}.` : "",
+      sp?.faculty_name ? `Faculty: ${sp.faculty_name}.` : "",
+      sp?.current_semester ? `Current semester: ${sp.current_semester}.` : "",
+      sp?.current_cgpa ? `CGPA ${sp.current_cgpa}${sp?.target_cgpa ? `, aiming for ${sp.target_cgpa}` : ""}.` : "",
+      "Pitch explanations at their level and use examples from their field of study when it helps.",
+    );
+  }
+
+  if (useCourses) {
+    const { data } = await admin
+      .from("student_courses")
+      .select("code, title, difficulty")
+      .eq("user_id", userId)
+      .in("status", ["planned", "registered"])
+      .limit(14);
+    if (data?.length) {
+      lines.push(`Courses this semester: ${data.map((c) => `${c.code ?? ""} ${c.title ?? ""}`.trim()).join("; ")}.`);
+      const hard = data.filter((c) => c.difficulty === "hard").map((c) => c.code || c.title);
+      if (hard.length) lines.push(`They find these hard: ${hard.join(", ")}.`);
+    }
+  }
+  return { text: lines.filter(Boolean).join(" "), programme: programme || department, school, examPrep };
+}
+
+async function transcribe(file: File) {
+  const key = secret("GROQ_API_KEY");
+  if (!key) throw new Error("not_configured");
+  const form = new FormData();
+  form.append("file", file, file.name || "voice.m4a");
+  form.append("model", Deno.env.get("GROQ_STT_MODEL") || "whisper-large-v3-turbo");
+  form.append("response_format", "json");
+  const res = await fetch("https://api.groq.com/openai/v1/audio/transcriptions", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${key}` },
+    body: form,
+  });
+  if (!res.ok) {
+    console.error(`groq_stt_${res.status}`, (await res.text().catch(() => "")).slice(0, 200));
+    throw new Error("stt_failed");
+  }
+  const data = await res.json();
+  return String(data?.text ?? "").trim();
+}
+
 // The chat shows plain text, so strip any markdown the model slips in.
 function plain(text: string) {
   return text
@@ -190,14 +325,23 @@ Deno.serve(async (req) => {
   } = await userClient.auth.getUser();
   if (!user) return json({ error: "Sign in to use the AI tutor." }, 401);
 
-  let body: { conversationId?: string } = {};
+  let body: { conversationId?: string; action?: string } = {};
+  let audio: File | null = null;
   try {
-    body = await req.json();
+    if ((req.headers.get("content-type") ?? "").includes("multipart/form-data")) {
+      const form = await req.formData();
+      const file = form.get("file");
+      audio = file instanceof File ? file : null;
+      body = { conversationId: String(form.get("conversationId") ?? ""), action: "transcribe" };
+    } else {
+      body = await req.json();
+    }
   } catch {
     return json({ error: "Bad request" }, 400);
   }
   const conversationId = String(body.conversationId ?? "");
   if (!conversationId) return json({ error: "Missing conversation" }, 400);
+  const action = body.action === "welcome" || body.action === "transcribe" ? body.action : "reply";
 
   const admin = createClient(url, service, { auth: { persistSession: false } });
 
@@ -212,6 +356,18 @@ Deno.serve(async (req) => {
         .maybeSingle(),
     ]);
     if (!conv || conv.kind !== "ai" || !part) return json({ error: "Chat not found" }, 404);
+
+    if (action === "transcribe") {
+      if (!audio || audio.size < 800) return json({ error: "That voice note was too short." }, 400);
+      if (audio.size > 15 * 1024 * 1024) return json({ error: "Keep voice notes under 5 minutes." }, 400);
+      try {
+        const text = await transcribe(audio);
+        if (!text) return json({ error: "Couldn't hear anything. Try again closer to the mic." }, 422);
+        return json({ text });
+      } catch {
+        return json({ error: "Voice notes aren't available right now. Type your question instead." }, 503);
+      }
+    }
 
     const hour = new Date(Date.now() - 60 * 60 * 1000).toISOString();
     const day = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
@@ -257,10 +413,10 @@ Deno.serve(async (req) => {
       perHour = (await num("tutor_free_per_hour", 10)) * mult;
       perDay = (await num("tutor_free_per_day", 30)) * mult;
     }
-    if ((lastHour ?? 0) >= perHour) {
+    if (action === "reply" && (lastHour ?? 0) >= perHour) {
       return json({ error: "You've asked a lot this hour. Take a short break and try again soon." + (isPremium ? "" : " Premium raises your limit."), code: "limit" }, 429);
     }
-    if ((lastDay ?? 0) >= perDay) {
+    if (action === "reply" && (lastDay ?? 0) >= perDay) {
       return json({ error: "You've reached today's tutor limit. It resets tomorrow." + (isPremium ? "" : " Premium raises your limit."), code: "limit" }, 429);
     }
 
@@ -289,43 +445,15 @@ Deno.serve(async (req) => {
         role: (m.sender_id === user.id ? "user" : "assistant") as "user" | "assistant",
         content: m.body!.trim(),
       }));
-    if (!turns.length || turns[turns.length - 1].role !== "user") {
+    if (action === "welcome") {
+      // Greet once, only in a chat with no questions or replies yet.
+      if (turns.length) return json({ skipped: true });
+    } else if (!turns.length || turns[turns.length - 1].role !== "user") {
       return json({ error: "Send a message first." }, 400);
     }
+    const firstQuestion = action === "reply" && turns.filter((t) => t.role === "user").length === 1;
 
-    let courses = "";
-    if (profile?.use_course_context ?? true) {
-      const { data } = await admin
-        .from("student_courses")
-        .select("code, title, status")
-        .eq("user_id", user.id)
-        .in("status", ["planned", "registered"])
-        .limit(12);
-      if (data?.length) {
-        courses = data.map((c) => `${c.code} ${c.title}`.trim()).join("; ");
-      }
-    }
-
-    let examContext = "";
-    if (examPrep) {
-      const { data: goals } = await admin
-        .from("student_profiles")
-        .select("exam_targets, exam_subjects, exam_date, target_course")
-        .eq("user_id", user.id)
-        .maybeSingle();
-      const exams = (goals?.exam_targets ?? []).map((e: string) => e.toUpperCase().replace("_", "-")).join(", ");
-      const subjects = (goals?.exam_subjects ?? []).join(", ");
-      examContext = [
-        `This student is preparing for ${exams || "a secondary-school or entrance exam"} and is not in school yet.`,
-        subjects ? `Their subjects: ${subjects}.` : "",
-        goals?.exam_date ? `Their exam date is ${goals.exam_date}.` : "",
-        goals?.target_course ? `They want to study ${goals.target_course}.` : "",
-        `Teach to the JAMB/WAEC/NECO syllabus. Prefer exam-style practice: give short multiple-choice questions with four options, wait for their answer, then explain. Point out common exam traps and time-saving tricks.`,
-      ]
-        .filter(Boolean)
-        .join(" ");
-    }
-
+    const ctx = await studyContext(admin, user.id, examPrep, profile?.use_course_context ?? true);
     const name = me?.preferred_name || me?.first_name || me?.full_name?.split(" ")[0] || "";
     const language = profile?.language && profile.language !== "auto" ? profile.language : "";
 
@@ -337,8 +465,11 @@ Deno.serve(async (req) => {
       language
         ? `Reply in ${language}.`
         : "Reply in the language the student writes in (English or Nigerian Pidgin are both fine).",
-      courses ? `Courses the student is taking this semester: ${courses}.` : "",
-      examContext,
+      ctx.text ? `ABOUT THE STUDENT: ${ctx.text}` : "",
+      "Always use what you know about the student: tie answers to their course of study, level and courses (or exam subjects), and pick examples from their field.",
+      firstQuestion
+        ? "This is their first question to you: greet them by name in a few words, then answer with their programme and level in mind."
+        : "",
       `Help with studying: explain concepts, solve and check problems step by step, summarise notes, make practice questions, plan revision, and give exam tips.`,
       `Do not write the student's graded assignments or take-home exams for them; guide them to the answer instead. Say so briefly if asked.`,
       `If you are not sure about a fact, say so instead of guessing. Never invent references or statistics.`,
@@ -349,6 +480,37 @@ Deno.serve(async (req) => {
     ]
       .filter(Boolean)
       .join("\n");
+
+    if (action === "welcome") {
+      const subject = ctx.examPrep ? "their exam subjects" : ctx.programme || "their courses";
+      let greeting = "";
+      try {
+        const out = await askModel(system, [
+          {
+            role: "user",
+            content: `(Not from the student.) Write your first message to ${name || "the student"}: one short friendly greeting by name, one line showing you know what they study (${ctx.text || subject}), then offer three specific things you can help with right now for ${subject}, each on its own line starting with "1)", "2)", "3)". Under 70 words. No questions about what they study.`,
+          },
+        ]);
+        greeting = plain(out.text);
+      } catch {
+        // A template greeting is better than none.
+      }
+      if (!greeting) {
+        greeting = [
+          `Hi${name ? ` ${name}` : ""}! I'm ${profile?.display_name || "your CampusOS tutor"}.`,
+          ctx.examPrep
+            ? "I'll help you prepare for your exams with practice questions and quick explanations."
+            : `I'll help you with ${ctx.programme || "your courses"}: explanations, past questions and revision plans.`,
+          "Ask me anything, or send a voice note.",
+        ].join(" ");
+      }
+      const { data: hello } = await admin
+        .from("messages")
+        .insert({ conversation_id: conversationId, sender_id: null, message_type: "assistant", body: greeting })
+        .select("id, conversation_id, body, sender_id, created_at, edited_at, deleted_at, message_type, media_url, media_duration_ms, client_id")
+        .single();
+      return json({ message: hello });
+    }
 
     let answer;
     try {
@@ -388,7 +550,7 @@ Deno.serve(async (req) => {
 
     return json({
       message: saved,
-      speakLocally: profile?.reply_mode === "voice_only" ? reply.slice(0, 1200) : undefined,
+      speakLocally: profile?.reply_mode === "voice_only" ? reply.slice(0, 3900) : undefined,
     });
   } catch (e) {
     const message = e instanceof Error ? e.message : (e as { message?: string })?.message;
