@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { CampusScene } from "@/components/campus-3d/campus-scene";
 import { ButtonLink, Container, EmptyState, PageHeader } from "@/components/ui";
 import { canManage, myBusinesses } from "@/lib/business";
 import { createClient } from "@/lib/supabase/server";
@@ -76,13 +75,6 @@ export default async function ListingsPage() {
         <PageHeader
           title="Listings"
           description="Publish only after CampusOS setup is complete. Everything stays campus-scoped."
-        />
-
-        <CampusScene
-          mode="zones"
-          title="Campus zones your listings serve"
-          heightClass="h-48 sm:h-60"
-          defaultOpen={false}
         />
 
         {housing.length ? (

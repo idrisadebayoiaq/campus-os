@@ -1,18 +1,22 @@
-"use client";
+﻿"use client";
 
 import { useRouter } from "next/navigation";
 import { FormEvent, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { uploadNewMedia } from "@/lib/listing-media";
 import { LocationPicker } from "@/components/location-picker";
+import { PhotoPicker } from "@/components/photo-picker";
 import { Button, Field, Input } from "@/components/ui";
 
 export function PropertyForm({
   businessId,
+  userId,
   campusId,
   campusCenter,
   areas,
 }: {
   businessId: string;
+  userId: string;
   campusId: string;
   campusCenter?: { lat: number; lng: number } | null;
   areas: { id: string; name: string }[];
@@ -20,6 +24,8 @@ export function PropertyForm({
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [propertyFiles, setPropertyFiles] = useState<File[]>([]);
+  const [roomFiles, setRoomFiles] = useState<File[]>([]);
 
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -40,7 +46,8 @@ export function PropertyForm({
         lat: Number(form.get("lat") || 0) || null,
         lng: Number(form.get("lng") || 0) || null,
         verification_label: "provider_checked",
-        is_published: form.get("publish") === "on",
+        // Published below once the photos are up (publishing needs at least 3 photos).
+        is_published: false,
         availability_checked_at: new Date().toISOString(),
       })
       .select("id")
@@ -57,25 +64,80 @@ export function PropertyForm({
       .map((a) => a.trim())
       .filter(Boolean);
 
-    const { error: unitError } = await supabase.from("property_units").insert({
-      property_id: property.id,
-      unit_type: String(form.get("unit_type")),
-      title: String(form.get("unit_title")),
-      capacity: Number(form.get("capacity") || 1),
-      amenities,
-      rent_base: Number(form.get("rent_base") || 0),
-      fee_agent: Number(form.get("fee_agent") || 0),
-      fee_agreement: Number(form.get("fee_agreement") || 0),
-      fee_caution: Number(form.get("fee_caution") || 0),
-      fee_service: Number(form.get("fee_service") || 0),
-      status: "available",
-      is_published: form.get("publish") === "on",
-    });
+    const { data: unit, error: unitError } = await supabase
+      .from("property_units")
+      .insert({
+        property_id: property.id,
+        unit_type: String(form.get("unit_type")),
+        title: String(form.get("unit_title")),
+        capacity: Number(form.get("capacity") || 1),
+        amenities,
+        rent_base: Number(form.get("rent_base") || 0),
+        fee_agent: Number(form.get("fee_agent") || 0),
+        fee_agreement: Number(form.get("fee_agreement") || 0),
+        fee_caution: Number(form.get("fee_caution") || 0),
+        fee_service: Number(form.get("fee_service") || 0),
+        status: "available",
+        is_published: false,
+      })
+      .select("id")
+      .single();
+
+    if (unitError || !unit) {
+      setLoading(false);
+      setError(unitError?.message || "Could not create the first unit.");
+      return;
+    }
+
+    const problems: string[] = [];
+    let propertyPhotos = 0;
+    if (propertyFiles.length) {
+      const result = await uploadNewMedia(userId, { column: "property_id", id: property.id }, propertyFiles);
+      propertyPhotos = result.photos;
+      problems.push(...result.errors);
+    }
+    if (roomFiles.length) {
+      const result = await uploadNewMedia(
+        userId,
+        { column: "unit_id", id: unit.id, propertyId: property.id },
+        roomFiles,
+      );
+      problems.push(...result.errors);
+    }
+
+    const wantsPublish = form.get("publish") === "on";
+    let notPublished = false;
+    if (wantsPublish) {
+      if (propertyPhotos >= 3) {
+        const { error: publishError } = await supabase
+          .from("properties")
+          .update({ is_published: true })
+          .eq("id", property.id);
+        if (publishError) {
+          notPublished = true;
+          problems.push(publishError.message);
+        } else {
+          await supabase.from("property_units").update({ is_published: true }).eq("id", unit.id);
+        }
+      } else {
+        notPublished = true;
+      }
+    }
 
     setLoading(false);
-    if (unitError) {
-      setError(unitError.message);
-      return;
+    if (problems.length || notPublished) {
+      setError(
+        [
+          problems.length
+            ? `Saved, but ${problems.length} file${problems.length === 1 ? "" : "s"} did not upload (${problems[0]}).`
+            : "Saved.",
+          notPublished ? "It is a draft until it has at least 3 property photos." : "",
+          "You can fix this on the next page.",
+        ]
+          .filter(Boolean)
+          .join(" "),
+      );
+      await new Promise((resolve) => setTimeout(resolve, 3500));
     }
     router.push(`/listings/housing/${property.id}`);
     router.refresh();
@@ -83,6 +145,14 @@ export function PropertyForm({
 
   return (
     <form onSubmit={onSubmit} className="space-y-4">
+      <PhotoPicker
+        files={propertyFiles}
+        onChange={setPropertyFiles}
+        title="Property photos and videos"
+        hint="outside, compound, shared areas · at least 3 photos to publish"
+        minPhotos={3}
+        disabled={loading}
+      />
       <Field label="Property title">
         <Input name="title" required placeholder="Self contain near Gate Area" />
       </Field>
@@ -125,16 +195,23 @@ export function PropertyForm({
         <Field label="Service (₦)"><Input name="fee_service" type="number" defaultValue={0} /></Field>
         <Field label="Capacity"><Input name="capacity" type="number" defaultValue={1} /></Field>
       </div>
+      <PhotoPicker
+        files={roomFiles}
+        onChange={setRoomFiles}
+        title="Room photos and videos"
+        hint="bedroom, bathroom, kitchen"
+        disabled={loading}
+      />
       <Field label="Amenities (comma-separated)">
         <Input name="amenities" placeholder="water, prepaid light, kitchen" />
       </Field>
       <label className="flex items-center gap-2 text-sm">
         <input type="checkbox" name="publish" defaultChecked />
-        Publish to students on this campus
+        Publish to students on this campus (needs at least 3 property photos)
       </label>
       {error ? <p className="text-sm text-danger">{error}</p> : null}
       <Button type="submit" disabled={loading}>
-        {loading ? "Saving…" : "Create property + unit"}
+        {loading ? "Saving and uploading…" : "Create property + unit"}
       </Button>
     </form>
   );

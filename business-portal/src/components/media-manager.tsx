@@ -2,6 +2,13 @@
 
 import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
+import {
+  compressImage,
+  extensionOf,
+  MAX_MEDIA_BYTES,
+  syncCoverImage,
+  type MediaTarget,
+} from "@/lib/listing-media";
 import { createClient } from "@/lib/supabase/client";
 
 export type MediaRow = {
@@ -14,59 +21,12 @@ export type MediaRow = {
   storage_path: string | null;
 };
 
-export type MediaTarget = {
-  /** column on listing_media that points at the thing being decorated */
-  column: "property_id" | "unit_id" | "menu_item_id" | "market_listing_id";
-  id: string;
-  /** units also store their property so ownership checks work */
-  propertyId?: string;
-};
+export type { MediaTarget };
 
-const MAX_BYTES = 50 * 1024 * 1024;
+const MAX_BYTES = MAX_MEDIA_BYTES;
 const ACCEPT = "image/jpeg,image/png,image/webp,video/mp4,video/quicktime,video/webm";
 
 type Upload = { name: string; state: "uploading" | "done" | "error"; message?: string };
-
-/** Downscale big photos in the browser so uploads are fast on slow connections. */
-async function compressImage(file: File): Promise<File> {
-  if (!file.type.startsWith("image/") || file.size < 1.2 * 1024 * 1024) return file;
-  try {
-    const bitmap = await createImageBitmap(file);
-    const scale = Math.min(1, 1920 / Math.max(bitmap.width, bitmap.height));
-    const canvas = document.createElement("canvas");
-    canvas.width = Math.round(bitmap.width * scale);
-    canvas.height = Math.round(bitmap.height * scale);
-    canvas.getContext("2d")?.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
-    const blob = await new Promise<Blob | null>((resolve) =>
-      canvas.toBlob(resolve, "image/jpeg", 0.85),
-    );
-    if (!blob || blob.size >= file.size) return file;
-    return new File([blob], file.name.replace(/\.\w+$/, "") + ".jpg", { type: "image/jpeg" });
-  } catch {
-    return file;
-  }
-}
-
-function extensionOf(file: File) {
-  const fromName = file.name.split(".").pop()?.toLowerCase();
-  if (fromName && fromName.length <= 5) return fromName;
-  return file.type.split("/")[1] ?? "bin";
-}
-
-/** Keep the single-image column in step with the cover so older screens still show a picture. */
-async function syncCoverImage(target: MediaTarget, rows: MediaRow[]) {
-  const table =
-    target.column === "menu_item_id"
-      ? "menu_items"
-      : target.column === "market_listing_id"
-        ? "marketplace_listings"
-        : null;
-  if (!table) return;
-  const images = rows.filter((m) => m.kind === "image");
-  const cover = images.find((m) => m.is_cover) ?? images[0] ?? null;
-  const supabase = createClient();
-  await supabase.from(table).update({ image_url: cover?.url ?? null }).eq("id", target.id);
-}
 
 export function MediaManager({
   userId,

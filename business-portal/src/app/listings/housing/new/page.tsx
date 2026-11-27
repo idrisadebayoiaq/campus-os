@@ -1,5 +1,4 @@
 import { redirect } from "next/navigation";
-import { CampusScene } from "@/components/campus-3d/campus-scene";
 import { PropertyForm } from "@/components/property-form";
 import { Container, PageHeader } from "@/components/ui";
 import { createClient } from "@/lib/supabase/server";
@@ -52,14 +51,9 @@ export default async function NewPropertyPage({
           title="Add property"
           description={`Campus-scoped to your approved CampusOS business · ${biz.display_name}`}
         />
-        <CampusScene
-          mode="housing"
-          title="Place listings near the hostel / gate zone"
-          heightClass="h-48 sm:h-60"
-          defaultOpen
-        />
         <PropertyForm
           businessId={biz.id}
+          userId={user.id}
           campusId={biz.campus_id}
           campusCenter={campusCenter}
           areas={areas ?? []}

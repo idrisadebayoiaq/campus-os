@@ -1,5 +1,4 @@
 import { redirect } from "next/navigation";
-import { CampusScene } from "@/components/campus-3d/campus-scene";
 import { MenuItemForm } from "@/components/menu-item-form";
 import { Container, PageHeader } from "@/components/ui";
 import { canManage, myBusinesses } from "@/lib/business";
@@ -28,13 +27,7 @@ export default async function NewMenuItemPage({
     <Container>
       <div className="mx-auto max-w-xl space-y-8 py-8 sm:py-12">
         <PageHeader title="Add menu item" description={biz.display_name} />
-        <CampusScene
-          mode="business"
-          title="Food pickup zone on campus"
-          heightClass="h-44 sm:h-56"
-          defaultOpen={false}
-        />
-        <MenuItemForm businessId={biz.id} />
+        <MenuItemForm businessId={biz.id} userId={user.id} />
       </div>
     </Container>
   );

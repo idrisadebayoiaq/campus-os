@@ -1,5 +1,4 @@
 import { redirect } from "next/navigation";
-import { CampusScene } from "@/components/campus-3d/campus-scene";
 import { MarketForm } from "@/components/market-form";
 import { Container, PageHeader } from "@/components/ui";
 import { createClient } from "@/lib/supabase/server";
@@ -38,12 +37,6 @@ export default async function NewMarketPage({
     <Container>
       <div className="mx-auto max-w-xl space-y-8 py-8 sm:py-12">
         <PageHeader title="Add marketplace listing" description={biz.display_name} />
-        <CampusScene
-          mode="business"
-          title="Where students browse goods & services"
-          heightClass="h-44 sm:h-56"
-          defaultOpen={false}
-        />
         <MarketForm
           businessId={biz.id}
           campusId={biz.campus_id}
