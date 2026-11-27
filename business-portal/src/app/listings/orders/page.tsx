@@ -30,7 +30,7 @@ export default async function OrdersPage() {
   const { data: orders } = await supabase
     .from("food_orders")
     .select(
-      "id, status, total, notes, created_at, prep_minutes, decline_reason, student_id, fulfilment, delivery_address, delivery_fee, discount, promo_code, payment_method, payment_status, food_order_items(name, quantity, unit_price, options)",
+      "id, business_id, status, total, notes, created_at, prep_minutes, decline_reason, student_id, fulfilment, delivery_address, delivery_fee, discount, promo_code, payment_method, payment_status, food_order_items(name, quantity, unit_price, options, menu_items(image_url))",
     )
     .in("business_id", ids)
     .order("created_at", { ascending: false })
@@ -62,7 +62,11 @@ export default async function OrdersPage() {
         {!orders?.length ? (
           <EmptyState title="No orders yet" description="Student orders will appear here." />
         ) : (
-          <OrderBoard orders={orders} students={students} />
+          <OrderBoard
+            orders={orders as never}
+            students={students}
+            kitchens={kitchens.map((k) => ({ id: k.id, name: k.display_name }))}
+          />
         )}
         <LiveTables tables={["food_orders"]} channel="kitchen-orders" />
       </div>

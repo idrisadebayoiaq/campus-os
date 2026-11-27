@@ -2,6 +2,7 @@ import { router, useFocusEffect, type Href } from "expo-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
+  Alert,
   Pressable,
   RefreshControl,
   SectionList,
@@ -29,6 +30,7 @@ function iconFor(n: NotificationRow): keyof typeof Ionicons.glyphMap {
   const link = n.link ?? "";
   const title = n.title.toLowerCase();
   if (link.startsWith("/housing") || title.includes("viewing")) return "business-outline";
+  if (link.startsWith("/apartment") || link.startsWith("/my-room") || title.includes("rent")) return "home-outline";
   if (title.includes("order")) return "bag-handle-outline";
   if (link.startsWith("/verify")) return "shield-checkmark-outline";
   if (link.startsWith("/meetings")) return "videocam-outline";
@@ -146,7 +148,35 @@ export default function NotificationsScreen() {
 
   async function remove(n: NotificationRow) {
     setRows((prev) => prev.filter((r) => r.id !== n.id));
-    await supabase.from("notifications").delete().eq("id", n.id);
+    const { error: delErr } = await supabase.from("notifications").delete().eq("id", n.id);
+    if (delErr) {
+      setError(delErr.message);
+      void load();
+    }
+  }
+
+  function clearAll() {
+    if (!user || !rows.length) return;
+    Alert.alert("Clear all notifications?", "They'll be removed from this list.", [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Clear all",
+        style: "destructive",
+        onPress: () => {
+          setRows([]);
+          supabase
+            .from("notifications")
+            .delete()
+            .eq("user_id", user.id)
+            .then(({ error: delErr }) => {
+              if (delErr) {
+                setError(delErr.message);
+                void load();
+              }
+            });
+        },
+      },
+    ]);
   }
 
   return (
@@ -162,14 +192,24 @@ export default function NotificationsScreen() {
         <AppText size={18} weight="700">
           Notifications
         </AppText>
-        <Pressable
-          onPress={() => void markAllRead()}
-          disabled={!unread}
-          style={[styles.back, { opacity: unread ? 1 : 0.35 }]}
-          accessibilityLabel="Mark all as read"
-        >
-          <Ionicons name="checkmark-done" size={22} color={colors.fg} />
-        </Pressable>
+        <View style={{ flexDirection: "row", gap: 4 }}>
+          <Pressable
+            onPress={() => void markAllRead()}
+            disabled={!unread}
+            style={[styles.back, { opacity: unread ? 1 : 0.35 }]}
+            accessibilityLabel="Mark all as read"
+          >
+            <Ionicons name="checkmark-done" size={22} color={colors.fg} />
+          </Pressable>
+          <Pressable
+            onPress={clearAll}
+            disabled={!rows.length}
+            style={[styles.back, { opacity: rows.length ? 1 : 0.35 }]}
+            accessibilityLabel="Clear all notifications"
+          >
+            <Ionicons name="trash-outline" size={21} color={colors.fg} />
+          </Pressable>
+        </View>
       </View>
 
       {loading ? (
@@ -252,6 +292,9 @@ export default function NotificationsScreen() {
               {!item.is_read ? (
                 <View style={[styles.dot, { backgroundColor: colors.accent }]} />
               ) : null}
+              <Pressable onPress={() => void remove(item)} hitSlop={10} accessibilityLabel="Delete notification">
+                <Ionicons name="close" size={18} color={colors.muted} />
+              </Pressable>
             </Pressable>
           )}
           ListEmptyComponent={
@@ -271,7 +314,7 @@ export default function NotificationsScreen() {
           ListFooterComponent={
             rows.length ? (
               <AppText muted size={12} style={{ textAlign: "center", marginTop: 16 }}>
-                Press and hold a notification to remove it.
+                Tap ✕ to remove a notification, or use the bin to clear all.
               </AppText>
             ) : undefined
           }

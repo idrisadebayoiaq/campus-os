@@ -9,6 +9,7 @@ import { AuthProvider } from "@/src/lib/auth";
 import { FeedbackProvider } from "@/src/lib/feedback";
 import { PaySheetProvider } from "@/src/lib/pay-sheet";
 import { StudentKindProvider } from "@/src/lib/student-kind";
+import { TenancyProvider } from "@/src/lib/tenancy";
 import { StudyLockProvider } from "@/src/lib/study-lock";
 import {
   ThemeProvider,
@@ -34,7 +35,9 @@ export default function RootLayout() {
               <StudyLockProvider>
                 <FeedbackProvider>
                   <PaySheetProvider>
-                    <RootNavigator />
+                    <TenancyProvider>
+                      <RootNavigator />
+                    </TenancyProvider>
                   </PaySheetProvider>
                 </FeedbackProvider>
               </StudyLockProvider>
@@ -85,6 +88,7 @@ function RootNavigator() {
         <Stack.Screen name="report" options={{ headerShown: false }} />
         <Stack.Screen name="review" options={{ headerShown: false }} />
         <Stack.Screen name="my-room" options={{ headerShown: false }} />
+        <Stack.Screen name="apartment" options={{ headerShown: false }} />
         <Stack.Screen name="notifications" options={{ headerShown: false }} />
         <Stack.Screen name="housing-preferences" options={{ headerShown: false }} />
         <Stack.Screen name="change-password" options={{ headerShown: false }} />

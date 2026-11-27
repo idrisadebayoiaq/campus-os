@@ -2,6 +2,7 @@ import { router } from "expo-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
+  Alert,
   FlatList,
   KeyboardAvoidingView,
   Modal,
@@ -23,7 +24,9 @@ import {
 import { useAuth } from "@/src/lib/auth";
 import {
   INBOX_FILTERS,
+  clearConversation,
   conversationTitle,
+  deleteConversation,
   createGroupChat,
   kindLabel,
   loadConversations,
@@ -100,6 +103,30 @@ export default function InboxScreen() {
     return rows.filter((r) => r.kind === filter);
   }, [rows, filter]);
 
+  function onRowMenu(conversationId: string, title: string) {
+    Alert.alert(title, undefined, [
+      {
+        text: "Clear chat",
+        onPress: () =>
+          clearConversation(supabase, conversationId)
+            .then(() => refresh())
+            .catch((e) => setError(e?.message ?? "Could not clear the chat")),
+      },
+      {
+        text: "Delete chat",
+        style: "destructive",
+        onPress: () => {
+          setRows((prev) => prev.filter((r) => r.id !== conversationId));
+          deleteConversation(supabase, conversationId).catch((e) => {
+            setError(e?.message ?? "Could not delete the chat");
+            void refresh();
+          });
+        },
+      },
+      { text: "Cancel", style: "cancel" },
+    ]);
+  }
+
   async function startDm() {
     if (!user || !peerEmail.trim()) return;
     setComposeBusy(true);
@@ -173,7 +200,7 @@ export default function InboxScreen() {
             Chats
           </AppText>
           <AppText muted size={13}>
-            Classmates, groups, agents and businesses
+            Classmates, groups, agents and businesses · hold a chat to clear or delete it
           </AppText>
         </View>
         <Pressable
@@ -265,6 +292,7 @@ export default function InboxScreen() {
             return (
               <Pressable
                 onPress={() => router.push(`/inbox/${item.id}`)}
+                onLongPress={() => onRowMenu(item.id, title)}
                 style={({ pressed }) => [
                   styles.row,
                   {

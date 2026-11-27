@@ -12,6 +12,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { AppText } from "@/src/components/ui";
 import { useAuth } from "@/src/lib/auth";
+import { useTenancy } from "@/src/lib/tenancy";
 import {
   useTheme,
   useThemeControls,
@@ -40,6 +41,7 @@ export default function SettingsScreen() {
   const colors = useTheme();
   const insets = useSafeAreaInsets();
   const { signOut } = useAuth();
+  const { hasActiveHome } = useTenancy();
   const { preference, setPreference } = useThemeControls();
   const [signingOut, setSigningOut] = useState(false);
 
@@ -57,6 +59,22 @@ export default function SettingsScreen() {
   }
 
   const groups: SettingsGroup[] = [
+    ...(hasActiveHome
+      ? [
+          {
+            key: "home",
+            title: "Home",
+            rows: [
+              {
+                title: "Apartment",
+                icon: "home-outline" as const,
+                href: "/apartment" as Href,
+                status: "Your house",
+              },
+            ],
+          },
+        ]
+      : []),
     {
       key: "account",
       title: "Account",

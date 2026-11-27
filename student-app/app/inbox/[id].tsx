@@ -2,6 +2,7 @@ import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
+  Alert,
   BackHandler,
   FlatList,
   Image,
@@ -22,7 +23,10 @@ import { loadPremiumIds } from "@/src/lib/premium";
 import { useStudyLock } from "@/src/lib/study-lock";
 import { formatNaira } from "@/src/lib/campus";
 import {
+  clearConversation,
   conversationTitle,
+  deleteConversation,
+  deleteMessage,
   kindLabel,
   markConversationRead,
   sendTextMessage,
@@ -84,7 +88,14 @@ export default function ChatThreadScreen() {
 
   const loadMessages = useCallback(async () => {
     if (!id || !user) return;
-    const [{ data: conv }, { data: msgs }] = await Promise.all([
+    const { data: me } = await supabase
+      .from("conversation_participants")
+      .select("cleared_at")
+      .eq("conversation_id", id)
+      .eq("user_id", user.id)
+      .maybeSingle();
+    const clearedAt = (me?.cleared_at as string | null) ?? null;
+    const [{ data: conv }, { data: msgsAll }] = await Promise.all([
       supabase
         .from("conversations")
         .select("kind, subject, listing_enquiry_id")
@@ -164,7 +175,10 @@ export default function ChatThreadScreen() {
         setAiAvatar((ai?.avatar_url as string | null) ?? null);
       }
     }
-    setMessages((msgs as ChatMessage[]) || []);
+    const msgs = ((msgsAll as ChatMessage[]) || []).filter(
+      (m) => !clearedAt || new Date(m.created_at) > new Date(clearedAt),
+    );
+    setMessages(msgs);
     await markConversationRead(supabase, id, user.id);
     setLoading(false);
   }, [id, user, allowPath]);
@@ -206,6 +220,19 @@ export default function ChatThreadScreen() {
             prev.some((m) => m.id === row.id) ? prev : [...prev, row],
           );
           if (user) void markConversationRead(supabase, id, user.id);
+        },
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "messages",
+          filter: `conversation_id=eq.${id}`,
+        },
+        (payload) => {
+          const row = payload.new as ChatMessage;
+          if (row.deleted_at) setMessages((prev) => prev.filter((m) => m.id !== row.id));
         },
       )
       .subscribe();
@@ -295,6 +322,79 @@ export default function ChatThreadScreen() {
     }
   }
 
+  function onMessageMenu(msg: ChatMessage) {
+    if (msg.message_type === "system") return;
+    const canDelete = msg.sender_id === user?.id || isAi;
+    const buttons: { text: string; style?: "cancel" | "destructive"; onPress?: () => void }[] = [];
+    if (canDelete) {
+      buttons.push({
+        text: "Delete message",
+        style: "destructive",
+        onPress: () => {
+          setMessages((prev) => prev.filter((m) => m.id !== msg.id));
+          deleteMessage(supabase, msg.id).catch((e) => {
+            setError(errorText(e, "Could not delete the message"));
+            void loadMessages();
+          });
+        },
+      });
+    }
+    buttons.push({ text: "Cancel", style: "cancel" });
+    Alert.alert(canDelete ? "Message" : "Message options", canDelete ? undefined : "You can only delete your own messages.", buttons);
+  }
+
+  function onChatMenu() {
+    if (!id) return;
+    const buttons: { text: string; style?: "cancel" | "destructive"; onPress?: () => void }[] = [
+      {
+        text: isAi ? "Clear AI chat history" : "Clear chat",
+        onPress: () =>
+          Alert.alert(
+            isAi ? "Clear AI chat history?" : "Clear this chat?",
+            isAi
+              ? "The tutor will forget this conversation. This can't be undone."
+              : "Messages are removed for you only. The other person keeps their copy.",
+            [
+              { text: "Cancel", style: "cancel" },
+              {
+                text: "Clear",
+                style: "destructive",
+                onPress: () => {
+                  clearConversation(supabase, id)
+                    .then(() => {
+                      setMessages([]);
+                      setError(null);
+                    })
+                    .catch((e) => setError(errorText(e, "Could not clear the chat")));
+                },
+              },
+            ],
+          ),
+      },
+    ];
+    if (!isSupport) {
+      buttons.push({
+        text: "Delete chat",
+        style: "destructive",
+        onPress: () =>
+          Alert.alert("Delete this chat?", "It's removed from your list. It comes back only if someone writes again.", [
+            { text: "Cancel", style: "cancel" },
+            {
+              text: "Delete",
+              style: "destructive",
+              onPress: () => {
+                deleteConversation(supabase, id)
+                  .then(() => (router.canGoBack() ? router.back() : router.replace("/(tabs)")))
+                  .catch((e) => setError(errorText(e, "Could not delete the chat")));
+              },
+            },
+          ]),
+      });
+    }
+    buttons.push({ text: "Cancel", style: "cancel" });
+    Alert.alert(title, undefined, buttons);
+  }
+
   function openProfile() {
     if (!id || isSupport) return;
     if (isAi) {
@@ -353,17 +453,9 @@ export default function ChatThreadScreen() {
             </AppText>
           </View>
         </Pressable>
-        {isSupport ? (
-          <View style={styles.iconBtn} />
-        ) : (
-          <Pressable onPress={openProfile} style={styles.iconBtn}>
-            <Ionicons
-              name={isAi ? "settings-outline" : "ellipsis-vertical"}
-              size={18}
-              color={colors.fg}
-            />
-          </Pressable>
-        )}
+        <Pressable onPress={onChatMenu} style={styles.iconBtn} accessibilityLabel="Chat options">
+          <Ionicons name="ellipsis-vertical" size={18} color={colors.fg} />
+        </Pressable>
       </View>
 
       {listing ? (
@@ -435,7 +527,9 @@ export default function ChatThreadScreen() {
                     {dayLabel(item.created_at)}
                   </AppText>
                 ) : null}
-                <View
+                <Pressable
+                  onLongPress={() => onMessageMenu(item)}
+                  delayLongPress={350}
                   style={[
                     styles.bubble,
                     mine
@@ -490,7 +584,7 @@ export default function ChatThreadScreen() {
                     })}
                     {item.edited_at ? " · edited" : ""}
                   </AppText>
-                </View>
+                </Pressable>
               </View>
             );
           }}

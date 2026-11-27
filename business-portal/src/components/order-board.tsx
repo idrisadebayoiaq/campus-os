@@ -8,6 +8,7 @@ import { VerifiedBadge } from "@/components/live-tables";
 
 export type Order = {
   id: string;
+  business_id: string;
   status: string;
   total: number;
   notes: string | null;
@@ -23,9 +24,27 @@ export type Order = {
   payment_method: string;
   payment_status: string;
   food_order_items:
-    | { name: string; quantity: number; unit_price: number; options: { group: string; name: string }[] | null }[]
+    | {
+        name: string;
+        quantity: number;
+        unit_price: number;
+        options: { group: string; name: string }[] | null;
+        menu_items: { image_url: string | null } | { image_url: string | null }[] | null;
+      }[]
     | null;
 };
+
+const STATUS_STRIP: Record<string, string> = {
+  placed: "border-l-amber-500",
+  accepted: "border-l-sky-500",
+  preparing: "border-l-orange-500",
+  ready: "border-l-emerald-500",
+};
+
+function itemImage(item: NonNullable<Order["food_order_items"]>[number]) {
+  const m = item.menu_items;
+  return (Array.isArray(m) ? m[0]?.image_url : m?.image_url) ?? null;
+}
 
 type Student = { name: string; verified: boolean };
 
@@ -82,13 +101,18 @@ function PaymentTag({ order }: { order: Order }) {
 }
 
 export function OrderBoard({
-  orders,
+  orders: allOrders,
   students,
+  kitchens = [],
 }: {
   orders: Order[];
   students: Record<string, Student>;
+  kitchens?: { id: string; name: string }[];
 }) {
   const router = useRouter();
+  const [kitchen, setKitchen] = useState<string>("all");
+  const orders = kitchen === "all" ? allOrders : allOrders.filter((o) => o.business_id === kitchen);
+  const kitchenName = (id: string) => kitchens.find((k) => k.id === id)?.name;
   const [tab, setTab] = useState<(typeof TABS)[number]["key"]>("new");
   const [error, setError] = useState<string | null>(null);
   const [prep, setPrep] = useState<Record<string, number>>({});
@@ -121,6 +145,22 @@ export function OrderBoard({
 
   return (
     <div className="space-y-4">
+      {kitchens.length > 1 ? (
+        <div className="flex flex-wrap gap-2">
+          {[{ id: "all", name: "All restaurants" }, ...kitchens].map((k) => (
+            <button
+              key={k.id}
+              type="button"
+              onClick={() => setKitchen(k.id)}
+              className={`inline-flex h-8 items-center rounded-full px-3 text-xs transition ${
+                kitchen === k.id ? "bg-fg text-bg" : "border border-border text-muted hover:bg-surface"
+              }`}
+            >
+              {k.name}
+            </button>
+          ))}
+        </div>
+      ) : null}
       <div className="flex flex-wrap gap-2">
         {TABS.map((t) => (
           <button
@@ -144,19 +184,31 @@ export function OrderBoard({
           Nothing here right now.
         </p>
       ) : (
-        <div className="divide-y divide-border rounded-md border border-border">
+        <div className="grid gap-3 lg:grid-cols-2">
           {visible.map((order) => {
             const student = students[order.student_id];
+            const waitingMins = Math.round((Date.now() - new Date(order.created_at).getTime()) / 60000);
+            const late = order.status === "placed" && waitingMins >= 5;
             return (
-              <div key={order.id} className="space-y-3 px-4 py-4 text-sm">
+              <div
+                key={order.id}
+                className={`space-y-3 rounded-2xl border border-l-4 border-border bg-surface/40 px-4 py-4 text-sm ${
+                  STATUS_STRIP[order.status] ?? "border-l-border"
+                }`}
+              >
                 <div className="flex flex-wrap items-start justify-between gap-2">
                   <div>
-                    <p className="flex flex-wrap items-center gap-2 font-medium">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-muted">
+                      #{order.id.slice(0, 4).toUpperCase()}
+                      {kitchenName(order.business_id) ? ` · ${kitchenName(order.business_id)}` : ""}
+                    </p>
+                    <p className="flex flex-wrap items-center gap-2 text-base font-semibold">
                       {student?.name || "Student"}
                       <VerifiedBadge verified={Boolean(student?.verified)} />
                     </p>
-                    <p className="text-muted">
+                    <p className={late ? "font-medium text-red-500" : "text-muted"}>
                       {LABEL[order.status] ?? order.status} · {ago(order.created_at)}
+                      {late ? " · needs a response" : ""}
                       {order.prep_minutes && order.status !== "placed" ? ` · ~${order.prep_minutes} min` : ""}
                     </p>
                   </div>
@@ -179,15 +231,31 @@ export function OrderBoard({
                     : ""}
                 </p>
 
-                <ul className="text-muted">
-                  {(order.food_order_items || []).map((item, i) => (
-                    <li key={`${order.id}-${i}`}>
-                      {item.quantity}× {item.name}
-                      {item.options?.length ? (
-                        <span className="text-muted"> ({item.options.map((o) => o.name).join(", ")})</span>
-                      ) : null}
-                    </li>
-                  ))}
+                <ul className="space-y-2">
+                  {(order.food_order_items || []).map((item, i) => {
+                    const img = itemImage(item);
+                    return (
+                      <li key={`${order.id}-${i}`} className="flex items-center gap-3">
+                        {img ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img src={img} alt="" className="h-12 w-12 shrink-0 rounded-xl object-cover" />
+                        ) : (
+                          <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-accent-soft text-lg">
+                            🍽
+                          </span>
+                        )}
+                        <span className="min-w-0 flex-1">
+                          <span className="font-medium text-fg">
+                            {item.quantity}× {item.name}
+                          </span>
+                          {item.options?.length ? (
+                            <span className="block text-xs text-muted">{item.options.map((o) => o.name).join(", ")}</span>
+                          ) : null}
+                        </span>
+                        <span className="text-muted">₦{(Number(item.unit_price) * item.quantity).toLocaleString()}</span>
+                      </li>
+                    );
+                  })}
                 </ul>
                 {order.notes ? <p className="text-muted">Note: {order.notes}</p> : null}
                 {order.status === "declined" && order.decline_reason ? (

@@ -39,8 +39,89 @@ function json(data: unknown, status = 200) {
 
 type Msg = { body: string | null; sender_id: string | null; message_type: string };
 
-async function askModel(system: string, turns: { role: "user" | "assistant"; content: string }[]) {
-  const key = Deno.env.get("OPENROUTER_API_KEY")?.trim().replace(/^["']|["']$/g, "");
+type Turn = { role: "user" | "assistant"; content: string };
+type Answer = { text: string; model: string; promptTokens: number; completionTokens: number };
+
+const secret = (name: string) => Deno.env.get(name)?.trim().replace(/^["']|["']$/g, "") || "";
+
+// Tries every configured provider in order, so one dead key does not take the tutor down.
+async function askModel(system: string, turns: Turn[]): Promise<Answer> {
+  const attempts: { name: string; run: () => Promise<Answer> }[] = [];
+  if (secret("OPENROUTER_API_KEY")) attempts.push({ name: "openrouter", run: () => askOpenRouter(system, turns) });
+  if (secret("GEMINI_API_KEY")) attempts.push({ name: "gemini", run: () => askGemini(system, turns) });
+  if (secret("OPENAI_API_KEY")) attempts.push({ name: "openai", run: () => askOpenAI(system, turns) });
+  if (!attempts.length) throw new Error("not_configured");
+
+  let lastError = "model_error";
+  for (const a of attempts) {
+    try {
+      return await a.run();
+    } catch (e) {
+      lastError = e instanceof Error ? e.message : "model_error";
+      console.error(`tutor_provider_failed ${a.name} ${lastError}`);
+    }
+  }
+  throw new Error(lastError);
+}
+
+async function askGemini(system: string, turns: Turn[]): Promise<Answer> {
+  const key = secret("GEMINI_API_KEY");
+  const model = Deno.env.get("GEMINI_TUTOR_MODEL") || "gemini-2.5-flash";
+  const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "x-goog-api-key": key },
+    body: JSON.stringify({
+      systemInstruction: { parts: [{ text: system }] },
+      contents: turns.map((t) => ({ role: t.role === "user" ? "user" : "model", parts: [{ text: t.content }] })),
+      generationConfig: { temperature: 0.5, maxOutputTokens: 1400 },
+    }),
+  });
+  if (!res.ok) {
+    console.error(`gemini_${res.status}`, (await res.text().catch(() => "")).slice(0, 300));
+    throw new Error(res.status === 400 || res.status === 401 || res.status === 403 ? "provider_auth" : `model_${res.status}`);
+  }
+  const data = await res.json();
+  const text: string | undefined = data?.candidates?.[0]?.content?.parts?.map((p: { text?: string }) => p.text ?? "").join("");
+  if (!text?.trim()) throw new Error("empty");
+  return {
+    text: text.trim(),
+    model: model,
+    promptTokens: Number(data?.usageMetadata?.promptTokenCount ?? 0),
+    completionTokens: Number(data?.usageMetadata?.candidatesTokenCount ?? 0),
+  };
+}
+
+async function askOpenAI(system: string, turns: Turn[]): Promise<Answer> {
+  const key = secret("OPENAI_API_KEY");
+  const base = (Deno.env.get("AI_BASE_URL") || "https://api.openai.com/v1").replace(/\/$/, "");
+  const model = Deno.env.get("OPENAI_TUTOR_MODEL") || "gpt-4o-mini";
+  const res = await fetch(`${base}/chat/completions`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
+    body: JSON.stringify({
+      model,
+      temperature: 0.5,
+      max_tokens: 1400,
+      messages: [{ role: "system", content: system }, ...turns],
+    }),
+  });
+  if (!res.ok) {
+    console.error(`openai_${res.status}`, (await res.text().catch(() => "")).slice(0, 300));
+    throw new Error(res.status === 401 || res.status === 402 || res.status === 403 ? "provider_auth" : `model_${res.status}`);
+  }
+  const data = await res.json();
+  const text: string | undefined = data?.choices?.[0]?.message?.content;
+  if (!text?.trim()) throw new Error("empty");
+  return {
+    text: text.trim(),
+    model: (data?.model as string) || model,
+    promptTokens: Number(data?.usage?.prompt_tokens ?? 0),
+    completionTokens: Number(data?.usage?.completion_tokens ?? 0),
+  };
+}
+
+async function askOpenRouter(system: string, turns: Turn[]): Promise<Answer> {
+  const key = secret("OPENROUTER_API_KEY");
   if (!key) throw new Error("not_configured");
 
   const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {

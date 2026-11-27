@@ -223,7 +223,7 @@ export async function loadConversations(
   const { data: parts } = await supabase
     .from("conversation_participants")
     .select(
-      "conversation_id, last_read_at, muted, archived, conversations(id, kind, subject, updated_at, business_id)",
+      "conversation_id, last_read_at, muted, archived, cleared_at, conversations(id, kind, subject, updated_at, business_id)",
     )
     .eq("user_id", userId)
     .eq("archived", false);
@@ -237,6 +237,7 @@ export async function loadConversations(
     last_read_at: string | null;
     muted: boolean;
     businessId: string | null;
+    clearedAt: string | null;
   }[] = [];
 
   for (const part of parts || []) {
@@ -253,6 +254,7 @@ export async function loadConversations(
       last_read_at: (part.last_read_at as string | null) || null,
       muted: Boolean(part.muted),
       businessId: (conv.business_id as string | null) || null,
+      clearedAt: (part.cleared_at as string | null) || null,
     });
   }
 
@@ -276,7 +278,10 @@ export async function loadConversations(
     string,
     { body: string; created_at: string; message_type: string }
   >();
+  const clearedBy = new Map(partMeta.map((c) => [c.id, c.clearedAt]));
   for (const msg of recentMessages || []) {
+    const clearedAt = clearedBy.get(msg.conversation_id);
+    if (clearedAt && new Date(msg.created_at) <= new Date(clearedAt)) continue;
     if (!lastByConv.has(msg.conversation_id)) {
       lastByConv.set(msg.conversation_id, {
         body: msg.body,
@@ -307,6 +312,24 @@ export async function loadConversations(
 
   rows.sort((a, b) => +new Date(b.updated_at) - +new Date(a.updated_at));
   return rows;
+}
+
+/** Delete one message (yours, or any message in your AI tutor chat). */
+export async function deleteMessage(supabase: SupabaseClient, messageId: string) {
+  const { error } = await supabase.rpc("delete_message", { p_message: messageId });
+  if (error) throw error;
+}
+
+/** Clear the chat history for you. The chat stays in your list. */
+export async function clearConversation(supabase: SupabaseClient, conversationId: string) {
+  const { error } = await supabase.rpc("clear_conversation", { p_conversation: conversationId });
+  if (error) throw error;
+}
+
+/** Remove the chat from your list (it returns if someone writes again). */
+export async function deleteConversation(supabase: SupabaseClient, conversationId: string) {
+  const { error } = await supabase.rpc("delete_conversation", { p_conversation: conversationId });
+  if (error) throw error;
 }
 
 export async function markConversationRead(

@@ -10,10 +10,9 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useStudentKind } from "@/src/lib/student-kind";
+import { useTenancy } from "@/src/lib/tenancy";
 import { useTheme } from "@/src/theme/ThemeProvider";
 import { radii } from "@/src/theme/tokens";
-
-const PRIMARY_TAB_NAMES = new Set(["index", "housing", "marketplace", "ai"]);
 
 type TabRoute = { key: string; name: string; params?: object };
 type TabBarProps = {
@@ -106,10 +105,16 @@ export function FloatingTabBar({ state }: TabBarProps) {
   const { isExamPrep } = useStudentKind();
   // Exam candidates browse housing and the market around the school they want. The AI tab makes
   // way for the Study hub (the AI tutor stays in the menu and on Home).
+  const { hasActiveHome } = useTenancy();
+  // Once a student has collected a house, the Housing tab makes way: their apartment lives in
+  // Settings, and "Find new house" still reaches the marketplace from there.
+  const basePrimary = hasActiveHome ? PRIMARY_TABS.filter((t) => t.name !== "housing") : PRIMARY_TABS;
   const primaryTabs = isExamPrep
     ? PRIMARY_TABS.map((t) => (t.name === "ai" ? EXAM_STUDY_TAB : t))
-    : PRIMARY_TABS;
-  const primaryNames = isExamPrep ? new Set(["index", "housing", "marketplace", "study"]) : PRIMARY_TAB_NAMES;
+    : basePrimary;
+  const primaryNames = isExamPrep
+    ? new Set(["index", "housing", "marketplace", "study"])
+    : new Set(primaryTabs.map((t) => t.name));
   const moreMenu = isExamPrep ? EXAM_MORE_MENU : MORE_MENU;
   const insets = useSafeAreaInsets();
   const segments = useSegments();

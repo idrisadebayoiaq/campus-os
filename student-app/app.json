@@ -2,7 +2,7 @@
   "expo": {
     "name": "CampusOS",
     "slug": "campusos-student",
-    "version": "1.0.10",
+    "version": "1.0.11",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "scheme": "campusos",
@@ -20,7 +20,7 @@
     "android": {
       "package": "com.campusos.app",
       "googleServicesFile": "./google-services.json",
-      "versionCode": 15,
+      "versionCode": 16,
       "softwareKeyboardLayoutMode": "resize",
       "adaptiveIcon": {
         "backgroundColor": "#AB9FF2",
