@@ -54,7 +54,7 @@ Deno.serve(async (req) => {
         });
         if (data === "success") out.settled++;
       } else if (tx.status === "failed") {
-        await admin.rpc("fail_payment", { p_reference: p.reference });
+        await admin.rpc("fail_payment", { p_reference: p.reference, p_reason: String(tx.gateway_response ?? "") });
       }
     } catch (e) {
       console.error("sweep payment", p.reference, e instanceof Error ? e.message : e);

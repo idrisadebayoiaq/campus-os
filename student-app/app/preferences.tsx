@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { Pressable, StyleSheet, Switch, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { Group, ListRow, PageShell, Section, Segmented } from "@/src/components/page";
+import { Group, ListRow, Notice, PageShell, Section, Segmented } from "@/src/components/page";
 import { AppText, Button, Input } from "@/src/components/ui";
 import { useAuth } from "@/src/lib/auth";
 import { notify, toast } from "@/src/lib/feedback";
@@ -30,8 +30,6 @@ type NotifKey =
   | "examination_alerts"
   | "study_group_messages"
   | "housing_alerts"
-  | "food_order_updates"
-  | "marketplace_updates"
   | "campus_announcements"
   | "marketing_email";
 type NotifState = Record<NotifKey, boolean>;
@@ -43,8 +41,6 @@ const DEFAULT_NOTIFS: NotifState = {
   examination_alerts: true,
   study_group_messages: true,
   housing_alerts: true,
-  food_order_updates: true,
-  marketplace_updates: true,
   campus_announcements: true,
   marketing_email: false,
 };
@@ -55,8 +51,6 @@ const NOTIF_ROWS: { key: NotifKey; label: string; icon: keyof typeof Ionicons.gl
   { key: "examination_alerts", label: "Exams", icon: "document-text-outline" },
   { key: "study_group_messages", label: "Study groups", icon: "people-outline" },
   { key: "housing_alerts", label: "Room matches", icon: "home-outline" },
-  { key: "food_order_updates", label: "Food orders", icon: "fast-food-outline" },
-  { key: "marketplace_updates", label: "Marketplace", icon: "storefront-outline" },
   { key: "campus_announcements", label: "Announcements", icon: "megaphone-outline" },
   { key: "marketing_email", label: "Offers by email", icon: "mail-outline" },
 ];
@@ -130,32 +124,29 @@ export default function PreferencesScreen() {
 
   return (
     <PageShell title="Study & alerts" loading={loading}>
-      <Group>
-        <ListRow
-          icon="notifications"
-          title="Push notifications"
-          chevron={false}
-          right={
-            <Switch value={notifs.channel_push} onValueChange={(v) => void flip("channel_push", v)} trackColor={{ true: colors.accent, false: colors.border }} />
-          }
-        />
-      </Group>
+      <Notice icon="shield-checkmark-outline">
+        Wallet, orders, purchases, housing, school and account updates always send. You can switch off the reminders below.
+      </Notice>
 
-      {notifs.channel_push ? (
-        <Section title="Alert me about">
-          <Group>
-            {NOTIF_ROWS.map((r) => (
-              <ListRow
-                key={r.key}
-                icon={r.icon}
-                title={r.label}
-                chevron={false}
-                right={<Switch value={notifs[r.key]} onValueChange={(v) => void flip(r.key, v)} trackColor={{ true: colors.accent, false: colors.border }} />}
-              />
-            ))}
-          </Group>
-        </Section>
-      ) : null}
+      <Section title="Alert me about">
+        <Group>
+          <ListRow
+            icon="chatbubble-ellipses-outline"
+            title="Chat messages"
+            chevron={false}
+            right={<Switch value={notifs.channel_push} onValueChange={(v) => void flip("channel_push", v)} trackColor={{ true: colors.accent, false: colors.border }} />}
+          />
+          {NOTIF_ROWS.map((r) => (
+            <ListRow
+              key={r.key}
+              icon={r.icon}
+              title={r.label}
+              chevron={false}
+              right={<Switch value={notifs[r.key]} onValueChange={(v) => void flip(r.key, v)} trackColor={{ true: colors.accent, false: colors.border }} />}
+            />
+          ))}
+        </Group>
+      </Section>
 
       <Section title="Tutor explanations">
         <Segmented value={aiStyle} onChange={setAiStyle} options={AI_STYLES} />

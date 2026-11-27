@@ -85,7 +85,7 @@ Deno.serve(async (req) => {
       });
       return String(data ?? "success");
     }
-    if (tx.status === "failed") await admin.rpc("fail_payment", { p_reference: reference });
+    if (tx.status === "failed") await admin.rpc("fail_payment", { p_reference: reference, p_reason: String(tx.gateway_response ?? "") });
     return String(tx.status);
   }
 

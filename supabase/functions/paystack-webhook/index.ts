@@ -53,7 +53,7 @@ Deno.serve(async (req) => {
         p_auth: auth ? { ...auth, email } : null,
       });
     } else if (event.event === "charge.failed") {
-      await admin.rpc("fail_payment", { p_reference: String(data.reference ?? "") });
+      await admin.rpc("fail_payment", { p_reference: String(data.reference ?? ""), p_reason: String(data.gateway_response ?? "") });
     } else if (event.event === "transfer.success") {
       await admin.rpc("payout_finish", { p_reference: String(data.reference ?? ""), p_status: "paid", p_code: String(data.transfer_code ?? "") });
     } else if (event.event === "transfer.failed" || event.event === "transfer.reversed") {
