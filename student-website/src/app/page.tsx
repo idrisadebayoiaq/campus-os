@@ -7,14 +7,44 @@ import { APP_VERSION, PORTAL_URL } from "@/lib/downloads";
 export const metadata = {
   title: "CampusOS — Campus life that fits your school",
   description:
-    "Housing, study tools, food, marketplace, AI tutoring, and calls for Nigerian students. Download CampusOS for Android and iOS.",
+    "For students in school and students preparing for JAMB, WAEC or NECO: housing, rent reminders, food, marketplace, wallet, AI tutoring and past questions. Download CampusOS for Android and iOS.",
 };
 
 const STATS = [
-  { value: "5-in-1", label: "Housing, study, food, market & chat" },
-  { value: "AI tutor", label: "Built for tertiary courses" },
-  { value: "Offline-ready", label: "Your timetable works without data" },
+  { value: "2 journeys", label: "In-school students and exam candidates" },
+  { value: "AI tutor", label: "For your courses or your exam subjects" },
+  { value: "Rent alerts", label: "A month, a week, 3 days and 24 hours ahead" },
   { value: "Free", label: "Download and start in minutes" },
+] as const;
+
+const JOURNEYS = [
+  {
+    badge: "In school",
+    title: "Already at your campus",
+    body: "Everything for the campus day, scoped to your school.",
+    points: [
+      "Wallet with card top-up, plus Premium for higher limits",
+      "Housing with real move-in costs, inspection booking and agent chat",
+      "Your Apartment in Settings: photos, details, rent receipts and due dates",
+      "Rent reminders a month, a week, 3 days and 24 hours before it's due",
+      "Order from campus restaurants with menus, photos, options and live order status",
+      "Marketplace with safe pickup codes, plus chat you can clear or delete",
+      "Study Hub, class rooms, lecturers' announcements and an AI tutor for your courses",
+    ],
+  },
+  {
+    badge: "Exam prep",
+    title: "Preparing for JAMB, WAEC or NECO",
+    body: "Study toward your exam, and get ready for the school you're aiming for.",
+    points: [
+      "Set your exams, subjects, exam date, and the school and campus you want",
+      "AI tutor that teaches to the syllabus and drills you with exam-style questions",
+      "Past questions and a Study tab built around your goals",
+      "Browse housing around your target school before you get admitted",
+      "Marketplace for the things you'll need in school, from your target campus",
+      "Switch to the full in-school app when you're admitted",
+    ],
+  },
 ] as const;
 
 const FEATURES = [
@@ -36,7 +66,22 @@ const FEATURES = [
   {
     icon: "🍔",
     title: "Food & vendors",
-    body: "Order from campus vendors and see who is open, what's on the menu and when it arrives.",
+    body: "Order like in a restaurant app: photo menus, add-ons, deals, delivery or pickup, and live status from accepted to ready. (In-school students.)",
+  },
+  {
+    icon: "🔑",
+    title: "My apartment & rent alerts",
+    body: "Once you collect your keys, your house moves into Settings with its photos, details and receipts, and we remind you before every rent date.",
+  },
+  {
+    icon: "🎯",
+    title: "Exam prep mode",
+    body: "Preparing for JAMB, WAEC or NECO? Set your goals, practise past questions and scout housing and the market near your target school.",
+  },
+  {
+    icon: "💳",
+    title: "Wallet & Premium",
+    body: "Top up with a card, pay for orders and rent items from one wallet, and unlock higher AI limits with Premium.",
   },
   {
     icon: "🛍️",
@@ -46,7 +91,12 @@ const FEATURES = [
   {
     icon: "💬",
     title: "Inbox & calls",
-    body: "Chat with classmates, agents and businesses, then switch to voice or video when you need to.",
+    body: "Chat with classmates, agents and businesses, then switch to voice or video. Delete messages and clear or remove chats whenever you like.",
+  },
+  {
+    icon: "🔔",
+    title: "Reminders that matter",
+    body: "Viewings, orders and rent dates arrive as notifications, and you can clear them one by one or all at once.",
   },
   {
     icon: "🎓",
@@ -94,6 +144,18 @@ const FAQ = [
   {
     q: "Is CampusOS free?",
     a: "Yes. Downloading and using the student app is free. Businesses and schools manage their presence through the CampusOS Portal.",
+  },
+  {
+    q: "I'm preparing for JAMB, WAEC or NECO. Can I use CampusOS?",
+    a: "Yes. Choose exam prep when you sign up, set your exams, subjects and target school, and you get the AI tutor, past questions, and housing and marketplace browsing around that school. Food ordering is switched off in prep mode.",
+  },
+  {
+    q: "Will CampusOS remind me when my rent is due?",
+    a: "Yes. Once your agent hands over your house, you get reminders a month, a week, 3 days and 24 hours before rent is due, then on the day and if it becomes overdue.",
+  },
+  {
+    q: "Where do I find my apartment after I move in?",
+    a: "Open Settings, then Apartment. You'll see your current house with photos and details, plus rent dates and receipts. Tap Find new house to return to the housing marketplace.",
   },
   {
     q: "Which schools does it support?",
@@ -164,8 +226,9 @@ export default function LandingPage() {
               <span className="text-accent">in one app</span>
             </h1>
             <p className="max-w-lg text-base leading-7 text-hero-muted sm:text-lg">
-              Find housing, plan your week, study with an AI tutor, order food and
-              chat with anyone on campus. Personalised the moment you pick your school.
+              In school or preparing for JAMB, WAEC and NECO: find housing, study with
+              an AI tutor, get rent reminders, order food and chat with anyone on campus.
+              Personalised the moment you pick your journey.
             </p>
             <div className="flex flex-wrap items-center gap-3">
               <Link
@@ -220,6 +283,34 @@ export default function LandingPage() {
         </div>
       </section>
 
+      {/* Two journeys */}
+      <section id="journeys" className="scroll-mt-20 border-b border-border bg-surface">
+        <div className="mx-auto max-w-6xl px-4 py-14 sm:py-20 sm:px-6">
+          <SectionHeading
+            center
+            eyebrow="Two ways to use CampusOS"
+            title="Whether you're in school or still preparing"
+            body="Pick what fits you when you sign up. The app reshapes itself around your journey."
+          />
+          <div className="mt-10 grid gap-5 md:grid-cols-2">
+            {JOURNEYS.map((j) => (
+              <div key={j.badge} className="rounded-[1.75rem] bg-bg p-7 ring-1 ring-border">
+                <span className="inline-flex rounded-full bg-accent px-3 py-1 text-xs font-semibold text-on-accent">
+                  {j.badge}
+                </span>
+                <h3 className="mt-4 text-xl font-semibold text-fg">{j.title}</h3>
+                <p className="mt-1 text-sm text-muted">{j.body}</p>
+                <ul className="mt-5 space-y-3">
+                  {j.points.map((p) => (
+                    <Check key={p}>{p}</Check>
+                  ))}
+                </ul>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
       {/* Features */}
       <section id="features" className="scroll-mt-20 bg-bg">
         <div className="mx-auto max-w-6xl px-4 py-14 sm:py-20 sm:px-6">
@@ -258,6 +349,7 @@ export default function LandingPage() {
             <ul className="space-y-3">
               <Check>Total move-in cost on every listing</Check>
               <Check>Book inspections and message agents in the app</Check>
+              <Check>Exam candidates can browse housing around their target school</Check>
               <Check>Rooms near the school you actually attend</Check>
             </ul>
           </div>
@@ -272,8 +364,35 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* Deep dive: study */}
+      {/* Deep dive: apartment + rent reminders */}
       <section className="bg-bg">
+        <div className="mx-auto grid max-w-6xl items-center gap-12 px-4 py-14 sm:py-20 sm:px-6 lg:grid-cols-2">
+          <div className="order-2 flex justify-center lg:order-1">
+            <PhoneMock title="Apartment">
+              <MockRow title="Self-contain, Gate Area" meta="Your current home" badge="Active" />
+              <MockRow title="Next rent" meta="Due in 24 hours · ₦180k" badge="Soon" />
+              <MockRow title="Receipts & move-in checklist" meta="Everything in one place" />
+              <MockRow title="Find new house" meta="Back to the housing marketplace" badge="Go" />
+            </PhoneMock>
+          </div>
+          <div className="order-1 space-y-6 lg:order-2">
+            <SectionHeading
+              eyebrow="Your home, handled"
+              title="After you collect your keys, the app follows you home"
+              body="Housing steps out of your tab bar and your apartment moves into Settings, with its photos, details and rent dates. Moving on? One tap takes you back to the marketplace."
+            />
+            <ul className="space-y-3">
+              <Check>Your current house with photos, rent and agent details</Check>
+              <Check>Rent reminders a month, a week, 3 days and 24 hours ahead</Check>
+              <Check>Rent receipts and a move-in checklist you can tick off</Check>
+              <Check>Message your agent or find a new house in one tap</Check>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      {/* Deep dive: study */}
+      <section className="bg-surface">
         <div className="mx-auto grid max-w-6xl items-center gap-12 px-4 py-14 sm:py-20 sm:px-6 lg:grid-cols-2">
           <div className="order-2 flex justify-center lg:order-1">
             <PhoneMock title="Study Hub">
@@ -300,6 +419,35 @@ export default function LandingPage() {
         </div>
       </section>
 
+      {/* Deep dive: exam prep */}
+      <section id="exam-prep" className="scroll-mt-20 bg-bg">
+        <div className="mx-auto grid max-w-6xl items-center gap-12 px-4 py-14 sm:py-20 sm:px-6 lg:grid-cols-2">
+          <div className="space-y-6">
+            <SectionHeading
+              eyebrow="Exam prep"
+              title="Get exam-ready and school-ready at the same time"
+              body="Preparing for JAMB, WAEC or NECO? Tell CampusOS your exams, subjects and the school you want, and the app is built around that."
+            />
+            <ul className="space-y-3">
+              <Check>Exam goals: your exams, subjects, date, target school and course</Check>
+              <Check>AI tutor that drills you with exam-style questions and explains the answers</Check>
+              <Check>Past questions and a Study tab for daily practice</Check>
+              <Check>Browse housing and the marketplace around your target campus</Check>
+              <Check>No food ordering in prep mode, so nothing distracts you from the books</Check>
+            </ul>
+          </div>
+          <div className="flex justify-center">
+            <PhoneMock title="Exam goals">
+              <MockRow title="JAMB · WAEC" meta="Maths, English, Physics, Chemistry" />
+              <MockRow title="Target school" meta="Osun State University · Osogbo" badge="Set" />
+              <MockRow title="Past questions" meta="Practise by subject" badge="New" />
+              <MockBubble>Give me 3 JAMB-style questions on algebra</MockBubble>
+              <MockBubble mine>Question 1: If 2x + 3 = 11, what is x?</MockBubble>
+            </PhoneMock>
+          </div>
+        </div>
+      </section>
+
       {/* Deep dive: market + inbox */}
       <section className="bg-surface">
         <div className="mx-auto grid max-w-6xl items-center gap-12 px-4 py-14 sm:py-20 sm:px-6 lg:grid-cols-2">
@@ -310,9 +458,10 @@ export default function LandingPage() {
               body="Order from vendors you trust, sell what you don't need, and keep every conversation in one inbox with voice and video calls built in."
             />
             <ul className="space-y-3">
-              <Check>Campus vendors, menus and order tracking</Check>
+              <Check>Restaurant-style ordering: photo menus, add-ons, deals, pickup or delivery</Check>
+              <Check>Live order status from accepted to ready (in-school students)</Check>
               <Check>Peer-to-peer marketplace scoped to your school</Check>
-              <Check>Direct messages, group chats and calls</Check>
+              <Check>Direct messages, group chats and calls, with delete and clear</Check>
             </ul>
           </div>
           <div className="flex justify-center">
