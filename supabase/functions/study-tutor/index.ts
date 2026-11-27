@@ -62,7 +62,12 @@ async function askModel(system: string, turns: { role: "user" | "assistant"; con
       provider: { sort: "price", allow_fallbacks: true },
     }),
   });
-  if (!res.ok) throw new Error(`model_${res.status}`);
+  if (!res.ok) {
+    const detail = (await res.text().catch(() => "")).slice(0, 300);
+    console.error(`openrouter_${res.status}`, detail);
+    // 401/402/403 mean the provider key or credit is the problem, not the student.
+    throw new Error(res.status === 401 || res.status === 402 || res.status === 403 ? "provider_auth" : `model_${res.status}`);
+  }
   const data = await res.json();
   const text: string | undefined = data?.choices?.[0]?.message?.content;
   if (!text?.trim()) throw new Error("empty");
@@ -269,10 +274,10 @@ Deno.serve(async (req) => {
     } catch (e) {
       const code = e instanceof Error ? e.message : "";
       const text =
-        code === "not_configured"
-          ? "The AI tutor isn't switched on yet. Please try again later."
+        code === "not_configured" || code === "provider_auth"
+          ? "The AI tutor is temporarily unavailable. We're fixing it, please try again later."
           : "The tutor is busy right now. Please try again in a moment.";
-      return json({ error: text }, code === "not_configured" ? 503 : 502);
+      return json({ error: text }, code === "not_configured" || code === "provider_auth" ? 503 : 502);
     }
 
     const reply = plain(answer.text);
