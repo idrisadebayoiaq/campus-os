@@ -83,7 +83,9 @@ const LABEL: Record<string, string> = {
 function PaymentTag({ order }: { order: Order }) {
   const label =
     order.payment_status === "paid"
-      ? "Paid by card"
+      ? order.payment_method === "wallet"
+        ? "Paid from wallet"
+        : "Paid by card"
       : order.payment_status === "pending"
         ? "Awaiting card payment"
         : order.payment_status === "refund_requested"
