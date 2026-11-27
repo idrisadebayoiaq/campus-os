@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { InspectionBoard, type OpenSlot } from "@/components/inspection-board";
+import { InspectionBoard, type OfferRow, type OpenSlot } from "@/components/inspection-board";
 import { LiveTables } from "@/components/live-tables";
 import { Container, EmptyState, PageHeader } from "@/components/ui";
 import { myBusinesses } from "@/lib/business";
@@ -57,6 +57,15 @@ export default async function InspectionsPage() {
     };
   }
 
+  const requestIds = mine.map((r) => r.id);
+  const { data: offerRows } = requestIds.length
+    ? await supabase
+        .from("payment_requests")
+        .select("id, inspection_id, status, amount, rent_period, created_at")
+        .in("inspection_id", requestIds)
+        .order("created_at", { ascending: false })
+    : { data: [] as OfferRow[] };
+
   const { data: slotRows } = await supabase
     .from("inspection_slots")
     .select("id, property_id, starts_at, capacity, properties!inner(business_id)")
@@ -89,12 +98,12 @@ export default async function InspectionsPage() {
       <div className="space-y-8 py-8 sm:py-12">
         <PageHeader
           title="Inspection requests"
-          description="Accept, decline, or move student viewing requests to another time."
+          description="Accept, decline, or move viewing requests. After a viewing, send the student an offer: they pay from their wallet and move in."
         />
         {!mine.length ? (
           <EmptyState title="No requests" description="Student inspection requests will appear here." />
         ) : (
-          <InspectionBoard requests={mine} students={students} slots={slots} />
+          <InspectionBoard requests={mine} students={students} slots={slots} offers={(offerRows ?? []) as OfferRow[]} />
         )}
         <LiveTables tables={["inspection_requests"]} channel="viewing-requests" />
       </div>

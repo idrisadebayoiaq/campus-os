@@ -170,12 +170,18 @@ export function BalancePanel({
   minimum,
   hasBank,
   payouts,
+  pending = 0,
+  autoMinimum,
 }: {
   businessId: string;
   balance: number;
   minimum: number;
   hasBank: boolean;
   payouts: PayoutRow[];
+  /** Paid orders still in progress. It joins the balance once they are completed. */
+  pending?: number;
+  /** Set for kitchens: the balance is sent to the bank automatically every morning. */
+  autoMinimum?: number;
 }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
@@ -207,10 +213,18 @@ export function BalancePanel({
     <div className="space-y-3">
       <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-border bg-surface p-4">
         <div>
-          <p className="text-xs uppercase tracking-wider text-muted">CampusOS balance</p>
+          <p className="text-xs uppercase tracking-wider text-muted">Available</p>
           <p className="text-2xl font-semibold">₦{balance.toLocaleString()}</p>
+          {pending > 0 ? (
+            <p className="mt-1 text-sm">
+              <span className="font-medium">₦{pending.toLocaleString()} pending</span>{" "}
+              <span className="text-muted">· paid already, available when the order is completed</span>
+            </p>
+          ) : null}
           <p className="mt-1 text-xs text-muted">
-            Money from wallet orders. Card orders are paid to your bank straight away and do not show here.
+            {autoMinimum != null
+              ? `Sent to your bank automatically every morning once ₦${autoMinimum.toLocaleString()} is available. The platform percentage is already taken off.`
+              : "Money from paid orders and requests, after the platform percentage."}
           </p>
         </div>
         {confirming ? (

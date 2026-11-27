@@ -25,6 +25,7 @@ const KIND: Record<string, string> = {
 export default function EarningsScreen() {
   const { user } = useAuth();
   const [balance, setBalance] = useState(0);
+  const [pending, setPending] = useState(0);
   const [minimum, setMinimum] = useState(5000);
   const [account, setAccount] = useState<Account | null>(null);
   const [payouts, setPayouts] = useState<Payout[]>([]);
@@ -42,13 +43,15 @@ export default function EarningsScreen() {
 
   const load = useCallback(async () => {
     if (!user) return;
-    const [bal, acc, pay, ent, min] = await Promise.all([
+    const [bal, acc, pay, ent, min, pend] = await Promise.all([
       supabase.rpc("my_earnings"),
       supabase.from("user_payout_accounts").select("account_name, bank_name, account_number").eq("user_id", user.id).maybeSingle(),
       supabase.from("payouts").select("id, amount, status, failure_reason, created_at").eq("user_id", user.id).order("created_at", { ascending: false }).limit(20),
       supabase.from("user_entries").select("id, kind, amount, note, created_at").eq("user_id", user.id).order("created_at", { ascending: false }).limit(40),
       supabase.rpc("setting_num", { p_key: "payout_min", p_default: 5000 }),
+      supabase.rpc("my_pending_earnings"),
     ]);
+    setPending(Number(pend.data ?? 0));
     setBalance(Number(bal.data ?? 0));
     setAccount((acc.data as Account | null) ?? null);
     setPayouts((pay.data as Payout[]) ?? []);
@@ -156,7 +159,11 @@ export default function EarningsScreen() {
       <Hero
         label="Available to withdraw"
         value={formatNaira(balance)}
-        note="Released after buyers confirm the handover, after CampusOS takes its small commission."
+        note={
+          pending > 0
+            ? `${formatNaira(pending)} pending, available once the buyer has the item. Food is paid as soon as it is handed over.`
+            : "Released after buyers confirm the handover, after CampusOS takes its small commission. Food is paid as soon as it is handed over."
+        }
       />
 
       <Section title="Bank account" hint="Withdrawals only go to an account in your own name">

@@ -43,15 +43,22 @@ export default async function PayoutsPage() {
   const kitchens = owned.filter((b) => b.business_type === "food_vendor");
   const since = new Date(Date.now() - 8 * 7 * 86400_000).toISOString();
 
-  const [balances, { data: payoutRows }, { data: minSetting }, { data: methods }, { data: refunds }, { data: ledger }, { data: orders }] = await Promise.all([
+  const [balances, pendings, { data: payoutRows }, { data: minSetting }, { data: autoSetting }, { data: methods }, { data: refunds }, { data: ledger }, { data: orders }] = await Promise.all([
     Promise.all(
       owned.map(async (k) => {
         const { data } = await supabase.rpc("business_balance", { p_business: k.id });
         return [k.id, Number(data ?? 0)] as const;
       }),
     ),
+    Promise.all(
+      owned.map(async (k) => {
+        const { data } = await supabase.rpc("business_pending", { p_business: k.id });
+        return [k.id, Number(data ?? 0)] as const;
+      }),
+    ),
     supabase.from("payouts").select("id, business_id, amount, status, failure_reason, created_at").in("business_id", ids).order("created_at", { ascending: false }).limit(40),
     supabase.rpc("setting_num", { p_key: "payout_min", p_default: 5000 }),
+    supabase.rpc("setting_num", { p_key: "auto_payout_min", p_default: 1000 }),
     supabase
       .from("business_payment_methods")
       .select("business_id, account_name, bank_name, account_number, is_verified")
@@ -76,7 +83,9 @@ export default async function PayoutsPage() {
   ]);
 
   const balanceOf = new Map(balances);
+  const pendingOf = new Map(pendings);
   const payoutMin = Number(minSetting ?? 5000);
+  const autoMin = Number(autoSetting ?? 1000);
   const methodOf = (id: string) => ((methods ?? []).find((p) => p.business_id === id) as PayoutAccount | undefined) ?? null;
 
   const weeks = new Map<string, { sales: number; card: number; cash: number; wallet: number; count: number }>();
@@ -106,6 +115,8 @@ export default async function PayoutsPage() {
               <BalancePanel
                 businessId={b.id}
                 balance={balanceOf.get(b.id) ?? 0}
+                pending={pendingOf.get(b.id) ?? 0}
+                autoMinimum={b.business_type === "food_vendor" ? autoMin : undefined}
                 minimum={payoutMin}
                 hasBank={Boolean(methodOf(b.id)?.is_verified)}
                 payouts={(payoutRows ?? []).filter((p) => p.business_id === b.id) as unknown as PayoutRow[]}

@@ -59,22 +59,27 @@ export default function SettingsScreen() {
   }
 
   const groups: SettingsGroup[] = [
-    ...(hasActiveHome
-      ? [
-          {
-            key: "home",
-            title: "Home",
-            rows: [
+    {
+      key: "home",
+      title: "Home",
+      rows: [
+        ...(hasActiveHome
+          ? [
               {
                 title: "Apartment",
                 icon: "home-outline" as const,
                 href: "/apartment" as Href,
                 status: "Your house",
               },
-            ],
-          },
-        ]
-      : []),
+            ]
+          : []),
+        {
+          title: "My viewings",
+          icon: "calendar-outline" as const,
+          href: "/viewings" as Href,
+        },
+      ],
+    },
     {
       key: "account",
       title: "Account",

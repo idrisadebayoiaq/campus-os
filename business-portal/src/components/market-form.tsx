@@ -88,7 +88,7 @@ export function MarketForm({
         </select>
       </Field>
       <Field label="Title"><Input name="title" required /></Field>
-      <Field label="Category"><Input name="category" required placeholder="laundry / books / repairs" /></Field>
+      <Field label="Category"><Input name="category" required placeholder="food / books / repairs (food is paid out as soon as it is handed over)" /></Field>
       <Field label="Price (₦)"><Input name="price" type="number" /></Field>
       <Field label="Condition"><Input name="condition" placeholder="used / new" /></Field>
       {pickupPoints.length ? (

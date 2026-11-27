@@ -21,6 +21,29 @@ export type RequestRow = {
 };
 
 export type OpenSlot = { id: string; property_id: string; starts_at: string; spots: number };
+export type OfferRow = {
+  id: string;
+  inspection_id: string;
+  status: string;
+  amount: number;
+  rent_period: string | null;
+  created_at: string;
+};
+
+const PERIODS = [
+  { value: "year", label: "per year" },
+  { value: "session", label: "per session" },
+  { value: "semester", label: "per semester" },
+  { value: "month", label: "per month" },
+];
+
+const OFFER_STATUS: Record<string, string> = {
+  pending: "Waiting for the student to pay",
+  paid: "Paid. The student is moving in.",
+  declined: "The student chose not to take it",
+  cancelled: "Withdrawn or expired",
+  refunded: "Refunded",
+};
 type Student = { name: string; verified: boolean };
 
 const LABEL: Record<string, string> = {
@@ -47,13 +70,17 @@ export function InspectionBoard({
   requests,
   students,
   slots,
+  offers = [],
 }: {
   requests: RequestRow[];
   students: Record<string, Student>;
   slots: OpenSlot[];
+  offers?: OfferRow[];
 }) {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
+  const [offerForm, setOfferForm] = useState<Record<string, { amount: string; period: string; start: string }>>({});
+  const [sending, setSending] = useState<string | null>(null);
   const [moving, setMoving] = useState<string | null>(null);
   const [slotId, setSlotId] = useState("");
   const [note, setNote] = useState<Record<string, string>>({});
@@ -65,6 +92,35 @@ export function InspectionBoard({
       .from("inspection_requests")
       .update({ status, provider_note: note[id]?.trim() || null })
       .eq("id", id);
+    if (e) setError(e.message);
+    else router.refresh();
+  }
+
+  async function sendOffer(id: string) {
+    const f = offerForm[id];
+    const amount = Number(f?.amount);
+    if (!amount || amount <= 0) {
+      setError("Enter the rent amount.");
+      return;
+    }
+    setSending(id);
+    setError(null);
+    const supabase = createClient();
+    const { error: e } = await supabase.rpc("create_housing_offer", {
+      p_inspection: id,
+      p_amount: amount,
+      p_period: f?.period || "year",
+      p_start: f?.start || null,
+    });
+    setSending(null);
+    if (e) setError(e.message);
+    else router.refresh();
+  }
+
+  async function withdrawOffer(offerId: string) {
+    setError(null);
+    const supabase = createClient();
+    const { error: e } = await supabase.rpc("cancel_payment_request", { p_request: offerId });
     if (e) setError(e.message);
     else router.refresh();
   }
@@ -113,6 +169,76 @@ export function InspectionBoard({
                 </p>
                 {req.message ? <p className="mt-1 text-muted">{req.message}</p> : null}
               </div>
+
+              {req.status === "completed" ? (
+                (() => {
+                  const mineOffers = offers.filter((o) => o.inspection_id === req.id);
+                  const current = mineOffers[0];
+                  const f = offerForm[req.id] ?? { amount: "", period: "year", start: "" };
+                  const set = (patch: Partial<typeof f>) => setOfferForm((s) => ({ ...s, [req.id]: { ...f, ...patch } }));
+                  return (
+                    <div className="space-y-2 rounded-md border border-border p-3">
+                      {current ? (
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          <p>
+                            <span className="font-medium">
+                              Offer ₦{Number(current.amount).toLocaleString()}
+                              {current.rent_period ? ` per ${current.rent_period}` : ""}
+                            </span>{" "}
+                            <span className="text-muted">· {OFFER_STATUS[current.status] ?? current.status}</span>
+                          </p>
+                          {current.status === "pending" ? (
+                            <Button type="button" variant="ghost" onClick={() => withdrawOffer(current.id)}>
+                              Withdraw offer
+                            </Button>
+                          ) : null}
+                        </div>
+                      ) : null}
+                      {!current || ["declined", "cancelled", "refunded"].includes(current.status) ? (
+                        <div className="space-y-2">
+                          <p className="text-muted">
+                            Send the student an offer for this room. They pay from their wallet and move in. The platform percentage is taken off and the rest goes to your balance.
+                          </p>
+                          <div className="flex flex-wrap items-center gap-2">
+                            <input
+                              value={f.amount}
+                              onChange={(e) => set({ amount: e.target.value.replace(/[^\d.]/g, "") })}
+                              inputMode="decimal"
+                              placeholder="Rent amount (₦)"
+                              aria-label="Rent amount"
+                              className="h-11 w-44 rounded-full border border-border bg-bg px-4 text-sm outline-none focus:border-accent"
+                            />
+                            <select
+                              value={f.period}
+                              onChange={(e) => set({ period: e.target.value })}
+                              aria-label="Rent period"
+                              className="h-11 rounded-full border border-border bg-bg px-3 text-sm"
+                            >
+                              {PERIODS.map((p) => (
+                                <option key={p.value} value={p.value}>
+                                  {p.label}
+                                </option>
+                              ))}
+                            </select>
+                            <label className="flex items-center gap-2 text-muted">
+                              Move-in
+                              <input
+                                type="date"
+                                value={f.start}
+                                onChange={(e) => set({ start: e.target.value })}
+                                className="h-11 rounded-full border border-border bg-bg px-3 text-sm text-fg"
+                              />
+                            </label>
+                            <Button type="button" disabled={sending === req.id} onClick={() => sendOffer(req.id)}>
+                              {sending === req.id ? "Sending…" : "Send offer"}
+                            </Button>
+                          </div>
+                        </div>
+                      ) : null}
+                    </div>
+                  );
+                })()
+              ) : null}
 
               {open ? (
                 <div className="space-y-2">

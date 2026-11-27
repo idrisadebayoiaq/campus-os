@@ -282,6 +282,7 @@ export default function HousingDetailScreen() {
       setSlots((prev) => prev.filter((s) => s.id !== chosen.id));
       setSlotId(null);
     }
+    if (!e) router.push("/viewings");
   }
 
   async function onMessage() {

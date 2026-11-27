@@ -32,6 +32,7 @@ const STATUS: Record<string, { label: string; tone: Tone }> = {
   paid: { label: "Paid", tone: "success" },
   refunded: { label: "Refunded", tone: "neutral" },
   cancelled: { label: "Cancelled", tone: "neutral" },
+  declined: { label: "Declined", tone: "neutral" },
 };
 
 export default function PaymentRequestsScreen() {
@@ -80,7 +81,7 @@ export default function PaymentRequestsScreen() {
           const { error } = await supabase.rpc("pay_payment_request", { p_request: r.id });
           setBusy(null);
           if (error) notify("Couldn't pay", error.message, undefined, { tone: "danger" });
-          else toast.success("Paid");
+          else router.push({ pathname: "/receipt", params: { kind: "request", id: r.id, fresh: "1" } });
           void load();
         },
       },

@@ -90,6 +90,7 @@ function RootNavigator() {
         <Stack.Screen name="campus" options={{ headerShown: false }} />
         <Stack.Screen name="checkout" options={{ headerShown: false }} />
         <Stack.Screen name="receipt" options={{ headerShown: false }} />
+        <Stack.Screen name="viewings" options={{ headerShown: false }} />
         <Stack.Screen name="report" options={{ headerShown: false }} />
         <Stack.Screen name="review" options={{ headerShown: false }} />
         <Stack.Screen name="my-room" options={{ headerShown: false }} />

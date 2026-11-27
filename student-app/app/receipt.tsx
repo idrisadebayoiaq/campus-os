@@ -185,6 +185,62 @@ async function loadMarket(id: string, userId: string, entry?: Row): Promise<Load
   };
 }
 
+const REQUEST_KIND: Record<string, string> = {
+  rent: "Rent",
+  deposit: "Deposit",
+  agent_fee: "Agent fee",
+  agreement_fee: "Agreement fee",
+  service_fee: "Service fee",
+  other: "Payment",
+};
+
+async function loadRequest(id: string): Promise<Loaded | null> {
+  const { data } = await supabase
+    .from("payment_requests")
+    .select("id, kind, title, amount, status, paid_at, created_at, rent_period, start_on, tenancy_id, business_profiles(display_name), property_units(title)")
+    .eq("id", id)
+    .maybeSingle();
+  const r = data as Row | null;
+  if (!r) return null;
+  const biz = Array.isArray(r.business_profiles) ? r.business_profiles[0] : r.business_profiles;
+  const unit = Array.isArray(r.property_units) ? r.property_units[0] : r.property_units;
+  let receiptNo: string | null = null;
+  if (r.tenancy_id) {
+    const { data: rr } = await supabase
+      .from("rent_receipts")
+      .select("receipt_no")
+      .eq("tenancy_id", r.tenancy_id)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    receiptNo = (rr as Row | null)?.receipt_no ?? null;
+  }
+  const paid = r.status === "paid";
+  const refunded = r.status === "refunded";
+  const rows: ReceiptModel["rows"] = [
+    { label: "Paid to", value: biz?.display_name ?? "Provider" },
+    { label: "Payment for", value: REQUEST_KIND[r.kind] ?? "Payment" },
+  ];
+  if (unit?.title) rows.push({ label: "Room", value: unit.title });
+  if (r.rent_period) rows.push({ label: "Rent period", value: String(r.rent_period) });
+  if (r.start_on) rows.push({ label: "Move-in date", value: new Date(r.start_on).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" }) });
+  rows.push({ label: "Paid with", value: "CampusOS wallet" });
+  if (receiptNo) rows.push({ label: "Receipt number", value: receiptNo });
+  return {
+    model: {
+      status: paid ? "success" : refunded ? "success" : r.status === "pending" ? "pending" : "failed",
+      statusLabel: paid ? "Payment successful" : refunded ? "Refunded" : r.status === "pending" ? "Awaiting payment" : r.status === "declined" ? "Declined" : "Cancelled",
+      amount: Number(r.amount),
+      sign: paid || refunded ? (refunded ? "+" : "-") : "",
+      title: String(r.title),
+      when: r.paid_at ?? r.created_at,
+      rows,
+      reference: receiptNo ?? `RQ-${short(r.id)}`,
+    },
+    burst: { title: "Payment successful", subtitle: r.kind === "rent" && unit?.title ? "Welcome home. Your move-in checklist is in My apartment." : undefined },
+  };
+}
+
 async function loadTopup(reference: string): Promise<Loaded | null> {
   const { data } = await supabase
     .from("payment_ledger")
@@ -255,6 +311,10 @@ async function loadEntry(txId: string, userId: string): Promise<Loaded | "redire
     router.replace({ pathname: "/receipt", params: { kind: "food", id: String(e.ref_id) } });
     return "redirect";
   }
+  if (wallet && e.ref_type === "payment_request" && e.ref_id) {
+    router.replace({ pathname: "/receipt", params: { kind: "request", id: String(e.ref_id) } });
+    return "redirect";
+  }
   if (e.ref_type === "market_order" && e.ref_id) {
     const m = await loadMarket(String(e.ref_id), userId, e);
     if (m) {
@@ -320,6 +380,7 @@ export default function ReceiptScreen() {
       if (kind === "food" && params.id) res = await loadFood(params.id);
       else if (kind === "market" && params.id) res = await loadMarket(params.id, user.id);
       else if (kind === "topup" && params.ref) res = await loadTopup(params.ref);
+      else if (kind === "request" && params.id) res = await loadRequest(params.id);
       else if (kind === "tx" && params.id) res = await loadEntry(params.id, user.id);
     } catch {
       res = null;
