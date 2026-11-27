@@ -1,12 +1,12 @@
 import { router } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
 import { View } from "react-native";
-import { AppText, Button, EmptyState } from "@/src/components/ui";
-import { Hero, Notice, PageShell, Panel, Pill, Section, type Tone } from "@/src/components/page";
+import { AppText, Button } from "@/src/components/ui";
+import { Empty, Hero, Notice, PageShell, Panel, Pill, Section, type Tone } from "@/src/components/page";
 import { useAuth } from "@/src/lib/auth";
 import { formatNaira } from "@/src/lib/campus";
 import { supabase } from "@/src/lib/supabase";
-import { notify } from "@/src/lib/feedback";
+import { notify, toast } from "@/src/lib/feedback";
 
 type Request = {
   id: string;
@@ -79,7 +79,8 @@ export default function PaymentRequestsScreen() {
           setBusy(r.id);
           const { error } = await supabase.rpc("pay_payment_request", { p_request: r.id });
           setBusy(null);
-          if (error) notify("Couldn't pay", error.message);
+          if (error) notify("Couldn't pay", error.message, undefined, { tone: "danger" });
+          else toast.success("Paid");
           void load();
         },
       },
@@ -123,7 +124,6 @@ export default function PaymentRequestsScreen() {
   return (
     <PageShell
       title="Payment requests"
-      subtitle="Rent, deposits and fees sent to you"
       loading={loading}
       refreshing={refreshing}
       onRefresh={() => {
@@ -138,7 +138,7 @@ export default function PaymentRequestsScreen() {
       />
 
       {!rows.length ? (
-        <EmptyState title="No payment requests" description="Rent, deposits and fees your landlord or a service sends you appear here." />
+        <Empty icon="document-text-outline" title="No payment requests" />
       ) : null}
 
       {pending.length ? (

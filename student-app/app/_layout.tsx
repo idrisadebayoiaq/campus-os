@@ -86,6 +86,8 @@ function RootNavigator() {
         <Stack.Screen name="market-orders" options={{ headerShown: false }} />
         <Stack.Screen name="payments" options={{ headerShown: false }} />
         <Stack.Screen name="earnings" options={{ headerShown: false }} />
+        <Stack.Screen name="cart" options={{ headerShown: false }} />
+        <Stack.Screen name="campus" options={{ headerShown: false }} />
         <Stack.Screen name="checkout" options={{ headerShown: false }} />
         <Stack.Screen name="report" options={{ headerShown: false }} />
         <Stack.Screen name="review" options={{ headerShown: false }} />

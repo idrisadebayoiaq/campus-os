@@ -2,7 +2,6 @@ import { router, useFocusEffect, type Href } from "expo-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
-  Alert,
   Pressable,
   RefreshControl,
   SectionList,
@@ -13,6 +12,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { AppText } from "@/src/components/ui";
 import { useAuth } from "@/src/lib/auth";
+import { notify } from "@/src/lib/feedback";
 import { supabase } from "@/src/lib/supabase";
 import { useTheme } from "@/src/theme/ThemeProvider";
 import { radii } from "@/src/theme/tokens";
@@ -157,7 +157,7 @@ export default function NotificationsScreen() {
 
   function clearAll() {
     if (!user || !rows.length) return;
-    Alert.alert("Clear all notifications?", "They'll be removed from this list.", [
+    notify("Clear all notifications?", "They'll be removed from this list.", [
       { text: "Cancel", style: "cancel" },
       {
         text: "Clear all",

@@ -33,7 +33,6 @@ import {
 } from "@/src/lib/location";
 import { useStudentKind } from "@/src/lib/student-kind";
 import { supabase } from "@/src/lib/supabase";
-import { PremiumBadge } from "@/src/components/premium-badge";
 import { levelLabel, loadBizMeta, loadFeatured, metaLine, trackEvent, type BizMeta } from "@/src/lib/trust";
 import { useTheme } from "@/src/theme/ThemeProvider";
 import { radii } from "@/src/theme/tokens";
@@ -442,7 +441,6 @@ export default function HousingScreen() {
                       .join(" · ");
                     return line || m?.premium ? (
                       <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-                        {m?.premium ? <PremiumBadge /> : null}
                         {line ? (
                           <AppText size={11} weight="600" numberOfLines={1} style={{ flexShrink: 1 }}>
                             {line}

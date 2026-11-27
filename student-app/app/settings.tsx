@@ -97,7 +97,7 @@ export default function SettingsScreen() {
         {
           title: "Campus",
           icon: "school-outline",
-          href: "/onboarding",
+          href: "/campus",
         },
       ],
     },

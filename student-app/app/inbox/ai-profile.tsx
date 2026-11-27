@@ -16,6 +16,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { AppText, Button } from "@/src/components/ui";
 import { AiAvatar, aiAvatarFor } from "@/src/lib/ai-avatars";
 import { useAuth } from "@/src/lib/auth";
+import { notify, toast } from "@/src/lib/feedback";
 import { ensureAiConversation, type AiCompanionProfile } from "@/src/lib/messaging";
 import { supabase } from "@/src/lib/supabase";
 import { useTheme } from "@/src/theme/ThemeProvider";
@@ -76,7 +77,6 @@ export default function AiProfileScreen() {
   const [speechRate, setSpeechRate] = useState("1");
   const [notes, setNotes] = useState("");
   const [saving, setSaving] = useState(false);
-  const [status, setStatus] = useState<{ ok: boolean; text: string } | null>(null);
 
   useEffect(() => {
     if (!user) return;
@@ -98,7 +98,7 @@ export default function AiProfileScreen() {
         setNotes(p.system_notes || "");
       } catch (e) {
         if (!cancelled) {
-          setStatus({ ok: false, text: e instanceof Error ? e.message : "Could not load AI profile." });
+          notify("Couldn't load tutor settings", e instanceof Error ? e.message : undefined, undefined, { tone: "danger" });
         }
       } finally {
         if (!cancelled) setLoading(false);
@@ -126,7 +126,6 @@ export default function AiProfileScreen() {
   async function save() {
     if (!user || !profile) return;
     setSaving(true);
-    setStatus(null);
     const payload = {
       display_name: name.trim() || "CampusOS Tutor",
       reply_mode: replyMode,
@@ -155,7 +154,8 @@ export default function AiProfileScreen() {
       });
     }
     setSaving(false);
-    setStatus(error ? { ok: false, text: error.message } : { ok: true, text: "Saved" });
+    if (error) notify("Couldn't save", error.message, undefined, { tone: "danger" });
+    else toast.success("Saved");
   }
 
   if (loading) {
@@ -319,14 +319,6 @@ export default function AiProfileScreen() {
           },
         ]}
       >
-        {status ? (
-          <AppText
-            size={13}
-            style={{ color: status.ok ? colors.success : colors.danger, marginBottom: 8, textAlign: "center" }}
-          >
-            {status.text}
-          </AppText>
-        ) : null}
         <Button title="Save changes" onPress={save} loading={saving} />
       </View>
     </View>

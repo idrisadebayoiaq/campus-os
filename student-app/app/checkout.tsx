@@ -1,15 +1,17 @@
 import { router } from "expo-router";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ActivityIndicator, Pressable, View } from "react-native";
+import { ActivityIndicator, Pressable, StyleSheet, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { AppText, Button, EmptyState, Input } from "@/src/components/ui";
-import { Group, KeyValue, ListRow, Notice, PageShell, Panel, Section, Segmented } from "@/src/components/page";
+import { AppText, Button, Input } from "@/src/components/ui";
+import { Empty, Group, KeyValue, ListRow, PageShell, Panel, Section } from "@/src/components/page";
 import { useAuth } from "@/src/lib/auth";
 import { formatNaira } from "@/src/lib/campus";
-import { cartSubtotal, clearCart, lineTotal, setLineQuantity, useCart } from "@/src/lib/cart";
+import { cartCount, cartSubtotal, clearCart, useCart } from "@/src/lib/cart";
+import { notify } from "@/src/lib/feedback";
 import { loadSavedLocation, searchPlaces, type Place, type SavedLocation } from "@/src/lib/location";
 import { supabase } from "@/src/lib/supabase";
 import { useTheme } from "@/src/theme/ThemeProvider";
+import { radii } from "@/src/theme/tokens";
 
 type Quote = { deliverable: boolean; fee: number; min_order: number; distance_km: number | null; reason: string | null };
 
@@ -20,23 +22,23 @@ export default function CheckoutScreen() {
 
   const [fulfilment, setFulfilment] = useState<"pickup" | "delivery">("pickup");
   const [place, setPlace] = useState<SavedLocation | null>(null);
+  const [changing, setChanging] = useState(false);
   const [addressQuery, setAddressQuery] = useState("");
   const [results, setResults] = useState<Place[]>([]);
   const [searching, setSearching] = useState(false);
   const [detail, setDetail] = useState("");
   const [quote, setQuote] = useState<Quote | null>(null);
   const [promo, setPromo] = useState("");
-  const method = "wallet";
   const [walletOn, setWalletOn] = useState(false);
   const [walletBalance, setWalletBalance] = useState(0);
   const [open, setOpen] = useState<boolean | null>(null);
   const [note, setNote] = useState("");
   const [placing, setPlacing] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const businessId = cart.businessId;
   const subtotal = cartSubtotal(cart);
+  const count = cartCount(cart);
   const delivery = fulfilment === "delivery";
 
   useEffect(() => {
@@ -62,8 +64,7 @@ export default function CheckoutScreen() {
     }
     void (async () => {
       const { data } = await supabase.rpc("delivery_quote", { p_business: businessId, p_lat: place.lat, p_lng: place.lng });
-      const row = (Array.isArray(data) ? data[0] : data) as Quote | undefined;
-      setQuote(row ?? null);
+      setQuote(((Array.isArray(data) ? data[0] : data) as Quote | undefined) ?? null);
     })();
   }, [delivery, place, businessId]);
 
@@ -85,27 +86,25 @@ export default function CheckoutScreen() {
 
   const fee = delivery && quote?.deliverable ? Number(quote.fee) : 0;
   const estimate = subtotal + fee;
+  const short = walletBalance < estimate;
   const blocked = useMemo(() => {
-    if (open === false) return "This kitchen isn't taking orders right now.";
+    if (open === false) return "Kitchen is closed right now";
     if (delivery) {
-      if (!place) return "Choose where to deliver.";
+      if (!place) return "Choose a delivery address";
       if (!quote) return "Checking delivery…";
-      if (!quote.deliverable) return quote.reason || "This kitchen doesn't deliver to you.";
-      if (subtotal < Number(quote.min_order)) return `Minimum order for delivery is ${formatNaira(Number(quote.min_order))}.`;
+      if (!quote.deliverable) return quote.reason || "No delivery to this address";
+      if (subtotal < Number(quote.min_order)) return `Delivery minimum is ${formatNaira(Number(quote.min_order))}`;
     }
-    if (!walletOn) return "The wallet is not available right now.";
-    if (walletBalance < estimate) {
-      return `Your wallet has ${formatNaira(walletBalance)}. Add money to pay for this order.`;
-    }
+    if (!walletOn) return "Wallet is unavailable right now";
+    if (short) return `Wallet balance is ${formatNaira(walletBalance)}`;
     return null;
-  }, [open, delivery, place, quote, subtotal, walletOn, walletBalance, estimate]);
+  }, [open, delivery, place, quote, subtotal, walletOn, walletBalance, short]);
 
   async function submit() {
     if (!user || !businessId || blocked) return;
     setPlacing(true);
-    setError(null);
     const address = delivery ? [detail.trim(), place?.label].filter(Boolean).join(" · ") : null;
-    const { error: e } = await supabase.rpc("place_food_order", {
+    const { error } = await supabase.rpc("place_food_order", {
       p_business: businessId,
       p_items: cart.lines.map((l) => ({ menu_item_id: l.menuItemId, quantity: l.quantity, option_ids: l.options.map((o) => o.id) })),
       p_notes: note.trim() || null,
@@ -114,166 +113,144 @@ export default function CheckoutScreen() {
       p_lat: delivery ? place?.lat : null,
       p_lng: delivery ? place?.lng : null,
       p_promo_code: promo.trim() || null,
-      p_payment_method: method,
+      p_payment_method: "wallet",
     });
-    if (e) {
-      setPlacing(false);
-      setError(e.message);
+    setPlacing(false);
+    if (error) {
+      notify("Order not placed", error.message, undefined, { tone: "danger" });
       return;
     }
     clearCart();
-    setPlacing(false);
-    router.replace("/orders");
+    notify("Order placed", "Track it in My orders.", undefined, { tone: "success" });
+    if (router.canDismiss()) router.dismissAll();
+    router.push("/orders");
   }
 
   if (!cart.lines.length) {
     return (
       <PageShell title="Checkout">
-        <EmptyState title="Your cart is empty" description="Add dishes from a campus kitchen to order." />
-        <Button title="Back" onPress={() => router.back()} />
+        <Empty icon="cart-outline" title="Your cart is empty" action={<Button compact title="Back" onPress={() => router.back()} style={{ marginTop: 8 }} />} />
       </PageShell>
     );
   }
 
-  const short = walletBalance < estimate;
+  const option = (value: "pickup" | "delivery", icon: keyof typeof Ionicons.glyphMap, label: string) => {
+    const on = fulfilment === value;
+    return (
+      <Pressable
+        onPress={() => setFulfilment(value)}
+        style={[styles.option, { backgroundColor: on ? colors.inverseBg : colors.surface }]}
+      >
+        <Ionicons name={icon} size={22} color={on ? colors.inverseFg : colors.fg} />
+        <AppText weight="700" style={{ color: on ? colors.inverseFg : colors.fg }}>
+          {label}
+        </AppText>
+      </Pressable>
+    );
+  };
 
   return (
     <PageShell
       title="Checkout"
-      subtitle={cart.businessName ?? undefined}
+      subtitle={cart.businessName || undefined}
       footer={
-        <>
+        <View style={{ gap: 8 }}>
           {blocked ? (
-            <AppText size={13} style={{ color: colors.danger, textAlign: "center", marginBottom: 10 }}>
-              {blocked}
-            </AppText>
+            <View style={styles.blocked}>
+              <Ionicons name="alert-circle" size={16} color={colors.danger} />
+              <AppText size={13} weight="600" style={{ color: colors.danger }}>
+                {blocked}
+              </AppText>
+            </View>
           ) : null}
-          <Button
-            title={placing ? "Placing…" : `Pay from wallet · ${formatNaira(estimate)}`}
-            onPress={() => void submit()}
-            disabled={!!blocked}
-            loading={placing}
-          />
           {short && walletOn ? (
-            <Button variant="ghost" title="Add money to wallet" onPress={() => router.push("/wallet")} style={{ marginTop: 4 }} />
-          ) : null}
-        </>
+            <Button variant="secondary" title="Top up wallet" onPress={() => router.push("/wallet")} />
+          ) : (
+            <Button title={`Place order · ${formatNaira(estimate)}`} onPress={() => void submit()} disabled={!!blocked} loading={placing} />
+          )}
+        </View>
       }
     >
-      <Section title="Your order">
-        <Group>
-          {cart.lines.map((l) => (
-            <ListRow
-              key={l.key}
-              title={l.name}
-              subtitle={[l.options.map((o) => o.name).join(", "), formatNaira(lineTotal(l))].filter(Boolean).join(" · ")}
-              numberOfLines={2}
-              right={
-                <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
-                  <Pressable
-                    onPress={() => setLineQuantity(l.key, l.quantity - 1)}
-                    hitSlop={8}
-                    style={{ width: 30, height: 30, borderRadius: 15, backgroundColor: colors.bg, alignItems: "center", justifyContent: "center" }}
-                  >
-                    <Ionicons name="remove" size={16} color={colors.fg} />
-                  </Pressable>
-                  <AppText weight="700" style={{ minWidth: 18, textAlign: "center" }}>
-                    {l.quantity}
-                  </AppText>
-                  <Pressable
-                    onPress={() => setLineQuantity(l.key, l.quantity + 1)}
-                    hitSlop={8}
-                    style={{ width: 30, height: 30, borderRadius: 15, backgroundColor: colors.accent, alignItems: "center", justifyContent: "center" }}
-                  >
-                    <Ionicons name="add" size={16} color={colors.onAccent} />
-                  </Pressable>
-                </View>
-              }
-            />
-          ))}
-        </Group>
-      </Section>
-
-      <Segmented
-        value={fulfilment}
-        onChange={setFulfilment}
-        options={[
-          { value: "pickup", label: "Pickup" },
-          { value: "delivery", label: "Delivery" },
-        ]}
-      />
+      <View style={styles.options}>
+        {option("pickup", "walk-outline", "Pickup")}
+        {option("delivery", "bicycle-outline", "Delivery")}
+      </View>
 
       {delivery ? (
         <Section title="Deliver to">
-          {place ? (
+          {place && !changing ? (
             <Group>
-              <ListRow icon="location-outline" title={place.label} numberOfLines={2} />
+              <ListRow
+                icon="location"
+                title={place.label}
+                numberOfLines={2}
+                right={
+                  <Pressable onPress={() => setChanging(true)} hitSlop={8}>
+                    <AppText weight="700" size={13}>
+                      Change
+                    </AppText>
+                  </Pressable>
+                }
+              />
             </Group>
-          ) : null}
-          <Input
-            value={addressQuery}
-            onChangeText={setAddressQuery}
-            placeholder={place ? "Search a different address…" : "Search your hostel or address…"}
-          />
-          {searching ? <ActivityIndicator color={colors.fg} /> : null}
-          {results.length ? (
-            <Group>
-              {results.map((r) => (
-                <ListRow
-                  key={r.id}
-                  title={r.title}
-                  subtitle={r.subtitle}
-                  chevron={false}
-                  onPress={() => {
-                    setPlace({ lat: r.lat, lng: r.lng, label: r.label });
-                    setResults([]);
-                    setAddressQuery("");
-                  }}
-                />
-              ))}
-            </Group>
-          ) : null}
-          <Input value={detail} onChangeText={setDetail} placeholder="Room / gate / landmark (so the rider finds you)" />
-          {quote ? (
-            <Notice tone={quote.deliverable ? "neutral" : "danger"} icon="bicycle-outline">
-              {quote.deliverable
-                ? `${quote.distance_km != null ? `${Number(quote.distance_km).toFixed(1)} km away · ` : ""}Delivery fee ${formatNaira(Number(quote.fee))}`
-                : quote.reason || "No delivery to this address."}
-            </Notice>
+          ) : (
+            <>
+              <Input value={addressQuery} onChangeText={setAddressQuery} placeholder="Search hostel or address" autoFocus={changing} />
+              {searching ? <ActivityIndicator color={colors.fg} /> : null}
+              {results.length ? (
+                <Group>
+                  {results.map((r) => (
+                    <ListRow
+                      key={r.id}
+                      icon="location-outline"
+                      title={r.title}
+                      subtitle={r.subtitle}
+                      chevron={false}
+                      onPress={() => {
+                        setPlace({ lat: r.lat, lng: r.lng, label: r.label });
+                        setResults([]);
+                        setAddressQuery("");
+                        setChanging(false);
+                      }}
+                    />
+                  ))}
+                </Group>
+              ) : null}
+            </>
+          )}
+          <Input value={detail} onChangeText={setDetail} placeholder="Room, gate or landmark" />
+          {quote?.deliverable ? (
+            <AppText muted size={12}>
+              {quote.distance_km != null ? `${Number(quote.distance_km).toFixed(1)} km · ` : ""}Delivery {formatNaira(Number(quote.fee))}
+            </AppText>
           ) : null}
         </Section>
       ) : null}
 
-      <Section title="Promo code" hint="The discount is checked and applied when you place the order">
-        <Input value={promo} onChangeText={(t) => setPromo(t.toUpperCase())} autoCapitalize="characters" placeholder="Have a code?" />
-      </Section>
-
-      <Section title="Note for the kitchen">
-        <Input value={note} onChangeText={setNote} maxLength={300} placeholder="e.g. No pepper" />
-      </Section>
-
-      <Section title="Payment">
+      <Section title="Order">
         <Group>
-          <ListRow
-            icon="wallet-outline"
-            title="CampusOS wallet"
-            subtitle={`Balance ${formatNaira(walletBalance)} · tap to add money`}
-            onPress={() => router.push("/wallet")}
-          />
+          <ListRow icon="bag-handle-outline" title={`${count} item${count === 1 ? "" : "s"}`} value={formatNaira(subtotal)} onPress={() => router.back()} />
+          <ListRow icon="wallet-outline" title="Wallet" value={formatNaira(walletBalance)} valueTone={short ? "danger" : "neutral"} onPress={() => router.push("/wallet")} />
         </Group>
-        {!walletOn ? <Notice tone="danger">The wallet is not available right now, so orders can't be paid.</Notice> : null}
+      </Section>
+
+      <Section title="Extras">
+        <Input value={promo} onChangeText={(t) => setPromo(t.toUpperCase())} autoCapitalize="characters" placeholder="Promo code" />
+        <Input value={note} onChangeText={setNote} maxLength={300} placeholder="Note for the kitchen" />
       </Section>
 
       <Panel>
-        <KeyValue label="Items" value={formatNaira(subtotal)} />
+        <KeyValue label="Subtotal" value={formatNaira(subtotal)} />
         {delivery ? <KeyValue label="Delivery" value={quote?.deliverable ? formatNaira(fee) : "–"} /> : null}
-        <KeyValue label="Estimated total" value={formatNaira(estimate)} strong />
-        <AppText size={12} muted>
-          The final price is confirmed by the server (specials and promo codes included).
-        </AppText>
+        {promo.trim() ? <KeyValue label="Promo" value="Applied at checkout" /> : null}
+        <KeyValue label="Total" value={formatNaira(estimate)} strong />
       </Panel>
-
-      {error ? <Notice tone="danger">{error}</Notice> : null}
     </PageShell>
   );
 }
+
+const styles = StyleSheet.create({
+  options: { flexDirection: "row", gap: 10 },
+  option: { flex: 1, alignItems: "center", justifyContent: "center", gap: 6, height: 84, borderRadius: radii.md },
+  blocked: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6 },
+});

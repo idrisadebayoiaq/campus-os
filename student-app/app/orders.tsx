@@ -1,30 +1,23 @@
 import { router } from "expo-router";
-import { useCallback, useEffect, useState } from "react";
-import {
-  ActivityIndicator,
-  Pressable,
-  RefreshControl,
-  ScrollView,
-  StyleSheet,
-  View,
-} from "react-native";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { Image, StyleSheet, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { AppText, EmptyState } from "@/src/components/ui";
+import { Empty, PageShell, Pill, Segmented, type Tone } from "@/src/components/page";
+import { AppText, Button } from "@/src/components/ui";
 import { useAuth } from "@/src/lib/auth";
 import { formatNaira } from "@/src/lib/campus";
+import { notify } from "@/src/lib/feedback";
 import { callPaystack } from "@/src/lib/payments";
 import { PAY_RETURN_URL, usePaySheet } from "@/src/lib/pay-sheet";
 import { supabase } from "@/src/lib/supabase";
 import { useTheme } from "@/src/theme/ThemeProvider";
 import { radii } from "@/src/theme/tokens";
-import { notify } from "@/src/lib/feedback";
 
+type Biz = { display_name: string; logo_url: string | null };
 type Order = {
   id: string;
   status: string;
   total: number;
-  notes: string | null;
   created_at: string;
   prep_minutes: number | null;
   decline_reason: string | null;
@@ -32,80 +25,80 @@ type Order = {
   business_id: string;
   fulfilment: string;
   delivery_address: string | null;
-  delivery_fee: number;
   discount: number;
   payment_method: string;
   payment_status: string;
-  business_profiles: { display_name: string } | { display_name: string }[] | null;
+  business_profiles: Biz | Biz[] | null;
   food_order_items: { name: string; quantity: number; options: { name: string }[] | null }[] | null;
 };
 
-const STEPS = ["placed", "accepted", "preparing", "ready", "completed"] as const;
-const STEP_LABEL: Record<string, string> = {
-  placed: "Sent",
-  accepted: "Accepted",
-  preparing: "Cooking",
-  ready: "Ready",
-  completed: "Done",
-};
+const LIVE = new Set(["placed", "accepted", "preparing", "ready"]);
+const STEPS = [
+  { key: "placed", label: "Sent", icon: "paper-plane" },
+  { key: "accepted", label: "Accepted", icon: "checkmark" },
+  { key: "preparing", label: "Cooking", icon: "flame" },
+  { key: "ready", label: "Ready", icon: "bag-check" },
+] as const;
 
-const HEADLINE: Record<string, string> = {
-  placed: "Waiting for the kitchen",
-  accepted: "Order accepted",
-  preparing: "Being prepared",
-  ready: "Ready for pickup",
-  collected: "Picked up",
-  completed: "Picked up",
-  declined: "Rejected by the kitchen",
-  cancelled: "You cancelled this order",
-};
-
-function headline(o: Order) {
-  if (o.status === "ready") return o.fulfilment === "delivery" ? "On its way" : "Ready for pickup";
-  if (o.status === "completed" || o.status === "collected") return o.fulfilment === "delivery" ? "Delivered" : "Picked up";
-  return HEADLINE[o.status] ?? o.status;
+function biz(o: Order): Biz {
+  const b = Array.isArray(o.business_profiles) ? o.business_profiles[0] : o.business_profiles;
+  return b ?? { display_name: "Kitchen", logo_url: null };
 }
 
-function paymentLabel(o: Order) {
-  switch (o.payment_status) {
-    case "paid":
-      return o.payment_method === "wallet" ? "Paid from wallet" : "Paid by card";
-    case "pending":
-      return "Waiting for your card payment";
-    case "refund_requested":
-      return "Refund requested";
-    case "refunded":
-      return o.payment_method === "wallet" ? "Refunded to your wallet" : "Refunded to your card";
-    case "failed":
-      return "Payment failed";
+function status(o: Order): { label: string; tone: Tone } {
+  switch (o.status) {
+    case "placed":
+      return { label: "Waiting", tone: "warn" };
+    case "accepted":
+      return { label: "Accepted", tone: "warn" };
+    case "preparing":
+      return { label: "Cooking", tone: "warn" };
+    case "ready":
+      return { label: o.fulfilment === "delivery" ? "On its way" : "Ready for pickup", tone: "success" };
+    case "collected":
+    case "completed":
+      return { label: o.fulfilment === "delivery" ? "Delivered" : "Picked up", tone: "success" };
+    case "declined":
+      return { label: "Declined", tone: "danger" };
+    case "cancelled":
+      return { label: "Cancelled", tone: "neutral" };
+    case "payment_failed":
+      return { label: "Payment failed", tone: "danger" };
+    case "expired":
+      return { label: "Expired", tone: "neutral" };
     default:
-      return o.payment_method === "cash" ? (o.fulfilment === "delivery" ? "Pay on delivery" : "Pay on collection") : "Unpaid";
+      return { label: o.status, tone: "neutral" };
   }
 }
 
-function kitchenName(o: Order) {
-  const b = Array.isArray(o.business_profiles) ? o.business_profiles[0] : o.business_profiles;
-  return b?.display_name ?? "Kitchen";
-}
-
-function stepIndex(status: string) {
-  if (status === "collected") return STEPS.indexOf("completed");
-  return STEPS.indexOf(status as (typeof STEPS)[number]);
+function payment(o: Order) {
+  switch (o.payment_status) {
+    case "paid":
+      return o.payment_method === "wallet" ? "Wallet" : "Card";
+    case "pending":
+      return "Awaiting payment";
+    case "refund_requested":
+      return "Refund requested";
+    case "refunded":
+      return "Refunded";
+    case "failed":
+      return "Payment failed";
+    default:
+      return o.payment_method === "cash" ? "Cash" : "Unpaid";
+  }
 }
 
 function minutesLeft(o: Order) {
   if (!o.accepted_at || !o.prep_minutes) return null;
-  const left = Math.ceil((new Date(o.accepted_at).getTime() + o.prep_minutes * 60000 - Date.now()) / 60000);
-  return left;
+  return Math.ceil((new Date(o.accepted_at).getTime() + o.prep_minutes * 60000 - Date.now()) / 60000);
 }
 
 export default function OrdersScreen() {
   const { user } = useAuth();
-  const colors = useTheme();
-  const insets = useSafeAreaInsets();
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [tab, setTab] = useState<"active" | "past">("active");
   const { payByCard } = usePaySheet();
 
   const load = useCallback(async () => {
@@ -113,11 +106,11 @@ export default function OrdersScreen() {
     const { data } = await supabase
       .from("food_orders")
       .select(
-        "id, status, total, notes, created_at, prep_minutes, decline_reason, accepted_at, business_id, fulfilment, delivery_address, delivery_fee, discount, payment_method, payment_status, business_profiles(display_name), food_order_items(name, quantity, options)",
+        "id, status, total, created_at, prep_minutes, decline_reason, accepted_at, business_id, fulfilment, delivery_address, discount, payment_method, payment_status, business_profiles(display_name, logo_url), food_order_items(name, quantity, options)",
       )
       .eq("student_id", user.id)
       .order("created_at", { ascending: false })
-      .limit(40);
+      .limit(50);
     setOrders((data as unknown as Order[]) ?? []);
     setLoading(false);
     setRefreshing(false);
@@ -128,16 +121,27 @@ export default function OrdersScreen() {
     if (!user) return;
     const channel = supabase
       .channel(`my-orders-${user.id}`)
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "food_orders", filter: `student_id=eq.${user.id}` },
-        () => void load(),
-      )
+      .on("postgres_changes", { event: "*", schema: "public", table: "food_orders", filter: `student_id=eq.${user.id}` }, () => void load())
       .subscribe();
     return () => {
       void supabase.removeChannel(channel);
     };
   }, [load, user]);
+
+  // Coming back from the card page: confirm any payments that finished while we were away.
+  useEffect(() => {
+    const pending = orders.filter((o) => o.payment_method === "card" && o.payment_status === "pending" && LIVE.has(o.status));
+    if (!pending.length) return;
+    const t = setInterval(async () => {
+      for (const o of pending) await callPaystack(supabase, { action: "verify", order_id: o.id });
+      void load();
+    }, 8000);
+    return () => clearInterval(t);
+  }, [orders, load]);
+
+  const active = useMemo(() => orders.filter((o) => LIVE.has(o.status)), [orders]);
+  const past = useMemo(() => orders.filter((o) => !LIVE.has(o.status)), [orders]);
+  const list = tab === "active" ? active : past;
 
   async function payNow(order: Order) {
     const res = await callPaystack(supabase, { action: "init-order", order_id: order.id, callback_url: PAY_RETURN_URL });
@@ -149,47 +153,37 @@ export default function OrdersScreen() {
         amount: order.total,
         successText: "Payment received. The kitchen has your order.",
       });
-      if (paid.status === "failed") notify("Payment not completed", "Your card was not charged. Try again or use another card.", undefined, { tone: "danger" });
+      if (paid.status === "failed") notify("Payment not completed", "Your card was not charged.", undefined, { tone: "danger" });
       void load();
       return;
     }
-    notify("Couldn't start payment", res.ok ? "Try again in a moment." : res.message);
+    notify("Couldn't start payment", res.ok ? "Try again in a moment." : res.message, undefined, { tone: "danger" });
   }
 
   function requestRefund(order: Order) {
-    notify("Request a refund?", "The kitchen will review your request and you'll be notified.", [
+    notify("Request a refund?", "The kitchen will review it.", [
       { text: "Not now", style: "cancel" },
       {
         text: "Request refund",
         onPress: async () => {
           const { error } = await supabase.rpc("request_refund", { p_order: order.id, p_reason: "Requested from the app" });
-          if (error) notify("Couldn't request refund", error.message);
+          if (error) notify("Couldn't request refund", error.message, undefined, { tone: "danger" });
+          else notify("Refund requested", undefined, undefined, { tone: "success" });
           void load();
         },
       },
     ]);
   }
 
-  // Coming back from the card page: confirm any payments that finished while we were away.
-  useEffect(() => {
-    const pending = orders.filter((o) => o.payment_method === "card" && o.payment_status === "pending");
-    if (!pending.length) return;
-    const t = setInterval(async () => {
-      for (const o of pending) await callPaystack(supabase, { action: "verify", order_id: o.id });
-      void load();
-    }, 8000);
-    return () => clearInterval(t);
-  }, [orders, load]);
-
   function cancel(order: Order) {
-    notify("Cancel this order?", "The kitchen hasn't accepted it yet.", [
+    notify("Cancel this order?", undefined, [
       { text: "Keep it", style: "cancel" },
       {
         text: "Cancel order",
         style: "destructive",
         onPress: async () => {
           const { error } = await supabase.from("food_orders").update({ status: "cancelled" }).eq("id", order.id);
-          if (error) notify("Couldn't cancel", error.message);
+          if (error) notify("Couldn't cancel", error.message, undefined, { tone: "danger" });
           void load();
         },
       },
@@ -197,170 +191,180 @@ export default function OrdersScreen() {
   }
 
   return (
-    <View style={{ flex: 1, backgroundColor: colors.bg, paddingTop: insets.top }}>
-      <View style={styles.top}>
-        <Pressable
-          onPress={() => router.back()}
-          style={[styles.back, { backgroundColor: colors.surface }]}
-          accessibilityLabel="Back"
-        >
-          <Ionicons name="chevron-back" size={20} color={colors.fg} />
-        </Pressable>
-        <AppText size={18} weight="700">
-          My orders
-        </AppText>
-        <View style={{ width: 40 }} />
+    <PageShell
+      title="My orders"
+      loading={loading}
+      refreshing={refreshing}
+      onRefresh={() => {
+        setRefreshing(true);
+        void load();
+      }}
+    >
+      <Segmented
+        value={tab}
+        onChange={setTab}
+        options={[
+          { value: "active", label: active.length ? `Active (${active.length})` : "Active" },
+          { value: "past", label: "Past" },
+        ]}
+      />
+
+      {!list.length ? (
+        <Empty
+          icon="fast-food-outline"
+          title={tab === "active" ? "No active orders" : "No past orders"}
+          action={<Button title="Order food" compact onPress={() => router.push("/explore/food")} style={{ marginTop: 8 }} />}
+        />
+      ) : (
+        list.map((o) => (
+          <OrderCard
+            key={o.id}
+            order={o}
+            onPay={() => void payNow(o)}
+            onCancel={() => cancel(o)}
+            onRefund={() => requestRefund(o)}
+          />
+        ))
+      )}
+    </PageShell>
+  );
+}
+
+function OrderCard({
+  order: o,
+  onPay,
+  onCancel,
+  onRefund,
+}: {
+  order: Order;
+  onPay: () => void;
+  onCancel: () => void;
+  onRefund: () => void;
+}) {
+  const colors = useTheme();
+  const b = biz(o);
+  const s = status(o);
+  const live = LIVE.has(o.status);
+  const idx = STEPS.findIndex((x) => x.key === o.status);
+  const left = minutesLeft(o);
+  const items = o.food_order_items ?? [];
+  const done = o.status === "completed" || o.status === "collected";
+  const review = () =>
+    router.push({ pathname: "/review", params: { kind: "order", ref: o.id, business: o.business_id, name: b.display_name } });
+
+  return (
+    <View style={[styles.card, { backgroundColor: colors.surface }]}>
+      <View style={styles.head}>
+        {b.logo_url ? (
+          <Image source={{ uri: b.logo_url }} style={styles.logo} />
+        ) : (
+          <View style={[styles.logo, { backgroundColor: colors.accentSoft, alignItems: "center", justifyContent: "center" }]}>
+            <Ionicons name="restaurant" size={20} color={colors.fg} />
+          </View>
+        )}
+        <View style={{ flex: 1 }}>
+          <AppText weight="700" size={16} numberOfLines={1}>
+            {b.display_name}
+          </AppText>
+          <AppText muted size={12}>
+            #{o.id.slice(0, 6).toUpperCase()} ·{" "}
+            {new Date(o.created_at).toLocaleString(undefined, { day: "numeric", month: "short", hour: "numeric", minute: "2-digit" })}
+          </AppText>
+        </View>
+        <Pill label={s.label} tone={s.tone} />
       </View>
 
-      {loading ? (
-        <View style={styles.center}>
-          <ActivityIndicator color={colors.fg} />
-        </View>
-      ) : (
-        <ScrollView
-          contentContainerStyle={{ padding: 16, gap: 12, paddingBottom: insets.bottom + 32 }}
-          refreshControl={
-            <RefreshControl
-              refreshing={refreshing}
-              onRefresh={() => {
-                setRefreshing(true);
-                void load();
-              }}
-              tintColor={colors.fg}
-            />
-          }
-        >
-          {!orders.length ? (
-            <EmptyState
-              title="No orders yet"
-              description="Order from a campus kitchen in Market › Food and track it here."
-            />
-          ) : (
-            orders.map((o) => {
-              const idx = stepIndex(o.status);
-              const dead = o.status === "declined" || o.status === "cancelled";
-              const left = minutesLeft(o);
+      {live ? (
+        <View style={{ gap: 8 }}>
+          <View style={styles.steps}>
+            {STEPS.map((step, i) => {
+              const reached = i <= idx;
               return (
-                <View key={o.id} style={[styles.card, { backgroundColor: colors.surface }]}>
-                  <View style={styles.rowBetween}>
-                    <AppText weight="700" size={16} style={{ flex: 1 }} numberOfLines={1}>
-                      {kitchenName(o)}
-                    </AppText>
-                    <AppText weight="700">{formatNaira(o.total)}</AppText>
+                <View key={step.key} style={styles.step}>
+                  {i > 0 ? (
+                    <View style={[styles.line, { backgroundColor: i <= idx ? colors.success : colors.border }]} />
+                  ) : null}
+                  <View style={[styles.dot, { backgroundColor: reached ? colors.success : colors.bg, borderColor: reached ? colors.success : colors.border }]}>
+                    <Ionicons name={step.icon} size={13} color={reached ? "#fff" : colors.muted} />
                   </View>
-                  <AppText
-                    weight="600"
-                    size={14}
-                    style={{ color: dead ? colors.danger : colors.fg }}
-                  >
-                    {headline(o)}
+                  <AppText size={10} weight={i === idx ? "700" : "500"} muted={!reached}>
+                    {step.label}
                   </AppText>
-                  <AppText size={12} muted>
-                    {o.fulfilment === "delivery" ? `Delivery to ${o.delivery_address ?? "your address"}` : "Pickup"} · {paymentLabel(o)}
-                    {Number(o.discount) > 0 ? ` · saved ${formatNaira(Number(o.discount))}` : ""}
-                  </AppText>
-
-                  {!dead ? (
-                    <View style={styles.steps}>
-                      {STEPS.map((s, i) => (
-                        <View key={s} style={{ flex: 1, gap: 6 }}>
-                          <View
-                            style={[
-                              styles.bar,
-                              { backgroundColor: i <= idx ? colors.accent : colors.border },
-                            ]}
-                          />
-                          <AppText size={10} muted={i > idx} weight={i === idx ? "700" : "400"}>
-                            {STEP_LABEL[s]}
-                          </AppText>
-                        </View>
-                      ))}
-                    </View>
-                  ) : null}
-
-                  {o.status === "accepted" || o.status === "preparing" ? (
-                    <AppText size={13} muted>
-                      {left == null
-                        ? "The kitchen is on it."
-                        : left > 0
-                          ? `About ${left} min left`
-                          : "Should be ready any moment"}
-                    </AppText>
-                  ) : null}
-                  {o.status === "declined" && o.decline_reason ? (
-                    <AppText size={13} muted>
-                      {o.decline_reason}
-                    </AppText>
-                  ) : null}
-
-                  <AppText size={13} muted>
-                    {(o.food_order_items ?? [])
-                      .map((i) => `${i.quantity}× ${i.name}${i.options?.length ? ` (${i.options.map((x) => x.name).join(", ")})` : ""}`)
-                      .join(", ")}
-                  </AppText>
-                  {o.payment_method === "card" && o.payment_status === "pending" && !dead ? (
-                    <Pressable onPress={() => void payNow(o)} style={[styles.payBtn, { backgroundColor: colors.inverseBg }]}>
-                      <AppText weight="700" size={13} style={{ color: colors.inverseFg }}>
-                        Pay now
-                      </AppText>
-                    </Pressable>
-                  ) : null}
-                  {o.payment_status === "paid" && (o.status === "completed" || o.status === "collected") ? (
-                    <View style={{ flexDirection: "row", gap: 16 }}>
-                      <Pressable onPress={() => router.push({ pathname: "/review", params: { kind: "order", ref: o.id, business: o.business_id, name: kitchenName(o) } })} hitSlop={8}>
-                        <AppText size={13} weight="700">
-                          Rate this order
-                        </AppText>
-                      </Pressable>
-                      <Pressable onPress={() => requestRefund(o)} hitSlop={8}>
-                        <AppText size={13} weight="700" style={{ color: colors.danger }}>
-                          Request refund
-                        </AppText>
-                      </Pressable>
-                    </View>
-                  ) : null}
-                  {o.payment_method === "cash" && (o.status === "completed" || o.status === "collected") ? (
-                    <Pressable onPress={() => router.push({ pathname: "/review", params: { kind: "order", ref: o.id, business: o.business_id, name: kitchenName(o) } })} hitSlop={8}>
-                      <AppText size={13} weight="700">
-                        Rate this order
-                      </AppText>
-                    </Pressable>
-                  ) : null}
-                  <View style={styles.rowBetween}>
-                    <AppText size={12} muted>
-                      {new Date(o.created_at).toLocaleString()}
-                    </AppText>
-                    {o.status === "placed" ? (
-                      <Pressable onPress={() => cancel(o)} hitSlop={8}>
-                        <AppText size={13} weight="700" style={{ color: colors.danger }}>
-                          Cancel
-                        </AppText>
-                      </Pressable>
-                    ) : null}
-                  </View>
                 </View>
               );
-            })
-          )}
-        </ScrollView>
-      )}
+            })}
+          </View>
+          {(o.status === "accepted" || o.status === "preparing") && left != null ? (
+            <AppText size={13} weight="600" style={{ textAlign: "center" }}>
+              {left > 0 ? `About ${left} min left` : "Almost ready"}
+            </AppText>
+          ) : null}
+        </View>
+      ) : null}
+
+      <View style={[styles.items, { borderColor: colors.border }]}>
+        {items.slice(0, 4).map((i, n) => (
+          <View key={n} style={styles.itemRow}>
+            <AppText weight="700" size={13} style={{ width: 28 }}>
+              {i.quantity}×
+            </AppText>
+            <AppText size={13} style={{ flex: 1 }} numberOfLines={1}>
+              {i.name}
+              {i.options?.length ? <AppText muted size={12}>{`  ${i.options.map((x) => x.name).join(", ")}`}</AppText> : null}
+            </AppText>
+          </View>
+        ))}
+        {items.length > 4 ? (
+          <AppText muted size={12}>
+            +{items.length - 4} more
+          </AppText>
+        ) : null}
+      </View>
+
+      {o.status === "declined" && o.decline_reason ? (
+        <AppText size={13} style={{ color: colors.danger }}>
+          {o.decline_reason}
+        </AppText>
+      ) : null}
+
+      <View style={styles.foot}>
+        <View style={{ flex: 1 }}>
+          <AppText muted size={12}>
+            {o.fulfilment === "delivery" ? "Delivery" : "Pickup"} · {payment(o)}
+            {Number(o.discount) > 0 ? ` · saved ${formatNaira(Number(o.discount))}` : ""}
+          </AppText>
+        </View>
+        <AppText weight="700" size={17}>
+          {formatNaira(o.total)}
+        </AppText>
+      </View>
+
+      {o.payment_method === "card" && o.payment_status === "pending" && live ? (
+        <Button title="Pay now" compact onPress={onPay} />
+      ) : null}
+      {o.status === "placed" ? <Button title="Cancel order" compact variant="danger" onPress={onCancel} /> : null}
+      {done ? (
+        <View style={styles.actions}>
+          <Button title="Rate" compact variant="secondary" onPress={review} style={{ flex: 1 }} />
+          {o.payment_status === "paid" ? (
+            <Button title="Refund" compact variant="danger" onPress={onRefund} style={{ flex: 1 }} />
+          ) : null}
+        </View>
+      ) : null}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  top: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-  },
-  back: { width: 40, height: 40, borderRadius: 20, alignItems: "center", justifyContent: "center" },
-  center: { flex: 1, alignItems: "center", justifyContent: "center" },
-  card: { borderRadius: radii.md, padding: 16, gap: 10 },
-  rowBetween: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 10 },
-  steps: { flexDirection: "row", gap: 6 },
-  bar: { height: 4, borderRadius: 2 },
-  payBtn: { height: 42, borderRadius: radii.md, alignItems: "center", justifyContent: "center" },
+  card: { borderRadius: radii.lg, padding: 16, gap: 14 },
+  head: { flexDirection: "row", alignItems: "center", gap: 12 },
+  logo: { width: 46, height: 46, borderRadius: 14 },
+  steps: { flexDirection: "row" },
+  step: { flex: 1, alignItems: "center", gap: 6 },
+  line: { position: "absolute", top: 13, right: "50%", width: "100%", height: 3, borderRadius: 2 },
+  dot: { width: 28, height: 28, borderRadius: 14, borderWidth: 2, alignItems: "center", justifyContent: "center" },
+  items: { gap: 6, paddingTop: 12, borderTopWidth: StyleSheet.hairlineWidth },
+  itemRow: { flexDirection: "row", alignItems: "center" },
+  foot: { flexDirection: "row", alignItems: "center", gap: 10 },
+  actions: { flexDirection: "row", gap: 10 },
 });

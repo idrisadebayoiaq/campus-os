@@ -39,6 +39,26 @@ async function ensureChannel() {
   });
 }
 
+/** A reminder this phone shows by itself at `at`, even with the app closed. Same id replaces the old one. */
+export async function scheduleLocal(id: string, at: Date, title: string, body?: string, link?: string) {
+  if (at.getTime() <= Date.now() + 1000) return;
+  try {
+    await ensureChannel();
+    await Notifications.cancelScheduledNotificationAsync(id).catch(() => undefined);
+    await Notifications.scheduleNotificationAsync({
+      identifier: id,
+      content: { title, body: body ?? "", data: link ? { link } : {}, sound: "default" },
+      trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date: at, channelId: "campusos_default" },
+    });
+  } catch {
+    // Permission off: nothing to show.
+  }
+}
+
+export async function cancelLocal(id: string) {
+  await Notifications.cancelScheduledNotificationAsync(id).catch(() => undefined);
+}
+
 async function saveToken(token: string) {
   currentToken = token;
   await supabase.rpc("register_push_token", {

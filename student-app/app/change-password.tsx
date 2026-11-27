@@ -13,6 +13,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { AppText, Button } from "@/src/components/ui";
 import { useAuth } from "@/src/lib/auth";
+import { notify, toast } from "@/src/lib/feedback";
 import { supabase } from "@/src/lib/supabase";
 import { useTheme } from "@/src/theme/ThemeProvider";
 import { radii } from "@/src/theme/tokens";
@@ -26,7 +27,6 @@ export default function ChangePasswordScreen() {
   const [confirm, setConfirm] = useState("");
   const [show, setShow] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [result, setResult] = useState<{ ok: boolean; text: string } | null>(null);
 
   const longEnough = next.length >= 8;
   const hasNumber = /\d/.test(next);
@@ -36,36 +36,32 @@ export default function ChangePasswordScreen() {
   async function save() {
     if (!user?.email || !canSave) return;
     setSaving(true);
-    setResult(null);
     const { error: authErr } = await supabase.auth.signInWithPassword({
       email: user.email,
       password: current,
     });
     if (authErr) {
       setSaving(false);
-      setResult({ ok: false, text: "Current password is incorrect." });
+      notify("Current password is incorrect", undefined, undefined, { tone: "danger" });
       return;
     }
     const { error } = await supabase.auth.updateUser({ password: next });
     setSaving(false);
     if (error) {
-      setResult({ ok: false, text: error.message });
+      notify("Couldn't update password", error.message, undefined, { tone: "danger" });
       return;
     }
     setCurrent("");
     setNext("");
     setConfirm("");
-    setResult({ ok: true, text: "Password updated" });
+    toast.success("Password updated");
   }
 
   async function sendReset() {
     if (!user?.email) return;
     const { error } = await supabase.auth.resetPasswordForEmail(user.email);
-    setResult(
-      error
-        ? { ok: false, text: error.message }
-        : { ok: true, text: `Reset link sent to ${user.email}` },
-    );
+    if (error) notify("Couldn't send link", error.message, undefined, { tone: "danger" });
+    else toast.success("Reset link sent", user.email);
   }
 
   return (
@@ -150,15 +146,6 @@ export default function ChangePasswordScreen() {
               </View>
             </View>
           </View>
-
-          {result ? (
-            <AppText
-              size={13}
-              style={{ color: result.ok ? colors.success : colors.danger, textAlign: "center" }}
-            >
-              {result.text}
-            </AppText>
-          ) : null}
 
           <Button title="Update password" onPress={save} loading={saving} disabled={!canSave} />
 

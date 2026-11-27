@@ -2,7 +2,6 @@ import { router } from "expo-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
-  Alert,
   FlatList,
   KeyboardAvoidingView,
   Modal,
@@ -22,6 +21,7 @@ import {
   TAB_BAR_CLEARANCE,
 } from "@/src/components/ui";
 import { useAuth } from "@/src/lib/auth";
+import { actionSheet } from "@/src/lib/feedback";
 import {
   INBOX_FILTERS,
   clearConversation,
@@ -122,7 +122,7 @@ export default function InboxScreen() {
   }, [rows, filter, search]);
 
   function onRowMenu(conversationId: string, title: string) {
-    Alert.alert(title, undefined, [
+    actionSheet(title, [
       {
         text: "Clear chat",
         onPress: () =>

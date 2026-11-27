@@ -4,6 +4,7 @@ import { Linking, Pressable, View } from "react-native";
 import { AppText, Button, Card, EmptyState, Field, Input } from "@/src/components/ui";
 import { Row, StudyShell, SyncBanner } from "@/src/components/study";
 import { useAuth } from "@/src/lib/auth";
+import { notify, toast } from "@/src/lib/feedback";
 import { supabase } from "@/src/lib/supabase";
 import { useTheme } from "@/src/theme/ThemeProvider";
 import { radii } from "@/src/theme/tokens";
@@ -41,7 +42,6 @@ export default function StudyClassesScreen() {
   const [assignments, setAssignments] = useState<Assignment[]>([]);
   const [live, setLive] = useState<LiveSession[]>([]);
   const [joinCode, setJoinCode] = useState("");
-  const [status, setStatus] = useState<string | null>(null);
   const [joining, setJoining] = useState(false);
 
   const load = useCallback(async () => {
@@ -115,17 +115,16 @@ export default function StudyClassesScreen() {
   async function onJoin() {
     if (!joinCode.trim()) return;
     setJoining(true);
-    setStatus(null);
     const { error: joinErr } = await supabase.rpc("join_class_by_code", {
       p_code: joinCode.trim(),
     });
     setJoining(false);
     if (joinErr) {
-      setStatus(joinErr.message);
+      notify("Couldn't join", joinErr.message, undefined, { tone: "danger" });
       return;
     }
     setJoinCode("");
-    setStatus("Joined class.");
+    toast.success("Joined class");
     void load();
   }
 
@@ -142,13 +141,12 @@ export default function StudyClassesScreen() {
   return (
     <StudyShell
       title="Classes"
-      subtitle="Enrolled courses, live sessions & join codes"
       refreshing={refreshing}
       onRefresh={() => {
         setRefreshing(true);
         void load();
       }}
-      banner={<SyncBanner error={error} notice={status} />}
+      banner={<SyncBanner error={error} />}
     >
       <View
         style={{

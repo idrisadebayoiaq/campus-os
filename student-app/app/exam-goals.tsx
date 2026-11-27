@@ -2,6 +2,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { Redirect, router } from "expo-router";
 import { useEffect, useMemo, useState } from "react";
 import { Pressable, View } from "react-native";
+import { DateTimeField, fromPickerString, toPickerString } from "@/src/components/date-time-picker";
 import { DropdownField, PickerSheet } from "@/src/components/picker-sheet";
 import { StudyShell } from "@/src/components/study";
 import { AppText, Button, Field, Input } from "@/src/components/ui";
@@ -104,7 +105,7 @@ export default function ExamGoalsScreen() {
       return;
     }
     if (date.trim() && !isIsoDate(date.trim())) {
-      setError("Write the exam date as year-month-day, for example 2027-05-14.");
+      setError("Pick a valid exam date.");
       return;
     }
     setSaving(true);
@@ -200,15 +201,15 @@ export default function ExamGoalsScreen() {
         </View>
       </View>
 
-      <Field label="Exam date" hint="Year-month-day, for example 2027-05-14. Optional.">
-        <Input
-          placeholder="2027-05-14"
-          value={date}
-          onChangeText={setDate}
-          keyboardType="numbers-and-punctuation"
-          autoCapitalize="none"
-        />
-      </Field>
+      <DateTimeField
+        label="Exam date"
+        mode="date"
+        value={fromPickerString(date, "date")}
+        onChange={(d) => setDate(toPickerString(d, "date"))}
+        placeholder="Optional"
+        minimumDate={new Date()}
+        clearable
+      />
       <View style={{ gap: 12 }}>
         <DropdownField
           label="School you want (optional)"

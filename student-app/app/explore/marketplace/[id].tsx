@@ -16,7 +16,6 @@ import { formatNaira } from "@/src/lib/campus";
 import { startBusinessChat, startDirectChat } from "@/src/lib/messaging";
 import { distanceKm, formatDistance, loadSavedLocation } from "@/src/lib/location";
 import { supabase } from "@/src/lib/supabase";
-import { PremiumBadge } from "@/src/components/premium-badge";
 import { loadPremiumIds } from "@/src/lib/premium";
 import { levelLabel, loadBizMeta, metaLine, trackEvent, type BizMeta } from "@/src/lib/trust";
 import {
@@ -321,7 +320,6 @@ export default function MarketplaceDetailScreen() {
               {bizMeta && levelLabel(bizMeta.level) ? ` · ${levelLabel(bizMeta.level)}` : ""}
               {bizMeta?.endorsed ? " · School-approved" : ""}
             </AppText>
-            {bizMeta?.premium || sellerPremium ? <PremiumBadge /> : null}
           </View>
           {bizMeta && metaLine(bizMeta) ? (
             <AppText size={12} weight="600">

@@ -27,7 +27,7 @@ type Item = {
   message?: string;
   tone: FeedbackTone;
   buttons: FeedbackButton[];
-  kind: "toast" | "dialog";
+  kind: "toast" | "dialog" | "sheet";
 };
 
 type Host = { show: (item: Omit<Item, "id">) => void };
@@ -49,7 +49,19 @@ export function notify(title: string, message?: string, buttons?: FeedbackButton
     Alert.alert(title, message, list.length ? list : undefined);
     return;
   }
-  host.show({ title, message, tone, buttons: list, kind: quick ? "toast" : "dialog" });
+  // Three or more choices read better as a list of options.
+  const choices = list.filter((b) => b.style !== "cancel").length;
+  host.show({ title, message, tone, buttons: list, kind: quick ? "toast" : choices >= 3 ? "sheet" : "dialog" });
+}
+
+/** Bottom sheet of options, e.g. a chat's ⋮ menu. A Cancel row is added for you. */
+export function actionSheet(title: string, options: FeedbackButton[], message?: string) {
+  const list = options.some((o) => o.style === "cancel") ? options : [...options, { text: "Cancel", style: "cancel" as const }];
+  if (!host) {
+    Alert.alert(title, message, list);
+    return;
+  }
+  host.show({ title, message, tone: "info", buttons: list, kind: "sheet" });
 }
 
 export const toast = {
@@ -99,7 +111,11 @@ export function FeedbackProvider({ children }: { children: ReactNode }) {
     <FeedbackContext.Provider value={value}>
       {children}
       <Toast item={toastItem} onDone={() => setToastItem(null)} />
-      <Dialog item={dialog} onDone={() => setQueue((q) => q.slice(1))} />
+      {dialog?.kind === "sheet" ? (
+        <Sheet item={dialog} onDone={() => setQueue((q) => q.slice(1))} />
+      ) : (
+        <Dialog item={dialog} onDone={() => setQueue((q) => q.slice(1))} />
+      )}
     </FeedbackContext.Provider>
   );
 }
@@ -217,7 +233,75 @@ function Dialog({ item, onDone }: { item: Item | null; onDone: () => void }) {
   );
 }
 
+function Sheet({ item, onDone }: { item: Item; onDone: () => void }) {
+  const colors = useTheme();
+  const insets = useSafeAreaInsets();
+  const cancel = item.buttons.find((b) => b.style === "cancel");
+  const actions = item.buttons.filter((b) => b.style !== "cancel");
+
+  function press(b?: FeedbackButton) {
+    onDone();
+    b?.onPress?.();
+  }
+
+  return (
+    <Modal transparent visible animationType="slide" onRequestClose={() => press(cancel)} statusBarTranslucent>
+      <Pressable style={styles.sheetBackdrop} onPress={() => press(cancel)} accessibilityLabel="Close" />
+      <View style={[styles.sheet, { paddingBottom: Math.max(insets.bottom, 12) }]}>
+        <View style={[styles.sheetGroup, { backgroundColor: colors.bg }]}>
+          {item.title || item.message ? (
+            <View style={[styles.sheetHead, { borderBottomColor: colors.border }]}>
+              {item.title ? (
+                <AppText weight="700" size={15} style={{ textAlign: "center" }} numberOfLines={2}>
+                  {item.title}
+                </AppText>
+              ) : null}
+              {item.message ? (
+                <AppText muted size={13} style={{ textAlign: "center" }}>
+                  {item.message}
+                </AppText>
+              ) : null}
+            </View>
+          ) : null}
+          {actions.map((b, i) => (
+            <Pressable
+              key={`${b.text}-${i}`}
+              onPress={() => press(b)}
+              style={({ pressed }) => [
+                styles.sheetRow,
+                i > 0 && { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: colors.border },
+                pressed && { backgroundColor: colors.surface },
+              ]}
+            >
+              <AppText size={17} weight="600" style={{ color: b.style === "destructive" ? colors.danger : colors.fg }}>
+                {b.text ?? "OK"}
+              </AppText>
+            </Pressable>
+          ))}
+        </View>
+        <Pressable
+          onPress={() => press(cancel)}
+          style={({ pressed }) => [
+            styles.sheetGroup,
+            styles.sheetRow,
+            { backgroundColor: pressed ? colors.surface : colors.bg, marginTop: 8 },
+          ]}
+        >
+          <AppText size={17} weight="700">
+            {cancel?.text ?? "Cancel"}
+          </AppText>
+        </Pressable>
+      </View>
+    </Modal>
+  );
+}
+
 const styles = StyleSheet.create({
+  sheetBackdrop: { flex: 1, backgroundColor: "rgba(0,0,0,0.45)" },
+  sheet: { position: "absolute", left: 10, right: 10, bottom: 0 },
+  sheetGroup: { borderRadius: radii.md, overflow: "hidden" },
+  sheetHead: { paddingVertical: 14, paddingHorizontal: 16, gap: 4, borderBottomWidth: StyleSheet.hairlineWidth },
+  sheetRow: { minHeight: 56, alignItems: "center", justifyContent: "center", paddingHorizontal: 16 },
   toastWrap: { position: "absolute", left: 14, right: 14, zIndex: 10000, elevation: 10000 },
   toast: {
     flexDirection: "row",

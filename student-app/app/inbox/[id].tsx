@@ -2,7 +2,6 @@ import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
-  Alert,
   Animated,
   BackHandler,
   FlatList,
@@ -24,9 +23,8 @@ import {
 } from "expo-audio";
 import { AppText, Avatar } from "@/src/components/ui";
 import { AiAvatar } from "@/src/lib/ai-avatars";
-import { PremiumBadge } from "@/src/components/premium-badge";
 import { useAuth } from "@/src/lib/auth";
-import { loadPremiumIds } from "@/src/lib/premium";
+import { actionSheet, notify } from "@/src/lib/feedback";
 import { setOpenConversation } from "@/src/lib/push";
 import { useStudyLock } from "@/src/lib/study-lock";
 import { formatNaira } from "@/src/lib/campus";
@@ -110,7 +108,6 @@ export default function ChatThreadScreen() {
   const [transcribing, setTranscribing] = useState(false);
   const [ticket, setTicket] = useState<SupportTicketInfo | null>(null);
   const [rated, setRated] = useState(false);
-  const [peerPremium, setPeerPremium] = useState(false);
   const [peerAvatar, setPeerAvatar] = useState<string | null>(null);
   const [peerReadAt, setPeerReadAt] = useState<string | null>(null);
   const [names, setNames] = useState<Record<string, string>>({});
@@ -217,20 +214,14 @@ export default function ChatThreadScreen() {
       }
       if (conv.kind !== "ai" && conv.kind !== "support") {
         const peers = (await loadPeerReads()) ?? [];
-        if (peers.length === 1) {
-          const premium = await loadPremiumIds(supabase, peers);
-          setPeerPremium(premium.has(peers[0]));
-        } else {
-          setPeerPremium(false);
-          if (peers.length > 1) {
-            setSubtitle(`${peers.length + 1} members`);
-            const { data: people } = await supabase.rpc("chat_people", { p_ids: peers });
-            setNames(
-              Object.fromEntries(
-                ((people ?? []) as { id: string; display_name: string }[]).map((p) => [p.id, p.display_name]),
-              ),
-            );
-          }
+        if (peers.length > 1) {
+          setSubtitle(`${peers.length + 1} members`);
+          const { data: people } = await supabase.rpc("chat_people", { p_ids: peers });
+          setNames(
+            Object.fromEntries(
+              ((people ?? []) as { id: string; display_name: string }[]).map((p) => [p.id, p.display_name]),
+            ),
+          );
         }
       }
       if (conv.kind === "ai") {
@@ -520,7 +511,7 @@ export default function ChatThreadScreen() {
     }
     if (!buttons.length) return;
     buttons.push({ text: "Cancel", style: "cancel" });
-    Alert.alert("Message", undefined, buttons);
+    actionSheet("Message", buttons);
   }
 
   function onChatMenu() {
@@ -534,7 +525,7 @@ export default function ChatThreadScreen() {
     buttons.push({
       text: "Clear chat",
       onPress: () =>
-        Alert.alert(
+        notify(
           "Clear this chat?",
           isAi ? "Your tutor forgets this conversation." : "Only your copy is cleared.",
           [
@@ -559,7 +550,7 @@ export default function ChatThreadScreen() {
         text: "Delete chat",
         style: "destructive",
         onPress: () =>
-          Alert.alert("Delete this chat?", "It comes back if someone writes again.", [
+          notify("Delete this chat?", "It comes back if someone writes again.", [
             { text: "Cancel", style: "cancel" },
             {
               text: "Delete",
@@ -574,7 +565,7 @@ export default function ChatThreadScreen() {
       });
     }
     buttons.push({ text: "Cancel", style: "cancel" });
-    Alert.alert(title, undefined, buttons);
+    actionSheet(title, buttons);
   }
 
   function openProfile() {
@@ -633,7 +624,6 @@ export default function ChatThreadScreen() {
               <AppText weight="700" size={16} numberOfLines={1} style={{ flexShrink: 1 }}>
                 {title}
               </AppText>
-              {peerPremium ? <PremiumBadge /> : null}
             </View>
             {status ? (
               <AppText size={12} numberOfLines={1} style={{ color: aiThinking && isAi ? colors.success : colors.muted }}>

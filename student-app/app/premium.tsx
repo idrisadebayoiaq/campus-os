@@ -1,8 +1,8 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useCallback, useEffect, useState } from "react";
-import { View } from "react-native";
-import { Group, KeyValue, Notice, PageShell, Panel, Section } from "@/src/components/page";
-import { PremiumBadge, PREMIUM_GREEN } from "@/src/components/premium-badge";
+import { Pressable, StyleSheet, View } from "react-native";
+import { Group, Notice, PageShell, Section } from "@/src/components/page";
+import { PREMIUM_GREEN } from "@/src/components/premium-badge";
 import { AppText, Button } from "@/src/components/ui";
 import { useAuth } from "@/src/lib/auth";
 import { formatNaira } from "@/src/lib/campus";
@@ -11,6 +11,7 @@ import { callPaystack } from "@/src/lib/payments";
 import { PAY_RETURN_URL, usePaySheet } from "@/src/lib/pay-sheet";
 import { supabase } from "@/src/lib/supabase";
 import { useTheme } from "@/src/theme/ThemeProvider";
+import { radii } from "@/src/theme/tokens";
 
 type State = {
   active: boolean;
@@ -22,22 +23,19 @@ type State = {
   kind?: "enrolled" | "exam_prep";
 };
 
-type Benefit = { icon: keyof typeof Ionicons.glyphMap; title: string; body: string; soon?: boolean };
+type Benefit = { icon: keyof typeof Ionicons.glyphMap; title: string; body: string };
 
 const EXAM_BENEFITS: Benefit[] = [
-  { icon: "sparkles", title: "AI tutor for your exam", body: "Ask your tutor anything, get step-by-step answers and exam-style practice questions, any time." },
-  { icon: "document-text", title: "Past questions", body: "Practise with JAMB, WAEC and NECO past questions and keep your own notes. More added all the time." },
-  { icon: "checkmark-circle", title: "Green Premium badge", body: "Shown next to your name on your profile, chats and marketplace listings." },
-  { icon: "pricetag", title: "Lower selling fee", body: "Keep more of what you sell. The marketplace fee drops from 2% to 1% on new sales." },
-  { icon: "headset", title: "Priority support", body: "Your support tickets are answered before the rest." },
+  { icon: "sparkles", title: "AI tutor", body: "Step-by-step answers and exam-style practice." },
+  { icon: "document-text", title: "Past questions", body: "JAMB, WAEC and NECO, with your own notes." },
+  { icon: "pricetag", title: "1% selling fee", body: "Down from 2% on the marketplace." },
+  { icon: "headset", title: "Priority support", body: "Your tickets are answered first." },
 ];
 
 const BENEFITS: Benefit[] = [
-  { icon: "checkmark-circle", title: "Green Premium badge", body: "Shown next to your name on your profile, chats and marketplace listings." },
-  { icon: "sparkles", title: "Higher AI tutor limits", body: "The tutor is free for you with a daily limit. Premium gives you three times more questions every hour and every day." },
-  { icon: "pricetag", title: "Lower selling fee", body: "Keep more of what you sell. The marketplace fee drops from 2% to 1% on new sales." },
-  { icon: "headset", title: "Priority support", body: "Your support tickets are answered before the rest." },
-  { icon: "flash", title: "Early access to deals", body: "See new food and campus deals before everyone else.", soon: true },
+  { icon: "sparkles", title: "3× AI tutor limits", body: "More questions every hour and every day." },
+  { icon: "pricetag", title: "1% selling fee", body: "Down from 2% on the marketplace." },
+  { icon: "headset", title: "Priority support", body: "Your tickets are answered first." },
 ];
 
 function brand(b: string | null) {
@@ -52,7 +50,6 @@ export default function PremiumScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [busy, setBusy] = useState<"card" | "wallet" | "renew" | null>(null);
-  const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
   const { payByCard } = usePaySheet();
 
   const load = useCallback(async () => {
@@ -79,7 +76,6 @@ export default function PremiumScreen() {
 
   async function payWithCard() {
     setBusy("card");
-    setMessage(null);
     const res = await callPaystack(supabase, { action: "init-premium", callback_url: PAY_RETURN_URL });
     setBusy(null);
     if (res.ok && typeof res.data.authorization_url === "string" && typeof res.data.reference === "string") {
@@ -90,8 +86,8 @@ export default function PremiumScreen() {
         amount: price,
         successText: "Premium is now active on your account.",
       });
-      if (paid.status === "success") notify("Premium is active", "Enjoy your green badge and higher limits.", undefined, { tone: "success" });
-      else if (paid.status === "failed") notify("Payment not completed", "Your card was not charged. Try again or use another card.", undefined, { tone: "danger" });
+      if (paid.status === "success") notify("Premium is active", undefined, undefined, { tone: "success" });
+      else if (paid.status === "failed") notify("Payment not completed", "Your card was not charged.", undefined, { tone: "danger" });
       void load();
       return;
     }
@@ -101,18 +97,20 @@ export default function PremiumScreen() {
   async function payFromWallet() {
     if (!state) return;
     setBusy("wallet");
-    setMessage(null);
     const { error } = await supabase.rpc("subscribe_premium");
     setBusy(null);
-    setMessage(error ? { ok: false, text: error.message } : { ok: true, text: "Premium is active. Paid from your wallet." });
+    if (error) notify("Couldn't activate Premium", error.message, undefined, { tone: "danger" });
+    else notify("Premium is active", "Paid from your wallet.", undefined, { tone: "success" });
     void load();
   }
 
   async function toggleRenew() {
     if (!state) return;
     setBusy("renew");
-    await supabase.rpc("set_premium_auto_renew", { p_on: !state.auto_renew });
+    const { error } = await supabase.rpc("set_premium_auto_renew", { p_on: !state.auto_renew });
     setBusy(null);
+    if (error) notify("Couldn't change renewal", error.message, undefined, { tone: "danger" });
+    else notify(state.auto_renew ? "Auto-renew is off" : "Auto-renew is on", undefined, undefined, { tone: "success" });
     void load();
   }
 
@@ -120,20 +118,20 @@ export default function PremiumScreen() {
   const price = state?.price ?? (examPrep ? 4000 : 2000);
   const active = Boolean(state?.active);
   const benefits = examPrep ? EXAM_BENEFITS : BENEFITS;
-  const ends = state?.ends_at ? new Date(state.ends_at).toLocaleDateString(undefined, { day: "numeric", month: "long", year: "numeric" }) : "";
-  const renewLine =
-    state?.auto_renew === false
-      ? `Premium ends on ${ends} and will not renew.`
-      : state?.pay_method === "card" && state.card
-        ? `Renews on ${ends} with ${brand(state.card.brand)} •••• ${state.card.last4}.`
-        : state?.pay_method === "card"
-          ? `Active until ${ends}. No card was saved, so it will not renew by itself.`
-          : `Renews on ${ends} from your wallet.`;
+  const ends = state?.ends_at
+    ? new Date(state.ends_at).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" })
+    : "";
+  const daysLeft = state?.ends_at ? Math.max(0, Math.ceil((new Date(state.ends_at).getTime() - Date.now()) / 86400000)) : 0;
+  const payWith =
+    state?.pay_method === "card" && state.card
+      ? `${brand(state.card.brand)} •••• ${state.card.last4}`
+      : state?.pay_method === "card"
+        ? "Card"
+        : "Wallet";
 
   return (
     <PageShell
       title="Premium"
-      subtitle="Get more from CampusOS"
       loading={loading}
       refreshing={refreshing}
       onRefresh={() => {
@@ -142,90 +140,125 @@ export default function PremiumScreen() {
         void load();
       }}
     >
-      <View style={{ backgroundColor: colors.heroBg, borderRadius: 24, padding: 20, gap: 8 }}>
-        <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-          <AppText size={13} weight="700" style={{ color: colors.heroMuted }}>
-            CAMPUSOS PREMIUM
-          </AppText>
-          {active ? <PremiumBadge /> : null}
-        </View>
-        <AppText size={34} weight="700" style={{ color: colors.heroFg }}>
-          {formatNaira(price)}
-          <AppText size={15} style={{ color: colors.heroMuted }}>
-            {" "}
-            / month
-          </AppText>
-        </AppText>
-        <AppText size={13} style={{ color: colors.heroMuted }}>
-          {active
-            ? "Premium is active on your account."
-            : examPrep
-              ? "Unlocks the AI tutor and past questions. Everything else in CampusOS is already free for you."
-              : "Cancel renewal any time. No hidden charges."}
-        </AppText>
-      </View>
-
       {active ? (
-        <Notice tone="success">{renewLine}</Notice>
-      ) : null}
-
-      <Section title="What you get">
-        <Group>
-          {benefits.map((b) => (
-            <View key={b.title} style={{ flexDirection: "row", gap: 12, padding: 14, alignItems: "flex-start" }}>
-              <View style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: b.soon ? colors.accentSoft : PREMIUM_GREEN, alignItems: "center", justifyContent: "center" }}>
-                <Ionicons name={b.soon ? "time-outline" : "checkmark"} size={16} color={b.soon ? colors.fg : "#fff"} />
-              </View>
-              <View style={{ flex: 1, gap: 2 }}>
-                <AppText weight="700">
-                  {b.title}
-                  {b.soon ? "  · Coming soon" : ""}
-                </AppText>
-                <AppText muted size={13}>
-                  {b.body}
-                </AppText>
-              </View>
+        <View style={[styles.banner, { backgroundColor: colors.heroBg }]}>
+          <View style={styles.bannerTop}>
+            <View style={[styles.check, { backgroundColor: PREMIUM_GREEN }]}>
+              <Ionicons name="checkmark" size={22} color="#fff" />
             </View>
-          ))}
-        </Group>
-      </Section>
+            <View style={{ flex: 1 }}>
+              <AppText size={12} weight="700" style={{ color: colors.heroMuted }}>
+                ACTIVE PLAN
+              </AppText>
+              <AppText size={22} weight="700" style={{ color: colors.heroFg }}>
+                CampusOS Premium
+              </AppText>
+            </View>
+          </View>
 
-      <Section title={active ? "Extend Premium" : "Get Premium"}>
-        <Button
-          title={busy === "card" ? "Preparing secure checkout…" : `Pay ${formatNaira(price)} by card`}
-          onPress={() => void payWithCard()}
-          loading={busy === "card"}
-          disabled={busy !== null}
-        />
-        <Button
-          variant="secondary"
-          title={balance < price ? `Pay from wallet (${formatNaira(balance)}, add money first)` : `Pay ${formatNaira(price)} from wallet`}
-          onPress={() => void payFromWallet()}
-          loading={busy === "wallet"}
-          disabled={balance < price || busy !== null}
-        />
-        {message ? <Notice tone={message.ok ? "success" : "danger"}>{message.text}</Notice> : null}
-        <AppText size={12} muted>
-          You enter your card on Paystack&apos;s secure form inside this app (Mastercard, Visa, Verve). CampusOS never sees your card number. Paying by card saves it for renewal, which you can switch off below.
-        </AppText>
-      </Section>
+          <View style={[styles.stats, { borderColor: "rgba(255,255,255,0.14)" }]}>
+            <Stat label={state?.auto_renew ? "Renews" : "Ends"} value={ends} />
+            <Stat label="Days left" value={String(daysLeft)} />
+            <Stat label="Pays with" value={payWith} />
+          </View>
 
-      {active ? (
-        <Section title="Renewal">
-          <Panel>
-            <KeyValue label="Status" value="Active" />
-            <KeyValue label="Ends" value={ends} />
-            <KeyValue label="Pays with" value={state?.pay_method === "card" && state.card ? `${brand(state.card.brand)} •••• ${state.card.last4}` : "Wallet"} />
+          <Pressable
+            onPress={() => void toggleRenew()}
+            disabled={busy === "renew"}
+            style={[styles.renew, { backgroundColor: "rgba(255,255,255,0.1)", opacity: busy === "renew" ? 0.6 : 1 }]}
+          >
+            <Ionicons name={state?.auto_renew ? "refresh-circle" : "pause-circle"} size={20} color={colors.heroFg} />
+            <AppText size={14} weight="600" style={{ color: colors.heroFg, flex: 1 }}>
+              {state?.auto_renew ? `Auto-renew · ${formatNaira(price)}/month` : "Auto-renew off"}
+            </AppText>
+            <AppText size={13} weight="700" style={{ color: colors.accent }}>
+              {state?.auto_renew ? "Turn off" : "Turn on"}
+            </AppText>
+          </Pressable>
+        </View>
+      ) : (
+        <>
+          <View style={[styles.banner, { backgroundColor: colors.heroBg }]}>
+            <AppText size={12} weight="700" style={{ color: colors.heroMuted }}>
+              CAMPUSOS PREMIUM
+            </AppText>
+            <AppText size={36} weight="700" style={{ color: colors.heroFg, lineHeight: 44 }}>
+              {formatNaira(price)}
+              <AppText size={15} style={{ color: colors.heroMuted }}>
+                {" "}
+                / month
+              </AppText>
+            </AppText>
+            <AppText size={13} style={{ color: colors.heroMuted }}>
+              Cancel any time.
+            </AppText>
+          </View>
+
+          <Group>
+            {benefits.map((b) => (
+              <View key={b.title} style={styles.benefit}>
+                <View style={[styles.benefitIcon, { backgroundColor: colors.accentSoft }]}>
+                  <Ionicons name={b.icon} size={18} color={colors.fg} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <AppText weight="700">{b.title}</AppText>
+                  <AppText muted size={13}>
+                    {b.body}
+                  </AppText>
+                </View>
+              </View>
+            ))}
+          </Group>
+
+          <Section>
             <Button
-              compact
-              variant="secondary"
-              title={state?.auto_renew ? "Stop renewing" : "Renew automatically"}
-              onPress={() => void toggleRenew()}
-              loading={busy === "renew"}
+              title={`Pay ${formatNaira(price)} by card`}
+              onPress={() => void payWithCard()}
+              loading={busy === "card"}
+              disabled={busy !== null}
             />
-          </Panel>
-        </Section>
-      ) : null}
+            <Button
+              variant="secondary"
+              title={balance < price ? `Wallet ${formatNaira(balance)} · top up first` : `Pay from wallet (${formatNaira(balance)})`}
+              onPress={() => void payFromWallet()}
+              loading={busy === "wallet"}
+              disabled={balance < price || busy !== null}
+            />
+            <Notice icon="lock-closed-outline">Card payments are handled securely by Paystack.</Notice>
+          </Section>
+        </>
+      )}
     </PageShell>
   );
 }
+
+function Stat({ label, value }: { label: string; value: string }) {
+  const colors = useTheme();
+  return (
+    <View style={{ flex: 1, gap: 2 }}>
+      <AppText size={11} weight="600" style={{ color: colors.heroMuted }}>
+        {label}
+      </AppText>
+      <AppText size={14} weight="700" numberOfLines={1} style={{ color: colors.heroFg }}>
+        {value || "—"}
+      </AppText>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  banner: { borderRadius: radii.xl, padding: 20, gap: 14 },
+  bannerTop: { flexDirection: "row", alignItems: "center", gap: 14 },
+  check: { width: 44, height: 44, borderRadius: 22, alignItems: "center", justifyContent: "center" },
+  stats: { flexDirection: "row", gap: 12, borderTopWidth: StyleSheet.hairlineWidth, paddingTop: 14 },
+  renew: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    borderRadius: radii.md,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
+  benefit: { flexDirection: "row", gap: 12, padding: 14, alignItems: "center" },
+  benefitIcon: { width: 38, height: 38, borderRadius: 19, alignItems: "center", justifyContent: "center" },
+});

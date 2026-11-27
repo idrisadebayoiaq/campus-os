@@ -10,18 +10,17 @@ import {
   Field,
   Input,
 } from "@/src/components/ui";
+import { DateTimeField } from "@/src/components/date-time-picker";
 import { StudyShell, SyncBanner } from "@/src/components/study";
 import { useAuth } from "@/src/lib/auth";
+import { toast } from "@/src/lib/feedback";
 import { supabase } from "@/src/lib/supabase";
-import { useTheme } from "@/src/theme/ThemeProvider";
-import { radii } from "@/src/theme/tokens";
 
 type ClassRow = { id: string; course_code: string; course_title: string };
 
 /** Mobile lecturer tools: publish assignments + schedule live classes. */
 export default function LecturerAppHome() {
   const { user } = useAuth();
-  const colors = useTheme();
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [allowed, setAllowed] = useState(false);
@@ -29,11 +28,10 @@ export default function LecturerAppHome() {
   const [classId, setClassId] = useState("");
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
-  const [dueAt, setDueAt] = useState("");
+  const [dueAt, setDueAt] = useState<Date | null>(null);
   const [liveTitle, setLiveTitle] = useState("");
-  const [liveWhen, setLiveWhen] = useState("");
+  const [liveWhen, setLiveWhen] = useState<Date | null>(null);
   const [mode, setMode] = useState<"video" | "voice">("video");
-  const [status, setStatus] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -85,7 +83,6 @@ export default function LecturerAppHome() {
   async function publishAssignment() {
     if (!user || !classId || !title.trim()) return;
     setBusy(true);
-    setStatus(null);
     setError(null);
     const { data, error: insErr } = await supabase
       .from("class_assignments")
@@ -94,7 +91,7 @@ export default function LecturerAppHome() {
         created_by: user.id,
         title: title.trim(),
         description: description.trim() || null,
-        due_at: dueAt ? new Date(dueAt).toISOString() : null,
+        due_at: dueAt ? dueAt.toISOString() : null,
       })
       .select("id")
       .single();
@@ -109,14 +106,13 @@ export default function LecturerAppHome() {
     setBusy(false);
     setTitle("");
     setDescription("");
-    setDueAt("");
-    setStatus("Assignment published to enrolled students.");
+    setDueAt(null);
+    toast.success("Assignment published");
   }
 
   async function scheduleLive() {
-    if (!user || !classId || !liveTitle.trim() || !liveWhen.trim()) return;
+    if (!user || !classId || !liveTitle.trim() || !liveWhen) return;
     setBusy(true);
-    setStatus(null);
     setError(null);
     const room = `campusos-${classId.slice(0, 8)}-${Date.now()}`;
     const webBase =
@@ -128,7 +124,7 @@ export default function LecturerAppHome() {
       created_by: user.id,
       title: liveTitle.trim(),
       mode,
-      scheduled_at: new Date(liveWhen).toISOString(),
+      scheduled_at: liveWhen.toISOString(),
       status: "scheduled",
       room_name: room,
       join_url: joinUrl,
@@ -139,8 +135,8 @@ export default function LecturerAppHome() {
       return;
     }
     setLiveTitle("");
-    setLiveWhen("");
-    setStatus("Live class scheduled.");
+    setLiveWhen(null);
+    toast.success("Live class scheduled");
   }
 
   if (!loading && !allowed) {
@@ -158,29 +154,13 @@ export default function LecturerAppHome() {
   return (
     <StudyShell
       title="Lecturer tools"
-      subtitle="Assignments and live classes"
       refreshing={refreshing}
       onRefresh={() => {
         setRefreshing(true);
         void load();
       }}
-      banner={<SyncBanner error={error} notice={status} />}
+      banner={<SyncBanner error={error} />}
     >
-      <View
-        style={{
-          backgroundColor: colors.heroBg,
-          borderRadius: radii.xl,
-          padding: 20,
-          gap: 6,
-        }}
-      >
-        <AppText size={13} style={{ color: colors.heroMuted }}>
-          Create classes on the portal
-        </AppText>
-        <AppText size={18} weight="700" style={{ color: colors.heroFg }}>
-          Publish here for enrolled students
-        </AppText>
-      </View>
 
       {loading ? null : (
         <>
@@ -223,13 +203,7 @@ export default function LecturerAppHome() {
                 style={{ height: 88, paddingTop: 12, textAlignVertical: "top" }}
               />
             </Field>
-            <Field label="Due (optional)">
-              <Input
-                value={dueAt}
-                onChangeText={setDueAt}
-                placeholder="YYYY-MM-DD HH:MM"
-              />
-            </Field>
+            <DateTimeField label="Due (optional)" mode="datetime" value={dueAt} onChange={setDueAt} minimumDate={new Date()} placeholder="No due date" />
             <Button
               title="Publish assignment"
               onPress={publishAssignment}
@@ -259,13 +233,7 @@ export default function LecturerAppHome() {
                 placeholder="Session title"
               />
             </Field>
-            <Field label="Starts">
-              <Input
-                value={liveWhen}
-                onChangeText={setLiveWhen}
-                placeholder="YYYY-MM-DD HH:MM"
-              />
-            </Field>
+            <DateTimeField label="Starts" mode="datetime" value={liveWhen} onChange={setLiveWhen} minimumDate={new Date()} placeholder="Pick date and time" />
             <Button
               title="Schedule live"
               onPress={scheduleLive}

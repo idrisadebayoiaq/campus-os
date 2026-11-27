@@ -1,20 +1,9 @@
-import { router } from "expo-router";
 import { useEffect, useState } from "react";
-import {
-  ActivityIndicator,
-  KeyboardAvoidingView,
-  Platform,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Switch,
-  TextInput,
-  View,
-} from "react-native";
-import { Ionicons } from "@expo/vector-icons";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { Pressable, StyleSheet, Switch, TextInput, View } from "react-native";
+import { ChipRow, Group, ListRow, PageShell, Section } from "@/src/components/page";
 import { AppText, Button } from "@/src/components/ui";
 import { useAuth } from "@/src/lib/auth";
+import { notify, toast } from "@/src/lib/feedback";
 import { supabase } from "@/src/lib/supabase";
 import { useTheme } from "@/src/theme/ThemeProvider";
 import { radii } from "@/src/theme/tokens";
@@ -22,8 +11,8 @@ import { radii } from "@/src/theme/tokens";
 const STATUSES = [
   { value: "need_room", label: "Need a room" },
   { value: "moving_soon", label: "Moving soon" },
-  { value: "housed", label: "Already housed" },
-  { value: "exploring", label: "Just exploring" },
+  { value: "housed", label: "Housed" },
+  { value: "exploring", label: "Exploring" },
 ];
 
 const PERIODS = [
@@ -42,7 +31,7 @@ const TYPES = [
 ];
 
 const FACILITIES = [
-  { value: "water", label: "Running water" },
+  { value: "water", label: "Water" },
   { value: "electricity", label: "Steady light" },
   { value: "prepaid_meter", label: "Prepaid meter" },
   { value: "security", label: "Security" },
@@ -55,7 +44,6 @@ const FACILITIES = [
 export default function HousingPreferencesScreen() {
   const { user } = useAuth();
   const colors = useTheme();
-  const insets = useSafeAreaInsets();
   const [loading, setLoading] = useState(true);
   const [status, setStatus] = useState("");
   const [budget, setBudget] = useState("");
@@ -64,7 +52,6 @@ export default function HousingPreferencesScreen() {
   const [facilities, setFacilities] = useState<string[]>([]);
   const [alerts, setAlerts] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [result, setResult] = useState<{ ok: boolean; text: string } | null>(null);
 
   useEffect(() => {
     if (!user) return;
@@ -91,14 +78,9 @@ export default function HousingPreferencesScreen() {
     };
   }, [user]);
 
-  function toggle(list: string[], value: string, set: (v: string[]) => void) {
-    set(list.includes(value) ? list.filter((v) => v !== value) : [...list, value]);
-  }
-
   async function save() {
     if (!user) return;
     setSaving(true);
-    setResult(null);
     const amount = Number(budget.replace(/[^0-9]/g, ""));
     const { error } = await supabase.from("housing_preferences").upsert(
       {
@@ -114,156 +96,67 @@ export default function HousingPreferencesScreen() {
       { onConflict: "user_id" },
     );
     setSaving(false);
-    setResult(error ? { ok: false, text: error.message } : { ok: true, text: "Housing preferences saved" });
+    if (error) notify("Couldn't save", error.message, undefined, { tone: "danger" });
+    else toast.success("Preferences saved");
   }
 
-  const formattedBudget = budget ? Number(budget.replace(/[^0-9]/g, "")).toLocaleString() : "";
+  const formatted = budget ? Number(budget).toLocaleString() : "";
 
   return (
-    <View style={{ flex: 1, backgroundColor: colors.bg, paddingTop: insets.top }}>
-      <View style={styles.top}>
-        <Pressable
-          onPress={() => router.back()}
-          style={[styles.back, { backgroundColor: colors.surface }]}
-          accessibilityLabel="Back"
-        >
-          <Ionicons name="chevron-back" size={20} color={colors.fg} />
-        </Pressable>
-        <AppText size={18} weight="700">
-          Housing preferences
-        </AppText>
-        <View style={{ width: 40 }} />
-      </View>
+    <PageShell
+      title="Housing preferences"
+      loading={loading}
+      footer={<Button title="Save" onPress={() => void save()} loading={saving} />}
+    >
+      <Section title="Status">
+        <ChipRow options={STATUSES} value={status} onChange={(v) => setStatus(status === v ? "" : v)} />
+      </Section>
 
-      {loading ? (
-        <View style={styles.center}>
-          <ActivityIndicator color={colors.fg} />
-        </View>
-      ) : (
-        <KeyboardAvoidingView
-          style={{ flex: 1 }}
-          behavior="padding"
-          keyboardVerticalOffset={Platform.OS === "ios" ? 8 : 0}
-        >
-          <ScrollView
-            contentContainerStyle={{ padding: 20, gap: 22, paddingBottom: 140 }}
-            keyboardShouldPersistTaps="handled"
-            showsVerticalScrollIndicator={false}
-          >
-            <AppText muted size={13}>
-              We use these to rank rooms in Housing and to send alerts when a match is listed.
-            </AppText>
-
-            <Group title="Where you are">
-              <ChipSet
-                options={STATUSES}
-                selected={status ? [status] : []}
-                onPress={(v) => setStatus(status === v ? "" : v)}
-              />
-            </Group>
-
-            <Group title="Budget">
-              <View style={[styles.money, { backgroundColor: colors.inputBg, borderColor: colors.inputBorder }]}>
-                <AppText size={17} weight="700" muted>
-                  ₦
-                </AppText>
-                <TextInput
-                  value={formattedBudget}
-                  onChangeText={(t) => setBudget(t.replace(/[^0-9]/g, ""))}
-                  keyboardType="number-pad"
-                  placeholder="250,000"
-                  placeholderTextColor={colors.muted}
-                  style={[styles.moneyInput, { color: colors.fg }]}
-                />
-              </View>
-              <ChipSet
-                options={PERIODS}
-                selected={[period]}
-                onPress={setPeriod}
-              />
-            </Group>
-
-            <Group title="Room type">
-              <ChipSet
-                options={TYPES}
-                selected={types}
-                onPress={(v) => toggle(types, v, setTypes)}
-              />
-            </Group>
-
-            <Group title="Must have">
-              <ChipSet
-                options={FACILITIES}
-                selected={facilities}
-                onPress={(v) => toggle(facilities, v, setFacilities)}
-              />
-            </Group>
-
-            <Group title="Alerts">
-              <View style={styles.switchRow}>
-                <View style={{ flex: 1, gap: 2 }}>
-                  <AppText size={14} weight="600">
-                    New room alerts
-                  </AppText>
-                  <AppText muted size={12}>
-                    Get notified when a room that matches is listed.
-                  </AppText>
-                </View>
-                <Switch
-                  value={alerts}
-                  onValueChange={setAlerts}
-                  trackColor={{ true: colors.accent, false: colors.border }}
-                />
-              </View>
-            </Group>
-          </ScrollView>
-        </KeyboardAvoidingView>
-      )}
-
-      <View
-        style={[
-          styles.footer,
-          {
-            backgroundColor: colors.bg,
-            borderTopColor: colors.border,
-            paddingBottom: Math.max(insets.bottom, 12) + 4,
-          },
-        ]}
-      >
-        {result ? (
-          <AppText
-            size={13}
-            style={{ color: result.ok ? colors.success : colors.danger, textAlign: "center", marginBottom: 8 }}
-          >
-            {result.text}
+      <Section title="Max budget">
+        <View style={[styles.money, { backgroundColor: colors.inputBg, borderColor: colors.inputBorder }]}>
+          <AppText size={18} weight="700" muted>
+            ₦
           </AppText>
-        ) : null}
-        <Button title="Save preferences" onPress={save} loading={saving} disabled={loading} />
-      </View>
-    </View>
+          <TextInput
+            value={formatted}
+            onChangeText={(t) => setBudget(t.replace(/[^0-9]/g, ""))}
+            keyboardType="number-pad"
+            placeholder="250,000"
+            placeholderTextColor={colors.muted}
+            style={[styles.moneyInput, { color: colors.fg }]}
+          />
+        </View>
+        <ChipRow options={PERIODS} value={period} onChange={setPeriod} />
+      </Section>
+
+      <Section title="Room type">
+        <MultiChips options={TYPES} selected={types} onChange={setTypes} />
+      </Section>
+
+      <Section title="Must have">
+        <MultiChips options={FACILITIES} selected={facilities} onChange={setFacilities} />
+      </Section>
+
+      <Group>
+        <ListRow
+          icon="notifications-outline"
+          title="Alert me on new matches"
+          chevron={false}
+          right={<Switch value={alerts} onValueChange={setAlerts} trackColor={{ true: colors.accent, false: colors.border }} />}
+        />
+      </Group>
+    </PageShell>
   );
 }
 
-function Group({ title, children }: { title: string; children: React.ReactNode }) {
-  const colors = useTheme();
-  return (
-    <View style={{ gap: 8 }}>
-      <AppText muted size={12} weight="600" style={{ marginLeft: 4 }}>
-        {title.toUpperCase()}
-      </AppText>
-      <View style={[styles.card, { backgroundColor: colors.surface }]}>{children}</View>
-    </View>
-  );
-}
-
-function ChipSet({
+function MultiChips({
   options,
   selected,
-  onPress,
+  onChange,
 }: {
   options: { value: string; label: string }[];
   selected: string[];
-  onPress: (value: string) => void;
+  onChange: (v: string[]) => void;
 }) {
   const colors = useTheme();
   return (
@@ -273,14 +166,8 @@ function ChipSet({
         return (
           <Pressable
             key={o.value}
-            onPress={() => onPress(o.value)}
-            style={[
-              styles.chip,
-              {
-                backgroundColor: on ? colors.inverseBg : colors.bg,
-                borderColor: on ? colors.inverseBg : colors.border,
-              },
-            ]}
+            onPress={() => onChange(on ? selected.filter((v) => v !== o.value) : [...selected, o.value])}
+            style={[styles.chip, { backgroundColor: on ? colors.inverseBg : colors.surface }]}
           >
             <AppText size={13} weight="600" style={{ color: on ? colors.inverseFg : colors.fg }}>
               {o.label}
@@ -293,47 +180,8 @@ function ChipSet({
 }
 
 const styles = StyleSheet.create({
-  top: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-  },
-  back: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  center: { flex: 1, alignItems: "center", justifyContent: "center" },
-  card: { borderRadius: radii.md, padding: 16, gap: 12 },
   chips: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
-  chip: {
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: radii.pill,
-    borderWidth: StyleSheet.hairlineWidth,
-  },
-  money: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    borderRadius: 14,
-    borderWidth: 1.5,
-    paddingHorizontal: 14,
-    minHeight: 52,
-  },
-  moneyInput: { flex: 1, fontSize: 20, fontWeight: "700", paddingVertical: 10 },
-  switchRow: { flexDirection: "row", alignItems: "center", gap: 12 },
-  footer: {
-    position: "absolute",
-    left: 0,
-    right: 0,
-    bottom: 0,
-    paddingHorizontal: 20,
-    paddingTop: 12,
-    borderTopWidth: StyleSheet.hairlineWidth,
-  },
+  chip: { paddingHorizontal: 14, paddingVertical: 9, borderRadius: radii.pill },
+  money: { flexDirection: "row", alignItems: "center", gap: 8, borderRadius: 14, borderWidth: 1.5, paddingHorizontal: 14, minHeight: 56 },
+  moneyInput: { flex: 1, fontSize: 22, fontWeight: "700", paddingVertical: 10 },
 });

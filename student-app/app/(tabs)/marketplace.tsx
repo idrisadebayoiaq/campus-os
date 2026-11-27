@@ -34,7 +34,6 @@ import {
 } from "@/src/lib/market-discovery";
 import { useStudentKind } from "@/src/lib/student-kind";
 import { supabase } from "@/src/lib/supabase";
-import { PremiumBadge } from "@/src/components/premium-badge";
 import { levelLabel, loadBizMeta, loadFeatured, metaLine, type BizMeta } from "@/src/lib/trust";
 import { useTheme } from "@/src/theme/ThemeProvider";
 import { radii } from "@/src/theme/tokens";
@@ -366,7 +365,6 @@ export default function MarketHubScreen() {
                   <AppText weight="700" size={15} numberOfLines={1} style={{ flexShrink: 1 }}>
                     {item.display_name}
                   </AppText>
-                  {meta[item.id]?.premium ? <PremiumBadge /> : null}
                   {featured.has(`business:${item.id}`) ? (
                     <View style={[styles.tag, { backgroundColor: colors.accentSoft }]}>
                       <AppText size={10} weight="700">

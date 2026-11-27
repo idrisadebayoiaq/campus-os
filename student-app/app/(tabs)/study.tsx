@@ -3,159 +3,113 @@ import { Ionicons } from "@expo/vector-icons";
 import { useRouter, type Href } from "expo-router";
 import { AppText, Screen, TAB_BAR_CLEARANCE } from "@/src/components/ui";
 import { useStudentKind } from "@/src/lib/student-kind";
-import { STUDY_TOOLS } from "@/src/lib/study";
+import { STUDY_TOOLS, type StudyTool } from "@/src/lib/study";
+import { useStudyLock } from "@/src/lib/study-lock";
 import { useTheme } from "@/src/theme/ThemeProvider";
 import { radii } from "@/src/theme/tokens";
 
 /** Tools that make sense before a student has a school. Courses, timetable, classes and CGPA wait for admission. */
-const EXAM_TOOLS = new Set([
-  "planner",
-  "calendar",
-  "library",
-  "past-questions",
-  "flashcards",
-  "cbt",
-  "focus",
-  "ai",
-  "groups",
-  "tutors",
-  "insights",
-]);
+const EXAM_TOOLS = new Set(["planner", "calendar", "library", "past-questions", "flashcards", "cbt", "focus", "ai", "groups", "tutors", "insights"]);
+
+const QUICK: { href: string; label: string; icon: keyof typeof Ionicons.glyphMap }[] = [
+  { href: "ai", label: "Tutor", icon: "sparkles" },
+  { href: "focus", label: "Focus", icon: "timer" },
+  { href: "library", label: "Notes", icon: "document-text" },
+  { href: "planner", label: "Plan", icon: "calendar" },
+];
+
+const SECTIONS: { title: string; tools: string[] }[] = [
+  { title: "School", tools: ["courses", "timetable", "classes", "assignments", "exams", "calendar", "cgpa"] },
+  { title: "Practice", tools: ["flashcards", "cbt", "past-questions"] },
+  { title: "More", tools: ["groups", "tutors", "insights"] },
+];
+
+const LABEL: Record<string, string> = { library: "Notes", planner: "Study plan", cbt: "CBT", "past-questions": "Past questions" };
 
 export default function StudyScreen() {
   const colors = useTheme();
   const router = useRouter();
   const { isExamPrep } = useStudentKind();
-  // Past questions are for exam candidates only.
-  const tools = isExamPrep
-    ? STUDY_TOOLS.filter((t) => EXAM_TOOLS.has(t.href))
-    : STUDY_TOOLS.filter((t) => t.href !== "past-questions");
+  const { lock } = useStudyLock();
+  const allowed = (href: string) => (isExamPrep ? EXAM_TOOLS.has(href) : href !== "past-questions");
+  const byHref = new Map<string, StudyTool>(STUDY_TOOLS.map((t) => [t.href, t]));
+  const open = (href: string) => router.push(`/study/${href}` as Href);
 
   return (
     <Screen padded={false} tabClearance>
-      <ScrollView
-        contentContainerStyle={[styles.content, { paddingBottom: TAB_BAR_CLEARANCE }]}
-        showsVerticalScrollIndicator={false}
-      >
+      <ScrollView contentContainerStyle={[styles.content, { paddingBottom: TAB_BAR_CLEARANCE }]} showsVerticalScrollIndicator={false}>
         <View style={styles.header}>
-          <AppText size={28} weight="700">
-            Study Hub
+          <AppText size={28} weight="700" style={{ flex: 1 }}>
+            Study
           </AppText>
-          <AppText muted size={14}>
-            Courses, tools, and tutoring in one place
-          </AppText>
+          <Pressable
+            onPress={() => router.push("/study-lock" as Href)}
+            style={[styles.lockBtn, { backgroundColor: lock ? colors.accent : colors.surface }]}
+            accessibilityLabel="Study lock"
+          >
+            <Ionicons name={lock ? "lock-closed" : "lock-open-outline"} size={18} color={lock ? colors.onAccent : colors.fg} />
+            <AppText size={13} weight="700" style={{ color: lock ? colors.onAccent : colors.fg }}>
+              {lock ? "Locked" : "Lock"}
+            </AppText>
+          </Pressable>
         </View>
 
-        <View style={[styles.hero, { backgroundColor: colors.heroBg }]}>
-          <View style={styles.badge}>
-            <Ionicons name="cloud-done-outline" size={14} color={colors.heroFg} />
-            <AppText size={12} weight="600" style={{ color: colors.heroFg }}>
-              Offline ready
-            </AppText>
-          </View>
-          <AppText size={24} weight="700" style={{ color: colors.heroFg, marginTop: 12 }}>
-            Study anywhere
-          </AppText>
-          <AppText size={14} style={{ color: colors.heroMuted, marginTop: 6 }}>
-            Your courses, notes and grades are saved on this device. Anything
-            you add offline syncs the next time you're online.
-          </AppText>
-        </View>
-
-        <Pressable
-          onPress={() => router.push("/study-lock" as Href)}
-          style={({ pressed }) => [styles.lockCard, { backgroundColor: colors.surface, opacity: pressed ? 0.85 : 1 }]}
-        >
-          <View style={[styles.icon, { backgroundColor: colors.inverseBg, marginBottom: 0 }]}>
-            <Ionicons name="lock-closed-outline" size={18} color={colors.inverseFg} />
-          </View>
-          <View style={{ flex: 1 }}>
-            <AppText weight="700" size={15}>
-              Study lock
-            </AppText>
-            <AppText muted size={13}>
-              Pause chat and notifications until your timer ends
-            </AppText>
-          </View>
-          <Ionicons name="chevron-forward" size={16} color={colors.muted} />
-        </Pressable>
-
-        <View style={styles.grid}>
-          {tools.map((tool) => (
+        <View style={styles.quick}>
+          {QUICK.filter((q) => allowed(q.href)).map((q, i) => (
             <Pressable
-              key={tool.href}
-              onPress={() => router.push(`/study/${tool.href}` as Href)}
+              key={q.href}
+              onPress={() => open(q.href)}
               style={({ pressed }) => [
-                styles.card,
-                { backgroundColor: colors.surface, opacity: pressed ? 0.85 : 1 },
+                styles.quickTile,
+                { backgroundColor: i === 0 ? colors.heroBg : colors.surface, opacity: pressed ? 0.85 : 1 },
               ]}
             >
-              <View style={[styles.icon, { backgroundColor: colors.inverseBg }]}>
-                <Ionicons name={tool.icon} size={18} color={colors.inverseFg} />
+              <View style={[styles.quickIcon, { backgroundColor: i === 0 ? colors.accent : colors.accentSoft }]}>
+                <Ionicons name={q.icon} size={20} color={i === 0 ? colors.onAccent : colors.fg} />
               </View>
-              <AppText weight="700" size={15}>
-                {tool.title}
-              </AppText>
-              <AppText muted size={13}>
-                {tool.body}
-              </AppText>
-              <AppText muted size={11} weight="600" style={{ marginTop: "auto" }}>
-                {tool.offline ? "Works offline" : "Needs internet"}
+              <AppText weight="700" size={13} style={{ color: i === 0 ? colors.heroFg : colors.fg }}>
+                {q.label}
               </AppText>
             </Pressable>
           ))}
         </View>
+
+        {SECTIONS.map((s) => {
+          const tools = s.tools.filter(allowed).map((h) => byHref.get(h)).filter(Boolean) as StudyTool[];
+          if (!tools.length) return null;
+          return (
+            <View key={s.title} style={{ gap: 10 }}>
+              <AppText muted size={12} weight="700" style={{ marginLeft: 24 }}>
+                {s.title.toUpperCase()}
+              </AppText>
+              <View style={[styles.grid, { backgroundColor: colors.surface }]}>
+                {tools.map((t) => (
+                  <Pressable key={t.href} onPress={() => open(t.href)} style={({ pressed }) => [styles.cell, { opacity: pressed ? 0.6 : 1 }]}>
+                    <View style={[styles.cellIcon, { backgroundColor: colors.bg }]}>
+                      <Ionicons name={t.icon} size={22} color={colors.fg} />
+                    </View>
+                    <AppText size={12} weight="600" numberOfLines={1} style={{ textAlign: "center" }}>
+                      {LABEL[t.href] ?? t.title}
+                    </AppText>
+                  </Pressable>
+                ))}
+              </View>
+            </View>
+          );
+        })}
       </ScrollView>
     </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  content: { gap: 18, paddingTop: 8 },
-  header: { paddingHorizontal: 20, gap: 4 },
-  hero: {
-    marginHorizontal: 20,
-    borderRadius: radii.xl,
-    padding: 22,
-  },
-  badge: {
-    alignSelf: "flex-start",
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: radii.pill,
-    backgroundColor: "rgba(255,255,255,0.14)",
-  },
-  lockCard: {
-    marginHorizontal: 20,
-    borderRadius: radii.lg,
-    padding: 16,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-  },
-  grid: {
-    paddingHorizontal: 20,
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 12,
-  },
-  card: {
-    width: "47%",
-    flexGrow: 1,
-    borderRadius: radii.lg,
-    padding: 16,
-    gap: 6,
-    minHeight: 150,
-  },
-  icon: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: 4,
-  },
+  content: { gap: 20, paddingTop: 8 },
+  header: { paddingHorizontal: 20, flexDirection: "row", alignItems: "center", gap: 12 },
+  lockBtn: { flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 14, height: 38, borderRadius: radii.pill },
+  quick: { flexDirection: "row", gap: 10, paddingHorizontal: 20 },
+  quickTile: { flex: 1, borderRadius: radii.lg, paddingVertical: 16, alignItems: "center", gap: 8 },
+  quickIcon: { width: 42, height: 42, borderRadius: 21, alignItems: "center", justifyContent: "center" },
+  grid: { marginHorizontal: 20, borderRadius: radii.lg, flexDirection: "row", flexWrap: "wrap", paddingVertical: 8 },
+  cell: { width: "25%", alignItems: "center", gap: 6, paddingVertical: 12, paddingHorizontal: 4 },
+  cellIcon: { width: 48, height: 48, borderRadius: 16, alignItems: "center", justifyContent: "center" },
 });

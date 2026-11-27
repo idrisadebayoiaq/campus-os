@@ -366,7 +366,77 @@ export function ChipRow({
   );
 }
 
+/** One-line, side-scrolling filter chips. */
+export function ScrollChips({
+  options,
+  value,
+  onChange,
+}: {
+  options: { value: string; label: string }[];
+  value: string;
+  onChange: (v: string) => void;
+}) {
+  const colors = useTheme();
+  return (
+    <ScrollView
+      horizontal
+      showsHorizontalScrollIndicator={false}
+      style={{ marginHorizontal: -20, flexGrow: 0 }}
+      contentContainerStyle={{ paddingHorizontal: 20, gap: 8 }}
+    >
+      {options.map((o) => {
+        const on = o.value === value;
+        return (
+          <Pressable
+            key={o.value}
+            onPress={() => onChange(o.value)}
+            style={[styles.smallChip, { backgroundColor: on ? colors.inverseBg : colors.surface }]}
+          >
+            <AppText weight="600" size={13} style={{ color: on ? colors.inverseFg : colors.fg }}>
+              {o.label}
+            </AppText>
+          </Pressable>
+        );
+      })}
+    </ScrollView>
+  );
+}
+
+/** Big centered icon + short line for empty lists. */
+export function Empty({
+  icon,
+  title,
+  body,
+  action,
+}: {
+  icon: keyof typeof Ionicons.glyphMap;
+  title: string;
+  body?: string;
+  action?: ReactNode;
+}) {
+  const colors = useTheme();
+  return (
+    <View style={styles.empty}>
+      <View style={[styles.emptyIcon, { backgroundColor: colors.surface }]}>
+        <Ionicons name={icon} size={30} color={colors.muted} />
+      </View>
+      <AppText weight="700" size={17} style={{ textAlign: "center" }}>
+        {title}
+      </AppText>
+      {body ? (
+        <AppText muted size={14} style={{ textAlign: "center" }}>
+          {body}
+        </AppText>
+      ) : null}
+      {action}
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
+  smallChip: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: radii.pill },
+  empty: { alignItems: "center", gap: 8, paddingVertical: 40, paddingHorizontal: 24 },
+  emptyIcon: { width: 72, height: 72, borderRadius: 36, alignItems: "center", justifyContent: "center", marginBottom: 6 },
   header: { flexDirection: "row", alignItems: "center", gap: 14, paddingHorizontal: 20, paddingBottom: 12 },
   back: { width: 40, height: 40, borderRadius: 20, alignItems: "center", justifyContent: "center" },
   content: { paddingHorizontal: 20, paddingTop: 4, gap: 20 },

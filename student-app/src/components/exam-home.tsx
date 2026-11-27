@@ -2,7 +2,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { router, useFocusEffect, type Href } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
 import { Pressable, RefreshControl, ScrollView, StyleSheet, View } from "react-native";
-import { PREMIUM_GREEN, PremiumBadge } from "@/src/components/premium-badge";
+import { PREMIUM_GREEN } from "@/src/components/premium-badge";
 import { AppText, Avatar, Screen, TAB_BAR_CLEARANCE } from "@/src/components/ui";
 import { useAuth } from "@/src/lib/auth";
 import { formatNaira } from "@/src/lib/campus";
@@ -105,7 +105,6 @@ export function ExamHome() {
                 <AppText size={18} weight="700" numberOfLines={1} style={{ flexShrink: 1 }}>
                   Hi, {name}
                 </AppText>
-                {premium.active ? <PremiumBadge compact /> : null}
               </View>
               <AppText muted size={12} numberOfLines={1}>
                 Exam prep

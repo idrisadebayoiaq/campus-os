@@ -1,15 +1,10 @@
 import { useCallback, useEffect, useState } from "react";
-import { Switch, View } from "react-native";
-import {
-  AppText,
-  Button,
-  Card,
-  Chip,
-  Field,
-  Input,
-} from "@/src/components/ui";
-import { StudyShell, SyncBanner } from "@/src/components/study";
+import { Pressable, StyleSheet, Switch, View } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
+import { Group, ListRow, PageShell, Section, Segmented } from "@/src/components/page";
+import { AppText, Button, Input } from "@/src/components/ui";
 import { useAuth } from "@/src/lib/auth";
+import { notify, toast } from "@/src/lib/feedback";
 import { supabase } from "@/src/lib/supabase";
 import { useTheme } from "@/src/theme/ThemeProvider";
 import { radii } from "@/src/theme/tokens";
@@ -18,58 +13,77 @@ const INTERESTS = [
   { value: "housing", label: "Housing" },
   { value: "study", label: "Study tools" },
   { value: "food", label: "Food" },
-  { value: "marketplace", label: "Campus shopping" },
-  { value: "guides", label: "Campus guides" },
-] as const;
+  { value: "marketplace", label: "Shopping" },
+  { value: "guides", label: "Guides" },
+];
 
 const AI_STYLES = [
   { value: "simple", label: "Simple" },
   { value: "balanced", label: "Balanced" },
   { value: "detailed", label: "Detailed" },
-] as const;
+];
 
-type NotifState = {
-  academic_reminders: boolean;
-  lecture_alerts: boolean;
-  examination_alerts: boolean;
-  housing_alerts: boolean;
-  food_order_alerts: boolean;
-  marketing_email: boolean;
-};
+type NotifKey =
+  | "channel_push"
+  | "academic_reminders"
+  | "lecture_alerts"
+  | "examination_alerts"
+  | "study_group_messages"
+  | "housing_alerts"
+  | "food_order_updates"
+  | "marketplace_updates"
+  | "campus_announcements"
+  | "marketing_email";
+type NotifState = Record<NotifKey, boolean>;
 
 const DEFAULT_NOTIFS: NotifState = {
+  channel_push: true,
   academic_reminders: true,
   lecture_alerts: true,
   examination_alerts: true,
+  study_group_messages: true,
   housing_alerts: true,
-  food_order_alerts: false,
+  food_order_updates: true,
+  marketplace_updates: true,
+  campus_announcements: true,
   marketing_email: false,
 };
+
+const NOTIF_ROWS: { key: NotifKey; label: string; icon: keyof typeof Ionicons.glyphMap }[] = [
+  { key: "academic_reminders", label: "Deadlines", icon: "alarm-outline" },
+  { key: "lecture_alerts", label: "Classes", icon: "school-outline" },
+  { key: "examination_alerts", label: "Exams", icon: "document-text-outline" },
+  { key: "study_group_messages", label: "Study groups", icon: "people-outline" },
+  { key: "housing_alerts", label: "Room matches", icon: "home-outline" },
+  { key: "food_order_updates", label: "Food orders", icon: "fast-food-outline" },
+  { key: "marketplace_updates", label: "Marketplace", icon: "storefront-outline" },
+  { key: "campus_announcements", label: "Announcements", icon: "megaphone-outline" },
+  { key: "marketing_email", label: "Offers by email", icon: "mail-outline" },
+];
+
+async function saveRow(table: "student_preferences" | "notification_preferences", userId: string, payload: Record<string, unknown>) {
+  const row = { user_id: userId, ...payload, updated_at: new Date().toISOString() };
+  const { data, error } = await supabase.from(table).update(row).eq("user_id", userId).select("user_id");
+  if (!error && data?.length) return null;
+  const ins = await supabase.from(table).insert(row);
+  return ins.error;
+}
 
 export default function PreferencesScreen() {
   const colors = useTheme();
   const { user } = useAuth();
+  const [loading, setLoading] = useState(true);
   const [interests, setInterests] = useState<string[]>([]);
   const [goal, setGoal] = useState("");
   const [aiStyle, setAiStyle] = useState("balanced");
   const [notifs, setNotifs] = useState<NotifState>(DEFAULT_NOTIFS);
-  const [saving, setSaving] = useState<string | null>(null);
-  const [status, setStatus] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
 
   const load = useCallback(async () => {
     if (!user) return;
     const [prefsRes, notifRes] = await Promise.all([
-      supabase
-        .from("student_preferences")
-        .select("interests, primary_academic_goal, ai_explanation_style")
-        .eq("user_id", user.id)
-        .maybeSingle(),
-      supabase
-        .from("notification_preferences")
-        .select("*")
-        .eq("user_id", user.id)
-        .maybeSingle(),
+      supabase.from("student_preferences").select("interests, primary_academic_goal, ai_explanation_style").eq("user_id", user.id).maybeSingle(),
+      supabase.from("notification_preferences").select("*").eq("user_id", user.id).maybeSingle(),
     ]);
     const p = prefsRes.data;
     if (p) {
@@ -79,195 +93,103 @@ export default function PreferencesScreen() {
     }
     const n = notifRes.data as Partial<NotifState> | null;
     if (n) {
-      setNotifs({
-        academic_reminders: n.academic_reminders ?? true,
-        lecture_alerts: n.lecture_alerts ?? true,
-        examination_alerts: n.examination_alerts ?? true,
-        housing_alerts: n.housing_alerts ?? true,
-        food_order_alerts: n.food_order_alerts ?? false,
-        marketing_email: n.marketing_email ?? false,
-      });
+      const next = { ...DEFAULT_NOTIFS };
+      for (const k of Object.keys(DEFAULT_NOTIFS) as NotifKey[]) if (typeof n[k] === "boolean") next[k] = n[k] as boolean;
+      setNotifs(next);
     }
+    setLoading(false);
   }, [user]);
 
   useEffect(() => {
     void load();
   }, [load]);
 
-  function toggleInterest(value: string) {
-    setInterests((prev) =>
-      prev.includes(value) ? prev.filter((v) => v !== value) : [...prev, value],
-    );
+  async function flip(key: NotifKey, value: boolean) {
+    if (!user) return;
+    const next = { ...notifs, [key]: value };
+    setNotifs(next);
+    const err = await saveRow("notification_preferences", user.id, next);
+    if (err) {
+      setNotifs(notifs);
+      notify("Couldn't update", err.message, undefined, { tone: "danger" });
+    }
   }
 
-  async function savePrefs() {
+  async function saveStudy() {
     if (!user) return;
-    setSaving("prefs");
-    setStatus(null);
-    setError(null);
-    const payload = {
-      user_id: user.id,
+    setSaving(true);
+    const err = await saveRow("student_preferences", user.id, {
       interests,
       primary_academic_goal: goal.trim() || null,
       ai_explanation_style: aiStyle,
-      updated_at: new Date().toISOString(),
-    };
-    let { error: updErr } = await supabase
-      .from("student_preferences")
-      .update(payload)
-      .eq("user_id", user.id);
-    if (updErr) {
-      ({ error: updErr } = await supabase.from("student_preferences").insert(payload));
-    } else {
-      const { data } = await supabase
-        .from("student_preferences")
-        .select("user_id")
-        .eq("user_id", user.id)
-        .maybeSingle();
-      if (!data) {
-        ({ error: updErr } = await supabase.from("student_preferences").insert(payload));
-      }
-    }
-    setSaving(null);
-    if (updErr) setError(updErr.message);
-    else setStatus("Preferences saved.");
-  }
-
-  async function saveNotifs() {
-    if (!user) return;
-    setSaving("notifs");
-    setStatus(null);
-    setError(null);
-    const payload = {
-      user_id: user.id,
-      ...notifs,
-      updated_at: new Date().toISOString(),
-    };
-    let { error: updErr } = await supabase
-      .from("notification_preferences")
-      .update(payload)
-      .eq("user_id", user.id);
-    if (updErr) {
-      ({ error: updErr } = await supabase
-        .from("notification_preferences")
-        .insert(payload));
-    } else {
-      const { data } = await supabase
-        .from("notification_preferences")
-        .select("user_id")
-        .eq("user_id", user.id)
-        .maybeSingle();
-      if (!data) {
-        ({ error: updErr } = await supabase
-          .from("notification_preferences")
-          .insert(payload));
-      }
-    }
-    setSaving(null);
-    if (updErr) setError(updErr.message);
-    else setStatus("Notification settings saved.");
+    });
+    setSaving(false);
+    if (err) notify("Couldn't save", err.message, undefined, { tone: "danger" });
+    else toast.success("Saved");
   }
 
   return (
-    <StudyShell
-      title="Preferences"
-      subtitle="Interests, AI style, and alerts"
-      banner={<SyncBanner error={error} notice={status} />}
-    >
-      <View
-        style={{
-          backgroundColor: colors.heroBg,
-          borderRadius: radii.xl,
-          padding: 20,
-          gap: 6,
-        }}
-      >
-        <AppText size={13} style={{ color: colors.heroMuted }}>
-          Personalise CampusOS
-        </AppText>
-        <AppText size={18} weight="700" style={{ color: colors.heroFg }}>
-          Study style and notifications
-        </AppText>
-      </View>
-
-      <Card style={{ gap: 12 }}>
-        <AppText weight="700">Interests</AppText>
-        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
-          {INTERESTS.map((opt) => (
-            <Chip
-              key={opt.value}
-              label={opt.label}
-              active={interests.includes(opt.value)}
-              onPress={() => toggleInterest(opt.value)}
-            />
-          ))}
-        </View>
-
-        <Field label="Primary academic goal">
-          <Input
-            value={goal}
-            onChangeText={setGoal}
-            placeholder="e.g. Raise CGPA to 4.0"
-          />
-        </Field>
-
-        <AppText weight="700">AI explanation style</AppText>
-        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
-          {AI_STYLES.map((opt) => (
-            <Chip
-              key={opt.value}
-              label={opt.label}
-              active={aiStyle === opt.value}
-              onPress={() => setAiStyle(opt.value)}
-            />
-          ))}
-        </View>
-        <Button
-          title="Save preferences"
-          onPress={savePrefs}
-          loading={saving === "prefs"}
+    <PageShell title="Study & alerts" loading={loading}>
+      <Group>
+        <ListRow
+          icon="notifications"
+          title="Push notifications"
+          chevron={false}
+          right={
+            <Switch value={notifs.channel_push} onValueChange={(v) => void flip("channel_push", v)} trackColor={{ true: colors.accent, false: colors.border }} />
+          }
         />
-      </Card>
+      </Group>
 
-      <Card style={{ gap: 10 }}>
-        <AppText weight="700">Notifications</AppText>
-        {(
-          [
-            ["academic_reminders", "Academic reminders"],
-            ["lecture_alerts", "Lecture alerts"],
-            ["examination_alerts", "Examination alerts"],
-            ["housing_alerts", "Housing alerts"],
-            ["food_order_alerts", "Food order alerts"],
-            ["marketing_email", "Marketing email"],
-          ] as const
-        ).map(([key, label]) => (
-          <View
-            key={key}
-            style={{
-              minHeight: 48,
-              borderRadius: radii.md,
-              paddingHorizontal: 12,
-              flexDirection: "row",
-              alignItems: "center",
-              backgroundColor: colors.bg,
-            }}
-          >
-            <AppText size={14} style={{ flex: 1 }}>
-              {label}
-            </AppText>
-            <Switch
-              value={notifs[key]}
-              onValueChange={(v) => setNotifs((prev) => ({ ...prev, [key]: v }))}
-              trackColor={{ true: colors.accent, false: colors.border }}
-            />
-          </View>
-        ))}
-        <Button
-          title="Save notifications"
-          onPress={saveNotifs}
-          loading={saving === "notifs"}
-        />
-      </Card>
-    </StudyShell>
+      {notifs.channel_push ? (
+        <Section title="Alert me about">
+          <Group>
+            {NOTIF_ROWS.map((r) => (
+              <ListRow
+                key={r.key}
+                icon={r.icon}
+                title={r.label}
+                chevron={false}
+                right={<Switch value={notifs[r.key]} onValueChange={(v) => void flip(r.key, v)} trackColor={{ true: colors.accent, false: colors.border }} />}
+              />
+            ))}
+          </Group>
+        </Section>
+      ) : null}
+
+      <Section title="Tutor explanations">
+        <Segmented value={aiStyle} onChange={setAiStyle} options={AI_STYLES} />
+      </Section>
+
+      <Section title="Main goal">
+        <Input value={goal} onChangeText={setGoal} placeholder="e.g. 4.0 CGPA this session" maxLength={120} />
+      </Section>
+
+      <Section title="Interests">
+        <View style={styles.chips}>
+          {INTERESTS.map((o) => {
+            const on = interests.includes(o.value);
+            return (
+              <Pressable
+                key={o.value}
+                onPress={() => setInterests((prev) => (on ? prev.filter((v) => v !== o.value) : [...prev, o.value]))}
+                style={[styles.chip, { backgroundColor: on ? colors.inverseBg : colors.surface }]}
+              >
+                <AppText size={13} weight="600" style={{ color: on ? colors.inverseFg : colors.fg }}>
+                  {o.label}
+                </AppText>
+              </Pressable>
+            );
+          })}
+        </View>
+      </Section>
+
+      <Button title="Save study settings" variant="secondary" onPress={() => void saveStudy()} loading={saving} />
+    </PageShell>
   );
 }
+
+const styles = StyleSheet.create({
+  chips: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
+  chip: { paddingHorizontal: 14, paddingVertical: 9, borderRadius: radii.pill },
+});
