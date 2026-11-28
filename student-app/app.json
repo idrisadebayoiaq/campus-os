@@ -67,7 +67,7 @@
       [
         "expo-notifications",
         {
-          "icon": "./assets/icon.png",
+          "icon": "./assets/notification-icon.png",
           "color": "#5B4B8A",
           "defaultChannel": "campusos_default"
         }

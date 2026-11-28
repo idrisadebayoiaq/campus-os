@@ -149,7 +149,7 @@ async function loadFood(id: string): Promise<Loaded | null> {
 async function loadMarket(id: string, userId: string, entry?: Row): Promise<Loaded | null> {
   const { data } = await supabase
     .from("market_orders")
-    .select("id, title, amount, status, buyer_id, created_at, handover_code")
+    .select("id, title, amount, status, buyer_id, created_at")
     .eq("id", id)
     .maybeSingle();
   const o = data as Row | null;
