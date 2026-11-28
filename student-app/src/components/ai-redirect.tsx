@@ -1,11 +1,11 @@
 import { Redirect } from "expo-router";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useState } from "react";
 import { ActivityIndicator, View } from "react-native";
 import { AppText, Button } from "@/src/components/ui";
 import { PremiumGate } from "@/src/components/premium-gate";
 import { StudyShell } from "@/src/components/study";
 import { useAuth } from "@/src/lib/auth";
-import { ensureAiConversation } from "@/src/lib/messaging";
+import { ensureAiConversation, rememberedAiChat, storedAiChat } from "@/src/lib/messaging";
 import { usePremium } from "@/src/lib/premium-state";
 import { useStudentKind } from "@/src/lib/student-kind";
 import { useStudyLock } from "@/src/lib/study-lock";
@@ -61,17 +61,34 @@ function TutorOpener({
   const [error, setError] = useState<string | null>(null);
   const [attempt, setAttempt] = useState(0);
 
+  const go = useCallback(
+    (conversationId: string) => {
+      allowPath(`/inbox/${conversationId}`);
+      setHref(`/inbox/${conversationId}?kind=ai`);
+    },
+    [allowPath],
+  );
+
+  useLayoutEffect(() => {
+    const known = user ? rememberedAiChat(user.id) : null;
+    if (known) go(known);
+  }, [user, go]);
+
   const open = useCallback(async () => {
     if (!user) {
       setError("Sign in to use the AI tutor.");
       return;
     }
+    if (rememberedAiChat(user.id)) return;
     setError(null);
-    setHref(null);
+    const saved = await storedAiChat(user.id);
+    if (saved) {
+      go(saved);
+      return;
+    }
     try {
       const { conversationId } = await ensureAiConversation(supabase, user.id);
-      allowPath(`/inbox/${conversationId}`);
-      setHref(`/inbox/${conversationId}`);
+      go(conversationId);
     } catch (e) {
       const message =
         e && typeof e === "object" && "message" in e
@@ -81,7 +98,7 @@ function TutorOpener({
             : "Could not open AI tutor.";
       setError(message);
     }
-  }, [user, allowPath]);
+  }, [user, go]);
 
   useEffect(() => {
     void open();

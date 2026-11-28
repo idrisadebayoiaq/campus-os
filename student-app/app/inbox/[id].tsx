@@ -80,11 +80,25 @@ function nameColor(id: string) {
   return NAME_COLORS[Math.abs(h) % NAME_COLORS.length];
 }
 
+type ThreadSnapshot = {
+  kind: string;
+  title: string;
+  subtitle: string;
+  messages: ChatMessage[];
+  aiAvatar: string | null;
+  peerAvatar: string | null;
+};
+
+/** What each chat showed last time, so reopening it draws at once while fresh data loads. */
+const threadCache = new Map<string, ThreadSnapshot>();
+
 export default function ChatThreadScreen() {
-  const { id, draft: initialDraft } = useLocalSearchParams<{
+  const { id, draft: initialDraft, kind: kindHint } = useLocalSearchParams<{
     id: string;
     draft?: string;
+    kind?: string;
   }>();
+  const cached = id ? threadCache.get(id) : undefined;
   const { user } = useAuth();
   const colors = useTheme();
   const { resolved } = useThemeControls();
@@ -93,16 +107,16 @@ export default function ChatThreadScreen() {
   const listRef = useRef<FlatList<ChatMessage>>(null);
   const recorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
 
-  const [title, setTitle] = useState("");
-  const [kind, setKind] = useState("direct");
-  const [subtitle, setSubtitle] = useState("");
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [title, setTitle] = useState(cached?.title ?? (kindHint === "ai" ? "CampusOS Tutor" : ""));
+  const [kind, setKind] = useState(cached?.kind ?? kindHint ?? "direct");
+  const [subtitle, setSubtitle] = useState(cached?.subtitle ?? (kindHint === "ai" ? "AI tutor" : ""));
+  const [messages, setMessages] = useState<ChatMessage[]>(cached?.messages ?? []);
   const [draft, setDraft] = useState(initialDraft ?? "");
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(!cached);
   const [sending, setSending] = useState(false);
   const [aiThinking, setAiThinking] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [aiAvatar, setAiAvatar] = useState<string | null>(null);
+  const [aiAvatar, setAiAvatar] = useState<string | null>(cached?.aiAvatar ?? null);
   const [aiVoice, setAiVoice] = useState<{ on: boolean; rate: number }>({ on: false, rate: 1 });
   const [speakingId, setSpeakingId] = useState<string | null>(null);
   const [recording, setRecording] = useState<{ startedAt: number } | null>(null);
@@ -110,7 +124,7 @@ export default function ChatThreadScreen() {
   const [transcribing, setTranscribing] = useState(false);
   const [ticket, setTicket] = useState<SupportTicketInfo | null>(null);
   const [rated, setRated] = useState(false);
-  const [peerAvatar, setPeerAvatar] = useState<string | null>(null);
+  const [peerAvatar, setPeerAvatar] = useState<string | null>(cached?.peerAvatar ?? null);
   const [peerReadAt, setPeerReadAt] = useState<string | null>(null);
   const [names, setNames] = useState<Record<string, string>>({});
   const welcomed = useRef(false);
@@ -138,14 +152,13 @@ export default function ChatThreadScreen() {
 
   const loadMessages = useCallback(async () => {
     if (!id || !user) return;
-    const { data: me } = await supabase
-      .from("conversation_participants")
-      .select("cleared_at")
-      .eq("conversation_id", id)
-      .eq("user_id", user.id)
-      .maybeSingle();
-    const clearedAt = (me?.cleared_at as string | null) ?? null;
-    const [{ data: conv }, { data: msgsAll }] = await Promise.all([
+    const [{ data: me }, { data: conv }, { data: msgsAll }] = await Promise.all([
+      supabase
+        .from("conversation_participants")
+        .select("cleared_at")
+        .eq("conversation_id", id)
+        .eq("user_id", user.id)
+        .maybeSingle(),
       supabase
         .from("conversations")
         .select("kind, subject, listing_enquiry_id, business_id")
@@ -160,9 +173,19 @@ export default function ChatThreadScreen() {
         .is("deleted_at", null)
         .order("created_at", { ascending: true }),
     ]);
+    const clearedAt = (me?.cleared_at as string | null) ?? null;
+    const msgs = ((msgsAll as ChatMessage[]) || []).filter(
+      (m) => !clearedAt || new Date(m.created_at) > new Date(clearedAt),
+    );
     if (conv) {
       if (conv.kind === "ai") allowPath(`/inbox/${id}`);
       setKind(conv.kind);
+    }
+    setMessages(msgs);
+    setLoading(false);
+    void markConversationRead(supabase, id, user.id);
+
+    if (conv) {
       const faces = await loadChatFaces(supabase, user.id, [
         { id, kind: conv.kind, businessId: (conv.business_id as string | null) ?? null },
       ]);
@@ -236,13 +259,6 @@ export default function ChatThreadScreen() {
         setAiVoice({ on: ai?.reply_mode === "voice_only", rate: Number(ai?.speech_rate ?? 1) || 1 });
       }
     }
-    const msgs = ((msgsAll as ChatMessage[]) || []).filter(
-      (m) => !clearedAt || new Date(m.created_at) > new Date(clearedAt),
-    );
-    setMessages(msgs);
-    await markConversationRead(supabase, id, user.id);
-    setLoading(false);
-
     // First time in the tutor chat: the tutor says hello using the student's profile.
     if (conv?.kind === "ai" && !welcomed.current && !msgs.some((m) => m.message_type !== "system")) {
       welcomed.current = true;
@@ -266,6 +282,11 @@ export default function ChatThreadScreen() {
       void loadMessages();
     }, [loadMessages]),
   );
+
+  useEffect(() => {
+    if (!id || loading) return;
+    threadCache.set(id, { kind, title, subtitle, messages, aiAvatar, peerAvatar });
+  }, [id, loading, kind, title, subtitle, messages, aiAvatar, peerAvatar]);
 
   useFocusEffect(
     useCallback(() => {
@@ -589,14 +610,6 @@ export default function ChatThreadScreen() {
     if (text) speak(msg.id, text);
   }
 
-  if (loading) {
-    return (
-      <View style={[styles.center, { backgroundColor: palette.wall, flex: 1 }]}>
-        <ActivityIndicator color={colors.fg} />
-      </View>
-    );
-  }
-
   const status = aiThinking && isAi ? "typing…" : subtitle;
   const canSend = Boolean(draft.trim()) && !sending;
   const showMic = isAi && !draft.trim();
@@ -676,7 +689,9 @@ export default function ChatThreadScreen() {
           keyExtractor={(item) => item.id}
           contentContainerStyle={{ paddingHorizontal: 10, paddingTop: 8, paddingBottom: 12 }}
           ListEmptyComponent={
-            !aiThinking ? (
+            loading ? (
+              <ActivityIndicator color={colors.fg} style={{ marginTop: 32 }} />
+            ) : !aiThinking ? (
               <View style={[styles.chip, { backgroundColor: palette.chip, marginTop: 24 }]}>
                 <AppText size={12} muted style={{ textAlign: "center" }}>
                   {isAi ? "Ask anything about your courses." : "No messages yet"}

@@ -1,3 +1,4 @@
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { stripMarkdown } from "@/src/lib/markdown";
 
@@ -125,7 +126,38 @@ export function previewForMessage(msg: {
   return msg.body || null;
 }
 
+const aiChatIds = new Map<string, string>();
+const aiChatKey = (userId: string) => `campusos.aiChat.${userId}`;
+
+/** The tutor chat id remembered on this phone, so the AI tab opens without waiting on the network. */
+export function rememberedAiChat(userId: string): string | null {
+  return aiChatIds.get(userId) ?? null;
+}
+
+export async function storedAiChat(userId: string): Promise<string | null> {
+  const inMemory = aiChatIds.get(userId);
+  if (inMemory) return inMemory;
+  const saved = await AsyncStorage.getItem(aiChatKey(userId)).catch(() => null);
+  if (saved) aiChatIds.set(userId, saved);
+  return saved;
+}
+
+function rememberAiChat(userId: string, conversationId: string) {
+  if (aiChatIds.get(userId) === conversationId) return;
+  aiChatIds.set(userId, conversationId);
+  void AsyncStorage.setItem(aiChatKey(userId), conversationId).catch(() => undefined);
+}
+
 export async function ensureAiConversation(
+  supabase: SupabaseClient,
+  userId: string,
+): Promise<{ conversationId: string; profile: AiCompanionProfile }> {
+  const result = await findOrCreateAiConversation(supabase, userId);
+  rememberAiChat(userId, result.conversationId);
+  return result;
+}
+
+async function findOrCreateAiConversation(
   supabase: SupabaseClient,
   userId: string,
 ): Promise<{ conversationId: string; profile: AiCompanionProfile }> {

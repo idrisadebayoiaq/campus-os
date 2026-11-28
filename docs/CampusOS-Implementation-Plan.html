@@ -104,7 +104,9 @@
   <tr><td>Chat screen</td><td>Split into two tabs: <b>Chats</b> (normal conversations) and <b>Rooms</b> (rooms and classes you joined).</td></tr>
   <tr><td>Rooms</td><td>Created by approved tutors. The tutor sets subject, audience (in-school students of a school, or prep students), price, pay-before-join or free, schedule, and voice or video classes. Students see everything about a room before joining.</td></tr>
   <tr><td>Inside a room</td><td>Text, voice notes, polls, files and groups. Only the owner can host quizzes and debates. The owner controls who can send messages, like a WhatsApp group.</td></tr>
-  <tr><td>Tutors</td><td>Apply through the portal (and later the Business app). Tutor Premium is ₦3,000 a month for now.</td></tr>
+  <tr><td>Tutors</td><td>Apply through the portal (and later the Business app). Every tutor needs Tutor Premium, ₦3,000 a month for now, to create rooms. Each room can be free or paid.</td></tr>
+  <tr><td>CampusOS share of room payments</td><td>None. The tutor keeps the full room price, because CampusOS already earns from the tutor's subscription.</td></tr>
+  <tr><td>Tab bar</td><td>Home, Community, Market (with Housing inside), AI Study, Chat.</td></tr>
   <tr><td>Who pays how</td><td>Students pay for everything from the <b>wallet</b>, and fund the wallet by card. Businesses, tutors and other partners pay their subscriptions <b>by card</b> and receive money through their <b>linked bank account</b>. They do not buy things on the platform.</td></tr>
   <tr><td>Class reps and student leaders</td><td>Lecturers create department classes, add students, appoint a class rep and mark attendance. School authorities see every student who signed up with their school and appoint the SUG president, VP and other officers. Each title shows on the person's profile.</td></tr>
   <tr><td>Got admitted</td><td>The button always asks for the school again, then switches the student to the in-school side and connects them to their school, department, classes and lecturers automatically. Same for new in-school sign-ups.</td></tr>
@@ -141,7 +143,7 @@
 <h2>2. How the student app will be laid out</h2>
 <p>Two new top-level areas arrive: <b>Community</b> and the split <b>Chat</b>. The floating tab bar has room for five icons without crowding.</p>
 
-<h3>2.1 Tab bar (recommended)</h3>
+<h3>2.1 Tab bar (decided)</h3>
 <table>
   <tr><th style="width:22%">Tab</th><th>Contents</th></tr>
   <tr><td>Home</td><td>Today: classes, deadlines, orders, wallet card, quick actions, official notices from your school.</td></tr>
@@ -150,7 +152,7 @@
   <tr><td>AI Study</td><td>AI tutor, study tools, Study from my notes. Exam candidates keep their exam study tab.</td></tr>
   <tr><td>Chat</td><td>Chats · Rooms, with an unread badge.</td></tr>
 </table>
-<p class="small">Profile and settings stay behind the avatar at the top of Home, as now. The final tab layout is decision 1 in section 18.</p>
+<p class="small">Profile and settings stay behind the avatar at the top of Home, as now.</p>
 
 <h3>2.2 Screens in the current theme</h3>
 <div class="mock-row">
@@ -228,7 +230,7 @@
   <tr><td>Class rep</td><td>Appointed by the class lecturer (student accepts)</td><td>Class announcements, take attendance, share materials, start a class session, pinned posts in the class</td><td>Class rep · CSC 300L</td></tr>
   <tr><td>Student leader</td><td>Appointed by the school authority (student accepts)</td><td>Official posts and announcements for their scope (school, faculty, department or hall), free official rooms, polls</td><td>SUG President, VP, PRO and others</td></tr>
   <tr><td>Lecturer</td><td>Applies, approved by the school or CampusOS (exists)</td><td>Department classes, students, class reps, attendance, materials, quizzes, live classes</td><td>Lecturer · Department</td></tr>
-  <tr><td>Tutor <span class="tag new">New</span></td><td>Applies in the portal, approved by CampusOS</td><td>Creates rooms (free or paid), live classes, quizzes, debates, earns money</td><td>Tutor (Verified tutor after checks)</td></tr>
+  <tr><td>Tutor <span class="tag new">New</span></td><td>Applies in the portal, approved by CampusOS, subscribes to Tutor Premium</td><td>Creates rooms (free or paid), live classes, quizzes, debates, earns money</td><td>Tutor (Verified tutor after checks)</td></tr>
   <tr><td>School authority</td><td>Signs up as a school, approved by CampusOS (exists)</td><td>Student list, verify students, appoint student leaders, official notices, moderate the school community</td><td>Official · School name</td></tr>
   <tr><td>Business</td><td>Applies in the portal (exists)</td><td>Sells food, housing or goods. Does not post in the community feed</td><td>Business name</td></tr>
   <tr><td>CampusOS team</td><td>Internal</td><td>Approves applications, moderates everywhere, handles appeals</td><td>CampusOS</td></tr>
@@ -402,18 +404,25 @@
   <li>On approval, the tutor gets the Tutor dashboard in the portal and in the Business app, and the Tutor badge on their profile in the student app if they also use it.</li>
 </ul>
 
-<h3>7.2 Tutor plans</h3>
+<h3>7.2 Tutor Premium (required)</h3>
+<p>Every approved tutor subscribes to <b>Tutor Premium at ₦3,000 a month</b>, paid by card, before they can publish a room. There is no free tutor tier. For each room, the tutor chooses <b>free or paid</b>.</p>
 <table>
-  <tr><th style="width:26%">Feature</th><th style="width:37%">Tutor Free</th><th>Tutor Premium (₦3,000 a month, by card)</th></tr>
-  <tr><td>Rooms</td><td>Up to 2</td><td>Unlimited</td></tr>
-  <tr><td>Paid rooms</td><td>No (free rooms only)</td><td>Yes</td></tr>
-  <tr><td>Live classes</td><td>Voice only, up to 100 people</td><td>Voice and video, up to 500 people (video limited to the speakers on camera)</td></tr>
-  <tr><td>Quizzes and debates</td><td>Polls only</td><td>Quizzes, debates, polls</td></tr>
-  <tr><td>Insights</td><td>Members count</td><td>Earnings, attendance, quiz results, churn, reviews</td></tr>
-  <tr><td>Discover</td><td>Listed normally</td><td>Eligible for "Featured" and a Premium tutor tick</td></tr>
-  <tr><td>AI helpers</td><td>None</td><td>Quiz drafts from notes, class recaps, announcement writer</td></tr>
+  <tr><th style="width:30%">Included</th><th>Details</th></tr>
+  <tr><td>Rooms</td><td>Unlimited rooms, each free or paid (one-time or monthly)</td></tr>
+  <tr><td>Live classes</td><td>Voice and video per class, up to 500 people (video limited to the speakers on camera)</td></tr>
+  <tr><td>Room tools</td><td>Polls, quizzes, debates, groups, files, member permissions</td></tr>
+  <tr><td>Earnings</td><td>The tutor keeps 100% of room payments. CampusOS takes no share.</td></tr>
+  <tr><td>Insights</td><td>Earnings, attendance, quiz results, members who left, reviews</td></tr>
+  <tr><td>Discover</td><td>Listed in Discover, eligible for "Featured"</td></tr>
+  <tr><td>AI helpers</td><td>Quiz drafts from notes, class recaps, announcement writer</td></tr>
 </table>
-<p class="small">This split is my suggestion (decision 2). The price lives in the settings table so it can change without an app update. Billing reuses the existing business plan flow: saved card, automatic monthly charge, 3-day grace, then paid rooms pause for new joins while existing members keep access until their period ends.</p>
+<h4>Billing and lapses</h4>
+<ul>
+  <li>Reuses the existing business plan flow: saved card, automatic monthly charge, receipts, and a 3-day grace period.</li>
+  <li>If the plan lapses after the grace period: rooms are paused (no new members, no new classes). Existing members keep access to chat and files until the end of the period they paid for. Monthly renewals stop, so students are not charged for a room that is not running.</li>
+  <li>When the tutor renews, rooms resume automatically.</li>
+  <li>The ₦3,000 price lives in the settings table so it can change without an app update.</li>
+</ul>
 
 <h3>7.3 Tutor dashboard</h3>
 <ul>
@@ -671,7 +680,7 @@
   <tr><th style="width:26%">Feature</th><th>What it does</th><th style="width:14%">Who</th></tr>
   <tr><td>Study from my notes</td><td>Upload a PDF, photos of handwritten notes or text. Four actions: Revise with me (step by step with check questions), Summarise, Make flashcards, Practice questions. Answers only from the note, and says when something is outside it.</td><td>All students (limits for free)</td></tr>
   <tr><td>Room and class files</td><td>"Ask AI about this file" on any file in a room or class the student belongs to.</td><td>Members</td></tr>
-  <tr><td>Missed-class recap</td><td>After a live class, the AI writes a short recap from the tutor's notes and the chat (and later from the recording), posted in the room.</td><td>Tutor Premium, official classes</td></tr>
+  <tr><td>Missed-class recap</td><td>After a live class, the AI writes a short recap from the tutor's notes and the chat (and later from the recording), posted in the room.</td><td>Tutor rooms, official classes</td></tr>
   <tr><td>Catch me up</td><td>In a busy room or class chat, "Catch me up" summarises unread messages: decisions, dates and files.</td><td>All students</td></tr>
   <tr><td>Study plan with rooms</td><td>The study planner adds room classes, quizzes and class deadlines automatically and warns about clashes.</td><td>All students</td></tr>
   <tr><td>Quiz and debate helpers</td><td>Draft quiz questions from a note, suggest debate motions, and summarise arguments after a debate.</td><td>Tutors, lecturers</td></tr>
@@ -692,7 +701,7 @@
 <table>
   <tr><th style="width:22%">Who</th><th>Pays with</th><th>Gets paid through</th></tr>
   <tr><td>Students</td><td>Wallet only, for everything (food, market, housing, rooms, Premium). Wallet top-up by card.</td><td>Wallet (refunds), and bank payout for student sellers as today</td></tr>
-  <tr><td>Tutors</td><td>Card, for Tutor Premium</td><td>Linked bank account (Paystack transfer)</td></tr>
+  <tr><td>Tutors</td><td>Card, for Tutor Premium (₦3,000 a month, required)</td><td>Linked bank account (Paystack transfer), full room price</td></tr>
   <tr><td>Businesses</td><td>Card, for business plans and boosts</td><td>Linked bank account</td></tr>
   <tr><td>Lecturers, schools, student leaders</td><td>No payment needed for official classes and rooms</td><td>Not applicable</td></tr>
 </table>
@@ -701,7 +710,7 @@
 <table>
   <tr><th style="width:30%">Rule</th><th>Proposal</th></tr>
   <tr><td>Payment</td><td>From the wallet, with payment password or fingerprint (same as other wallet payments). A receipt appears in History.</td></tr>
-  <tr><td>CampusOS share</td><td>10% of each room payment (decision 3). Stored in the settings table.</td></tr>
+  <tr><td>CampusOS share</td><td>None. The tutor receives the full price. CampusOS earns from the ₦3,000 Tutor Premium subscription. The share is still stored as a setting (set to 0%) so it can change later without an app update.</td></tr>
   <tr><td>Monthly rooms</td><td>Renew automatically from the wallet. Reminder 2 days before. If the wallet is short: retry for 3 days, then the membership becomes Expired (not removed). One tap to renew.</td></tr>
   <tr><td>Tutor earnings</td><td>Pending immediately, Available after 7 days (monthly) or 3 days (one-time), so a no-show room can be refunded. Then the tutor can request a payout, or turn on automatic daily payout like restaurants.</td></tr>
   <tr><td>Refunds</td><td>Full refund within 24 hours of a first payment if the student attended no class. Automatic refund for a month with 2 missed classes (8.10). Other cases go through the existing dispute flow.</td></tr>
@@ -780,7 +789,7 @@
   <tr><td>rooms <span class="tag new">New</span></td><td>Owner, kind (tutor, class, official), title, category, description, cover, audience and schools, department and level filters, price type and amount, pay-before-join, preview, join mode, capacity, settings (who can send, media, polls, slow mode), status, linked conversation, counters</td></tr>
   <tr><td>room_members <span class="tag new">New</span></td><td>Room, user, role (owner, co-host, moderator, member), status, paid until, muted until</td></tr>
   <tr><td>room_schedule and room_sessions <span class="tag new">New</span></td><td>Repeating times and actual sessions (voice or video, live room name, attendance). Built on the existing live session system.</td></tr>
-  <tr><td>room_subscriptions <span class="tag new">New</span></td><td>Payments per period, amount, CampusOS share, renewal status, refund status</td></tr>
+  <tr><td>room_subscriptions <span class="tag new">New</span></td><td>Payments per period, amount, renewal status, refund status</td></tr>
   <tr><td>quizzes, quiz_items, quiz_attempts <span class="tag new">New</span></td><td>Shared by rooms and official classes</td></tr>
   <tr><td>debates, debate_turns, debate_votes <span class="tag new">New</span></td><td>Debate set-up, turn order and audience votes</td></tr>
   <tr><td>room_groups, room_reviews <span class="tag new">New</span></td><td>Groups inside rooms (each with its own chat), member reviews</td></tr>
@@ -846,7 +855,7 @@
   <tr><td>Invite links and QR codes</td><td>For rooms, classes and profiles, with share previews. The main growth loop in Nigeria is WhatsApp sharing.</td><td>3</td></tr>
   <tr><td>Tutor verification levels</td><td>Verified tutor (ID checked), Top tutor (high rating and attendance). Helps students choose and rewards good tutors.</td><td>4</td></tr>
   <tr><td>Certificates</td><td>A simple completion certificate for rooms with a set end date (PDF, shareable).</td><td>Later</td></tr>
-  <tr><td>Class recordings</td><td>Record live classes for members who missed them. Costs storage and processing, so Premium tutors only and later.</td><td>Later</td></tr>
+  <tr><td>Class recordings</td><td>Record live classes for members who missed them. Costs storage and processing, so it comes later, possibly as a paid add-on for tutors.</td><td>Later</td></tr>
   <tr><td>Data saver mode</td><td>Lower image quality and no auto-download on mobile data. Data is expensive for students.</td><td>2</td></tr>
   <tr><td>Account deletion and data export</td><td>Required by the Nigeria Data Protection Act and by Play Store rules.</td><td>1</td></tr>
   <tr><td>Safeguarding for prep students</td><td>Section 9.4. Protects minors and protects CampusOS.</td><td>3 and 5</td></tr>
@@ -876,7 +885,7 @@
   <tr><th style="width:26%">Risk</th><th style="width:10%">Level</th><th>How we handle it</th></tr>
   <tr><td>Harmful content in Feeds, rooms or chats</td><td>High</td><td>Pilot at one campus, moderation before launch, auto-hide on reports, per-school switch, room owners moderate their rooms</td></tr>
   <tr><td>Adults contacting minors (prep students)</td><td>High</td><td>Separate prep spaces, no tutor DMs to prep students, stricter filters and fast report review</td></tr>
-  <tr><td>Live video cost</td><td>Medium</td><td>Video only for Premium tutors, speakers on camera only, voice by default, limits on class length and size</td></tr>
+  <tr><td>Live video cost</td><td>Medium</td><td>Only speakers on camera, voice by default, limits on class length and size, and the ₦3,000 tutor subscription covers part of the cost</td></tr>
   <tr><td>Storage cost from videos and files</td><td>Medium</td><td>Compression, size limits, data saver, archive old room files after 90 days of an archived room</td></tr>
   <tr><td>Tutor no-shows and refunds</td><td>Medium</td><td>Pending earnings window, automatic refund rule, ratings, flags for repeated no-shows</td></tr>
   <tr><td>Fake student leaders or reps</td><td>Medium</td><td>Only lecturers and school authorities appoint, the student must accept, every change is logged</td></tr>
@@ -887,9 +896,9 @@
 <h3>Decisions I need from you</h3>
 <table>
   <tr><th style="width:5%">#</th><th>Decision</th><th style="width:40%">My suggestion</th></tr>
-  <tr><td>1</td><td>Tab bar layout</td><td>Home, Community, Market (with Housing inside), AI Study, Chat</td></tr>
-  <tr><td>2</td><td>Tutor Free versus Premium (₦3,000)</td><td>Free: 2 free rooms, voice only. Premium: paid rooms, video, quizzes, debates, insights</td></tr>
-  <tr><td>3</td><td>CampusOS share of room payments</td><td>10%</td></tr>
+  <tr><td>1</td><td>Tab bar layout</td><td><b>Decided:</b> Home, Community, Market (with Housing inside), AI Study, Chat</td></tr>
+  <tr><td>2</td><td>Tutor plan</td><td><b>Decided:</b> ₦3,000 a month required for every tutor. Rooms can be free or paid</td></tr>
+  <tr><td>3</td><td>CampusOS share of room payments</td><td><b>Decided:</b> none, the tutor keeps the full price</td></tr>
   <tr><td>4</td><td>When tutor earnings become Available</td><td>7 days (monthly rooms), 3 days (one-time)</td></tr>
   <tr><td>5</td><td>Refund rule for rooms</td><td>24 hours with no class attended, plus automatic refund after 2 missed classes in a month</td></tr>
   <tr><td>6</td><td>Can students apply as tutors?</td><td>Yes, verified students only</td></tr>
@@ -909,7 +918,7 @@
   <tr><th style="width:22%">Phase</th><th>Must pass before release</th></tr>
   <tr><td>1. Roles</td><td>Got admitted always asks for the school. The switch completes fully or not at all. A new student lands in the right department classes. A department change moves only automatic enrolments. The authority sees only their own school's students. A rep cannot see grades. Badges disappear when the term ends.</td></tr>
   <tr><td>2. Chat and notifications</td><td>Each attachment type sends, uploads with progress, retries after network loss and opens on another phone. Non-members cannot open files. Inline reply works with the app closed. Sounds and channels are correct on a fresh install and after an update. Quiet hours and study lock respected, money alerts still arrive.</td></tr>
-  <tr><td>3. Rooms</td><td>A student outside the audience cannot see, open or join a room, even with a link. Paid join takes the exact amount, asks for the payment password, creates a receipt and credits the tutor's Pending balance minus the CampusOS share. A short wallet leads to Expired after the grace period, and renewing restores access. "Admins only" blocks member messages on the server, not only in the app.</td></tr>
+  <tr><td>3. Rooms</td><td>A student outside the audience cannot see, open or join a room, even with a link. Paid join takes the exact amount, asks for the payment password, creates a receipt and credits the full amount to the tutor's Pending balance. A tutor without an active Tutor Premium cannot publish rooms or start classes. A short wallet leads to Expired after the grace period, and renewing restores access. "Admins only" blocks member messages on the server, not only in the app.</td></tr>
   <tr><td>4. Room extras</td><td>Only the owner can create quizzes and debates. Quiz timers end on the server. Answer keys are never sent to the phone before submission. Debate turns unmute the right speaker.</td></tr>
   <tr><td>5. Feeds and People</td><td>Prep students cannot be found by in-school students or tutors. Reply settings are enforced. Auto-hide after 3 reports. Blocked users disappear from feeds, People and chat. The per-school switch turns posting off immediately.</td></tr>
   <tr><td>6. AI</td><td>Answers stay inside the note. Students cannot ask about files from rooms they are not in. Daily limits apply.</td></tr>
