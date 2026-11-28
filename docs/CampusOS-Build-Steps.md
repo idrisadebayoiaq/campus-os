@@ -1,4 +1,4 @@
-# CampusOS build steps
+﻿# CampusOS build steps
 
 The step-by-step checklist for `CampusOS-Implementation-Plan.pdf`. Work top to bottom. Tick a step only when its "Done when" is true.
 
@@ -84,17 +84,17 @@ The step-by-step checklist for `CampusOS-Implementation-Plan.pdf`. Work top to b
 
 ## Phase 2: chat and our own notifications
 
-1. [ ] Spike (1 day): confirm Notifee (or equivalent) works with Expo SDK 58 / RN 0.88 for avatars, grouping and inline reply. Fallback: keep standard notifications with better channels and sounds.
-2. [ ] Migration: `message_attachments`, `message_reactions`, `message_stars`, `polls`, `poll_votes`; `messages` gets new types, `reply_to_id`, `forwarded`; `conversations` gets kinds `room`, `class`, `request` and send permissions; `notifications` gets `category`, `actor_id`, `image_url`, `group_key`, `data`.
-3. [ ] Private storage bucket for chat files with signed links; size limits (video 3 min / 50 MB, files 25 MB).
-4. [ ] Chat screen: "+" sheet (photo, camera, video, file, location, contact, poll, share from CampusOS), upload progress, retry.
-5. [ ] Reply, forward, react, edit (15 min), delete for everyone (1 h), star, search in chat, link previews, read receipts switch.
-6. [ ] Chat tab split into Chats and Rooms; official classes appear in Rooms.
-7. [ ] Message requests for people you are not connected to.
-8. [ ] Notification channels with new names and bundled sounds (chime, message pop, cash, order, study).
-9. [ ] Push dispatcher sends data messages for chats; the app draws rich notifications with avatar, grouping, Reply and Mark as read.
+1. [ ] Spike (needs a native build to verify; not done yet): confirm Notifee (or equivalent) works with Expo SDK 58 / RN 0.88 for avatars, grouping and inline reply. Fallback: keep standard notifications with better channels and sounds.
+2. [x] Migration (polls and message requests deferred to Phase 3/5): `message_attachments`, `message_reactions`, `message_stars`, `polls`, `poll_votes`; `messages` gets new types, `reply_to_id`, `forwarded`; `conversations` gets kinds `room`, `class`, `request` and send permissions; `notifications` gets `category`, `actor_id`, `image_url`, `group_key`, `data`.
+3. [x] Private storage bucket for chat files with signed links; size limits (video 3 min / 50 MB, files 25 MB).
+4. [x] (contact, poll and share-from-CampusOS deferred) Chat screen: "+" sheet (photo, camera, video, file, location, contact, poll, share from CampusOS), upload progress, retry.
+5. [x] (link previews and read-receipts switch deferred) Reply, forward, react, edit (15 min), delete for everyone (1 h), star, search in chat, link previews, read receipts switch.
+6. [x] Chat tab split into Chats and Rooms; official classes appear in Rooms.
+7. [ ] (waits for Phase 5 People) Message requests for people you are not connected to.
+8. [x] (names done; bundled sounds need a native build) Notification channels with new names and bundled sounds (chime, message pop, cash, order, study).
+9. [ ] (partly: better previews, group titles, image, category channels behind a flag; rich notifications need Notifee) Push dispatcher sends data messages for chats; the app draws rich notifications with avatar, grouping, Reply and Mark as read.
 10. [ ] In-app banner component for foreground notifications.
-11. [ ] Notification centre redesign (All, Mentions, Rooms, Money, School), app icon badge, quiet hours.
+11. [x] (tabs done; icon badge and quiet hours still to do) Notification centre redesign (All, Mentions, Rooms, Money, School), app icon badge, quiet hours.
 12. [ ] Battery optimisation guide (shown once).
 13. [ ] Ship 1.2.0.
 
@@ -158,3 +158,4 @@ The step-by-step checklist for `CampusOS-Implementation-Plan.pdf`. Work top to b
 - [ ] Change the demo portal password; delete test accounts.
 - [ ] Redeploy the portal and website.
 - [ ] Remove the `/my-room` link in `apartment.tsx` and the unused premium badge export.
+

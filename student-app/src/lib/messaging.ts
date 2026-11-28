@@ -11,7 +11,7 @@ export type ConversationKind =
   | "ai"
   | "assistant";
 
-export type MessageType = "text" | "audio" | "system" | "image";
+export type MessageType = "text" | "audio" | "system" | "image" | "video" | "file" | "location" | "contact";
 
 export type ConversationListItem = {
   id: string;
@@ -47,7 +47,14 @@ export type ChatMessage = {
   media_url?: string | null;
   media_duration_ms?: number | null;
   client_id?: string | null;
+  reply_to_id?: string | null;
+  forwarded?: boolean | null;
 };
+
+export type Reaction = { message_id: string; user_id: string; emoji: string };
+
+export const MESSAGE_COLUMNS =
+  "id, conversation_id, body, sender_id, created_at, edited_at, deleted_at, message_type, media_url, media_duration_ms, client_id, reply_to_id, forwarded";
 
 export type AiCompanionProfile = {
   id: string;
@@ -88,6 +95,8 @@ export function conversationTitle(input: {
   if (input.kind === "direct") return input.peerName || (!generic ? input.subject : null) || "Chat";
   if (input.kind === "group") return (!generic && input.subject) || "Group chat";
   if (input.kind === "support") return (!generic && input.subject) || "CampusOS Support";
+  if (input.kind === "class") return (!generic && input.subject) || "Class chat";
+  if (input.kind === "room") return (!generic && input.subject) || "Room";
   if (!generic && input.subject) return input.subject!;
   if (input.peerName) return input.peerName;
   if (input.kind === "listing") return "Housing chat";
@@ -107,6 +116,10 @@ export function kindLabel(kind: string) {
       return "Business";
     case "support":
       return "Support";
+    case "class":
+      return "Class";
+    case "room":
+      return "Room";
     case "direct":
       return "Personal";
     default:
@@ -120,7 +133,11 @@ export function previewForMessage(msg: {
 } | null) {
   if (!msg) return null;
   if (msg.message_type === "audio") return "Voice message";
-  if (msg.message_type === "image") return "Photo";
+  if (msg.message_type === "image") return msg.body ? `Photo · ${msg.body}` : "Photo";
+  if (msg.message_type === "video") return msg.body ? `Video · ${msg.body}` : "Video";
+  if (msg.message_type === "file") return msg.body ? `File · ${msg.body}` : "File";
+  if (msg.message_type === "location") return "Location";
+  if (msg.message_type === "contact") return "Contact";
   if (msg.message_type === "system") return msg.body || "Update";
   if (msg.message_type === "assistant" && msg.body) return stripMarkdown(msg.body).replace(/\s*\n+\s*/g, " ");
   return msg.body || null;
@@ -493,6 +510,65 @@ export async function sendTextMessage(
     .single();
   if (error) throw error;
   return data as ChatMessage;
+}
+
+type OutgoingAttachment = {
+  kind: string;
+  path: string;
+  name?: string | null;
+  mime?: string | null;
+  size_bytes?: number | null;
+  width?: number | null;
+  height?: number | null;
+  duration_ms?: number | null;
+};
+
+/** Sends text, media, a location or a forwarded message through the server so limits are enforced. */
+export async function sendMessage(
+  supabase: SupabaseClient,
+  input: {
+    conversationId: string;
+    type?: MessageType;
+    body?: string;
+    attachments?: OutgoingAttachment[];
+    replyTo?: string | null;
+    clientId?: string;
+    forwarded?: boolean;
+  },
+) {
+  const { data, error } = await supabase.rpc("send_message", {
+    p_conversation: input.conversationId,
+    p_type: input.type ?? "text",
+    p_body: input.body ?? "",
+    p_attachments: input.attachments ?? [],
+    p_reply_to: input.replyTo ?? null,
+    p_client_id: input.clientId ?? null,
+    p_forwarded: input.forwarded ?? false,
+  });
+  if (error) throw error;
+  return data as ChatMessage;
+}
+
+export async function editMessage(supabase: SupabaseClient, messageId: string, body: string) {
+  const { data, error } = await supabase.rpc("edit_message", { p_message: messageId, p_body: body });
+  if (error) throw error;
+  return data as ChatMessage;
+}
+
+export async function hideMessage(supabase: SupabaseClient, messageId: string) {
+  const { error } = await supabase.rpc("hide_message", { p_message: messageId });
+  if (error) throw error;
+}
+
+export async function reactToMessage(supabase: SupabaseClient, messageId: string, emoji: string | null) {
+  const { error } = await supabase.rpc("react_message", { p_message: messageId, p_emoji: emoji });
+  if (error) throw error;
+}
+
+export async function toggleStar(supabase: SupabaseClient, messageId: string) {
+  const { data, error } = await supabase.rpc("toggle_star", { p_message: messageId });
+  if (error) throw error;
+  return Boolean(data);
 }
 
 /** Create (or reuse) a housing enquiry chat with the listing agent. */

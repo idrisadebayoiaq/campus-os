@@ -4,6 +4,7 @@ import {
   ActivityIndicator,
   Pressable,
   RefreshControl,
+  ScrollView,
   SectionList,
   StyleSheet,
   View,
@@ -24,7 +25,16 @@ type NotificationRow = {
   link: string | null;
   is_read: boolean;
   created_at: string;
+  category: string | null;
 };
+
+const TABS = [
+  { key: "all", label: "All" },
+  { key: "mentions", label: "Mentions" },
+  { key: "rooms", label: "Rooms" },
+  { key: "money", label: "Money" },
+  { key: "school", label: "School" },
+] as const;
 
 function iconFor(n: NotificationRow): keyof typeof Ionicons.glyphMap {
   const link = n.link ?? "";
@@ -75,7 +85,7 @@ export default function NotificationsScreen() {
     if (!user) return;
     const { data, error: qErr } = await supabase
       .from("notifications")
-      .select("id, title, body, link, is_read, created_at")
+      .select("id, title, body, link, is_read, created_at, category")
       .eq("user_id", user.id)
       .order("created_at", { ascending: false })
       .limit(100);
@@ -114,12 +124,15 @@ export default function NotificationsScreen() {
     };
   }, [user, load]);
 
+  const [tab, setTab] = useState<(typeof TABS)[number]["key"]>("all");
+  const shown = useMemo(() => (tab === "all" ? rows : rows.filter((r) => r.category === tab)), [rows, tab]);
   const unread = rows.filter((r) => !r.is_read).length;
+  const unreadBy = (key: string) => rows.filter((r) => !r.is_read && (key === "all" || r.category === key)).length;
 
   const sections = useMemo(() => {
     const order = ["Today", "This week", "Earlier"];
     const map = new Map<string, NotificationRow[]>();
-    for (const r of rows) {
+    for (const r of shown) {
       const key = sectionFor(r.created_at);
       if (!map.has(key)) map.set(key, []);
       map.get(key)!.push(r);
@@ -127,7 +140,7 @@ export default function NotificationsScreen() {
     return order
       .filter((k) => map.has(k))
       .map((k) => ({ title: k, data: map.get(k)! }));
-  }, [rows]);
+  }, [shown]);
 
   async function markAllRead() {
     if (!user || !unread) return;
@@ -212,6 +225,31 @@ export default function NotificationsScreen() {
           </Pressable>
         </View>
       </View>
+
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ flexGrow: 0 }} contentContainerStyle={styles.tabs}>
+        {TABS.map((t) => {
+          const active = tab === t.key;
+          const n = unreadBy(t.key);
+          return (
+            <Pressable
+              key={t.key}
+              onPress={() => setTab(t.key)}
+              style={[styles.tab, { backgroundColor: active ? colors.inverseBg : colors.surface }]}
+            >
+              <AppText size={13} weight="600" style={{ color: active ? colors.inverseFg : colors.fg }}>
+                {t.label}
+              </AppText>
+              {n ? (
+                <View style={[styles.tabBadge, { backgroundColor: colors.success }]}>
+                  <AppText size={10} weight="700" style={{ color: "#fff" }}>
+                    {n > 99 ? "99+" : n}
+                  </AppText>
+                </View>
+              ) : null}
+            </Pressable>
+          );
+        })}
+      </ScrollView>
 
       {loading ? (
         <View style={styles.center}>
@@ -340,6 +378,16 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
+  tabs: { paddingHorizontal: 16, gap: 8, paddingBottom: 6 },
+  tab: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: radii.pill,
+  },
+  tabBadge: { minWidth: 18, height: 18, borderRadius: 9, paddingHorizontal: 4, alignItems: "center", justifyContent: "center" },
   center: { flex: 1, alignItems: "center", justifyContent: "center" },
   sectionLabel: { marginTop: 16, marginBottom: 8, marginLeft: 4 },
   item: {

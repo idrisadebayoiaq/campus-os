@@ -7,7 +7,20 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
 
 type ServiceAccount = { project_id: string; client_email: string; private_key: string };
-type Push = { title: string; body: string; data: Record<string, string>; tag?: string };
+type Push = { title: string; body: string; data: Record<string, string>; tag?: string; image?: string; channel?: string };
+
+// Flip to true once phones run the app version that creates the new channels (1.2.0+).
+// Before that, a channel the phone does not know falls back to a quiet default.
+const USE_NEW_CHANNELS = false;
+const CHANNELS: Record<string, string> = {
+  chat: "campusos_chat",
+  rooms: "campusos_rooms",
+  mentions: "campusos_chat",
+  money: "campusos_money",
+  school: "campusos_school",
+};
+const channelFor = (category?: string | null) =>
+  USE_NEW_CHANNELS && category && CHANNELS[category] ? CHANNELS[category] : "campusos_default";
 
 let cachedToken: { value: string; expires: number } | null = null;
 
@@ -70,13 +83,13 @@ async function sendAll(tokens: string[], push: Push) {
       body: JSON.stringify({
         message: {
           token,
-          notification: { title: push.title, body: push.body },
+          notification: { title: push.title, body: push.body, ...(push.image ? { image: push.image } : {}) },
           data: push.data,
           android: {
             priority: "HIGH",
             ttl: "86400s",
             notification: {
-              channel_id: "campusos_default",
+              channel_id: push.channel || "campusos_default",
               sound: "default",
               ...(push.tag ? { tag: push.tag } : {}),
             },
@@ -98,10 +111,14 @@ async function sendAll(tokens: string[], push: Push) {
 }
 
 const preview = (type: string, body: string | null) => {
-  if (type === "image") return "Photo";
+  const caption = (body ?? "").replace(/\s+/g, " ").trim().slice(0, 140);
+  if (type === "image") return caption ? `Photo: ${caption}` : "Photo";
+  if (type === "video") return caption ? `Video: ${caption}` : "Video";
   if (type === "audio") return "Voice message";
-  if (type === "file") return "File";
-  return (body ?? "").replace(/\s+/g, " ").trim().slice(0, 160) || "New message";
+  if (type === "file") return caption ? `File: ${caption}` : "File";
+  if (type === "location") return "Location";
+  if (type === "contact") return "Contact";
+  return caption || "New message";
 };
 
 Deno.serve(async (req) => {
@@ -132,13 +149,20 @@ Deno.serve(async (req) => {
   }
 
   if (kind === "notification" && id) {
-    const { data: n } = await admin.from("notifications").select("user_id, title, body, link").eq("id", id).maybeSingle();
+    const { data: n } = await admin
+      .from("notifications")
+      .select("user_id, title, body, link, category, image_url, group_key")
+      .eq("id", id)
+      .maybeSingle();
     if (!n) return Response.json({ skipped: "not_found" });
     users = [n.user_id];
     push = {
       title: n.title || "CampusOS",
       body: n.body || "",
-      data: { link: n.link || "/notifications", notification_id: id },
+      data: { link: n.link || "/notifications", notification_id: id, category: n.category || "general" },
+      tag: n.group_key || undefined,
+      image: n.image_url || undefined,
+      channel: channelFor(n.category),
     };
   } else if (kind === "message" && id) {
     const { data: m } = await admin
@@ -166,12 +190,13 @@ Deno.serve(async (req) => {
       if (biz && biz.owner_user_id === m.sender_id) name = biz.display_name || name;
     }
     const text = preview(m.message_type, m.body);
-    const group = conv.kind === "group" && conv.subject;
+    const group = ["group", "class", "room"].includes(conv.kind) && conv.subject;
     push = {
       title: group ? String(conv.subject) : name,
       body: group ? `${name}: ${text}` : text,
-      data: { link: `/inbox/${m.conversation_id}`, conversation_id: m.conversation_id },
+      data: { link: `/inbox/${m.conversation_id}`, conversation_id: m.conversation_id, category: "chat" },
       tag: m.conversation_id,
+      channel: channelFor("chat"),
     };
   }
 

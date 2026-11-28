@@ -30,6 +30,7 @@
       },
       "permissions": [
         "android.permission.READ_MEDIA_IMAGES",
+        "android.permission.READ_MEDIA_VIDEO",
         "android.permission.READ_EXTERNAL_STORAGE",
         "android.permission.CAMERA",
         "android.permission.POST_NOTIFICATIONS",
@@ -60,8 +61,8 @@
       [
         "expo-image-picker",
         {
-          "photosPermission": "Allow CampusOS to access your photos for your profile picture.",
-          "cameraPermission": "Allow CampusOS to use your camera for your profile picture and ID verification."
+          "photosPermission": "Allow CampusOS to access your photos and videos to set your profile picture and share in chats.",
+          "cameraPermission": "Allow CampusOS to use your camera for your profile picture, ID verification and chat photos."
         }
       ],
       [

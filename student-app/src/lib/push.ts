@@ -27,16 +27,29 @@ Notifications.setNotificationHandler({
   },
 });
 
+const CHANNELS = [
+  { id: "campusos_default", name: "CampusOS", description: "General updates" },
+  { id: "campusos_chat", name: "Messages", description: "Personal chats and mentions" },
+  { id: "campusos_rooms", name: "Rooms and classes", description: "Class chats and community rooms" },
+  { id: "campusos_money", name: "Money and orders", description: "Payments, orders and receipts" },
+  { id: "campusos_school", name: "School", description: "Classes, assignments, exams and announcements" },
+] as const;
+
 async function ensureChannel() {
   if (Platform.OS !== "android") return;
-  await Notifications.setNotificationChannelAsync("campusos_default", {
-    name: "CampusOS",
-    importance: Notifications.AndroidImportance.HIGH,
-    vibrationPattern: [0, 200, 120, 200],
-    lightColor: "#5B4B8A",
-    sound: "default",
-    lockscreenVisibility: Notifications.AndroidNotificationVisibility.PRIVATE,
-  });
+  await Promise.all(
+    CHANNELS.map((c) =>
+      Notifications.setNotificationChannelAsync(c.id, {
+        name: c.name,
+        description: c.description,
+        importance: Notifications.AndroidImportance.HIGH,
+        vibrationPattern: [0, 200, 120, 200],
+        lightColor: "#5B4B8A",
+        sound: "default",
+        lockscreenVisibility: Notifications.AndroidNotificationVisibility.PRIVATE,
+      }),
+    ),
+  );
 }
 
 /** A reminder this phone shows by itself at `at`, even with the app closed. Same id replaces the old one. */

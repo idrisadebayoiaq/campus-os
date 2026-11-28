@@ -37,6 +37,9 @@ import { supabase } from "@/src/lib/supabase";
 import { useTheme } from "@/src/theme/ThemeProvider";
 import { radii } from "@/src/theme/tokens";
 
+/** Class chats and community rooms live under Rooms; everything else is a Chat. */
+const isRoomKind = (kind: string) => kind === "class" || kind === "room";
+
 function when(iso: string) {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return "";
@@ -61,6 +64,7 @@ export default function InboxScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState<string>("all");
+  const [section, setSection] = useState<"chats" | "rooms">("chats");
   const [search, setSearch] = useState("");
   const [composeOpen, setComposeOpen] = useState(false);
   const [peerEmail, setPeerEmail] = useState("");
@@ -105,21 +109,25 @@ export default function InboxScreen() {
 
   const visible = useMemo(() => {
     const q = search.trim().toLowerCase();
+    const inSection = rows.filter((r) => isRoomKind(r.kind) === (section === "rooms"));
     const byKind =
-      filter === "all"
-        ? rows
+      section === "rooms" || filter === "all"
+        ? inSection
         : filter === "unread"
-          ? rows.filter((r) => r.unread)
+          ? inSection.filter((r) => r.unread)
           : filter === "order"
-            ? rows.filter((r) => r.kind === "order" || r.kind === "listing")
-            : rows.filter((r) => r.kind === filter);
+            ? inSection.filter((r) => r.kind === "order" || r.kind === "listing")
+            : inSection.filter((r) => r.kind === filter);
     if (!q) return byKind;
     return byKind.filter((r) =>
       `${conversationTitle({ kind: r.kind, subject: r.subject, peerName: r.peerName })} ${r.lastMessage ?? ""}`
         .toLowerCase()
         .includes(q),
     );
-  }, [rows, filter, search]);
+  }, [rows, filter, search, section]);
+
+  const roomUnread = rows.filter((r) => isRoomKind(r.kind) && r.unread).length;
+  const chatUnread = rows.filter((r) => !isRoomKind(r.kind) && r.unread).length;
 
   function onRowMenu(conversationId: string, title: string) {
     actionSheet(title, [
@@ -214,7 +222,7 @@ export default function InboxScreen() {
     <Screen padded={false} tabClearance>
       <View style={styles.header}>
         <AppText size={26} weight="700" style={{ flex: 1 }}>
-          Chats
+          Chat
         </AppText>
         <Pressable
           onPress={() => setComposeOpen(true)}
@@ -223,6 +231,29 @@ export default function InboxScreen() {
         >
           <Ionicons name="create-outline" size={20} color={colors.inverseFg} />
         </Pressable>
+      </View>
+
+      <View style={[styles.segment, { backgroundColor: colors.surface }]}>
+        {(
+          [
+            { key: "chats", label: "Chats", dot: chatUnread > 0 },
+            { key: "rooms", label: "Rooms", dot: roomUnread > 0 },
+          ] as const
+        ).map((s) => {
+          const active = section === s.key;
+          return (
+            <Pressable
+              key={s.key}
+              onPress={() => setSection(s.key)}
+              style={[styles.segmentBtn, active && { backgroundColor: colors.inverseBg }]}
+            >
+              <AppText size={14} weight="700" style={{ color: active ? colors.inverseFg : colors.fg }}>
+                {s.label}
+              </AppText>
+              {s.dot ? <View style={[styles.segmentDot, { backgroundColor: colors.success }]} /> : null}
+            </Pressable>
+          );
+        })}
       </View>
 
       <View style={[styles.search, { backgroundColor: colors.surface }]}>
@@ -241,6 +272,7 @@ export default function InboxScreen() {
         ) : null}
       </View>
 
+      {section === "chats" ? (
       <FlatList
         horizontal
         data={INBOX_FILTERS as unknown as { key: string; label: string }[]}
@@ -271,6 +303,7 @@ export default function InboxScreen() {
           );
         }}
       />
+      ) : null}
 
       {loading ? (
         <View style={styles.center}>
@@ -309,8 +342,20 @@ export default function InboxScreen() {
           ListEmptyComponent={
             <View style={{ padding: 20 }}>
               <EmptyState
-                title={search || filter !== "all" ? "No matching chats" : "No chats yet"}
-                description={search || filter !== "all" ? "" : "Tap the pencil to start one."}
+                title={
+                  search || (section === "chats" && filter !== "all")
+                    ? "No matching chats"
+                    : section === "rooms"
+                      ? "No rooms yet"
+                      : "No chats yet"
+                }
+                description={
+                  search || (section === "chats" && filter !== "all")
+                    ? ""
+                    : section === "rooms"
+                      ? "Your class chats show up here once you're enrolled."
+                      : "Tap the pencil to start one."
+                }
               />
             </View>
           }
@@ -460,6 +505,24 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
+  segment: {
+    marginHorizontal: 16,
+    marginBottom: 10,
+    padding: 4,
+    borderRadius: radii.pill,
+    flexDirection: "row",
+    gap: 4,
+  },
+  segmentBtn: {
+    flex: 1,
+    paddingVertical: 8,
+    borderRadius: radii.pill,
+    alignItems: "center",
+    justifyContent: "center",
+    flexDirection: "row",
+    gap: 6,
+  },
+  segmentDot: { width: 8, height: 8, borderRadius: 4 },
   filters: { paddingHorizontal: 16, gap: 8 },
   chip: {
     paddingHorizontal: 14,
