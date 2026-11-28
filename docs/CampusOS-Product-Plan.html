@@ -1,0 +1,706 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>CampusOS Product and Build Plan</title>
+<style>
+  @page { size: A4; margin: 16mm 15mm 16mm 15mm; }
+  * { box-sizing: border-box; }
+  html { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  body { font-family: "Segoe UI", Arial, Helvetica, sans-serif; color: #1c1a29; font-size: 10.4pt; line-height: 1.5; margin: 0; }
+  h1, h2, h3, h4 { color: #231a3d; line-height: 1.2; margin: 0; }
+  h2, h3, h4 { break-after: avoid; page-break-after: avoid; }
+  h1 { font-size: 22pt; }
+  h2 { font-size: 16pt; margin: 0 0 10px; padding-bottom: 6px; border-bottom: 2px solid #AB9FF2; }
+  h3 { font-size: 12.5pt; margin: 18px 0 6px; }
+  h4 { font-size: 10.8pt; margin: 12px 0 4px; color: #3C315B; }
+  p { margin: 6px 0; }
+  ul, ol { margin: 6px 0 6px 20px; padding: 0; }
+  li { margin: 2px 0; }
+  .page { page-break-before: always; }
+  .cover { height: 255mm; display: flex; flex-direction: column; justify-content: space-between; padding: 14mm 6mm 6mm; background: linear-gradient(160deg, #1A1428 0%, #3C315B 100%); color: #fff; border-radius: 14px; }
+  .cover h1 { color: #fff; font-size: 34pt; letter-spacing: -0.5px; }
+  .cover .sub { color: #d9d3f5; font-size: 14pt; margin-top: 10px; }
+  .cover .meta { color: #bdb4e8; font-size: 10.5pt; }
+  .cover .chips span { display: inline-block; border: 1px solid #8b7fd6; color: #e6e1fb; border-radius: 999px; padding: 3px 12px; margin: 0 6px 6px 0; font-size: 10pt; }
+  .toc li { margin: 4px 0; }
+  .toc { columns: 2; column-gap: 28px; list-style: none; margin-left: 0; }
+  table { width: 100%; border-collapse: collapse; margin: 8px 0 12px; font-size: 9.4pt; page-break-inside: auto; }
+  th { background: #3C315B; color: #fff; text-align: left; padding: 6px 8px; font-weight: 600; }
+  td { padding: 6px 8px; border-bottom: 1px solid #e3def5; vertical-align: top; }
+  tr { page-break-inside: avoid; }
+  tr:nth-child(even) td { background: #f8f6ff; }
+  .callout { border-left: 4px solid #AB9FF2; background: #f4f1ff; padding: 8px 12px; margin: 10px 0; border-radius: 4px; page-break-inside: avoid; }
+  .warn { border-left-color: #E8A33D; background: #fff6e6; }
+  .good { border-left-color: #2E9E6B; background: #eaf7f0; }
+  .card { border: 1px solid #ddd6f5; border-radius: 10px; padding: 10px 12px; margin: 8px 0; page-break-inside: avoid; }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .grid3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
+  .tag { display: inline-block; font-size: 8.4pt; padding: 1px 8px; border-radius: 999px; background: #e9e4ff; color: #3C315B; margin-right: 4px; font-weight: 600; }
+  .tag.build { background: #d9f2e6; color: #17603f; }
+  .tag.adapt { background: #fff0d1; color: #8a5a00; }
+  .tag.skip { background: #fde0e0; color: #8e2222; }
+  .small { font-size: 9pt; color: #5b5870; }
+  .muted { color: #5b5870; }
+  .kbd { font-family: Consolas, monospace; background: #f1eefc; padding: 0 4px; border-radius: 3px; font-size: 9.2pt; }
+  .swatches { display: flex; gap: 0; margin: 6px 0; border-radius: 8px; overflow: hidden; border: 1px solid #ddd; }
+  .swatches div { flex: 1; height: 34px; font-size: 7.4pt; display: flex; align-items: flex-end; padding: 2px 4px; }
+  .mock-row { display: flex; gap: 14px; justify-content: center; margin: 8px 0; }
+  .phone { width: 150px; border-radius: 20px; padding: 10px; border: 1px solid rgba(0,0,0,.12); font-size: 7.6pt; line-height: 1.3; }
+  .phone .top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+  .phone .title { font-weight: 700; font-size: 9pt; }
+  .phone .hero { border-radius: 12px; padding: 9px; margin-bottom: 7px; }
+  .phone .hero .big { font-size: 13pt; font-weight: 700; margin: 2px 0 6px; }
+  .phone .btn { border-radius: 999px; padding: 5px 0; text-align: center; font-weight: 700; margin-bottom: 7px; }
+  .phone .chips span { display: inline-block; border-radius: 999px; padding: 2px 7px; margin: 0 3px 3px 0; font-weight: 600; }
+  .phone .row { border-radius: 9px; padding: 6px 8px; margin-bottom: 5px; display: flex; justify-content: space-between; }
+  .phone .bar { border-radius: 999px; padding: 6px 10px; display: flex; justify-content: space-between; margin-top: 8px; }
+  .phone .dot { width: 9px; height: 9px; border-radius: 50%; display: inline-block; }
+  .opt-title { font-weight: 700; font-size: 11pt; margin-top: 12px; }
+  .num { text-align: right; white-space: nowrap; }
+  .hr { border-top: 1px solid #e3def5; margin: 14px 0; }
+</style>
+</head>
+<body>
+
+<!-- ============================ COVER ============================ -->
+<div class="cover">
+  <div>
+    <div class="chips"><span>Product plan</span><span>Draft for decision</span><span>28 November 2026</span></div>
+    <h1 style="margin-top:46px;">CampusOS<br/>Product &amp; Build Plan</h1>
+    <div class="sub">New theme, CampusOS Business app, one website, features inspired by Sckooly, and a full plan for the campus community.</div>
+  </div>
+  <div class="meta">
+    <p><b>Contents</b></p>
+    <p>1 Summary and decisions &nbsp;·&nbsp; 2 Where we stand &nbsp;·&nbsp; 3 Sckooly review &nbsp;·&nbsp; 4 Roadmap &nbsp;·&nbsp; 5 Theme &nbsp;·&nbsp; 6 CampusOS Business app &nbsp;·&nbsp; 7 One website &nbsp;·&nbsp; 8 Feature specs &nbsp;·&nbsp; 9 Campus community &nbsp;·&nbsp; 10 Cross-cutting rules &nbsp;·&nbsp; 11 Risks and open decisions</p>
+    <p class="small" style="color:#bdb4e8;">Effort figures are rough working-day ranges for building with AI assistance. They are planning guides, not promises.</p>
+  </div>
+</div>
+
+<!-- ============================ 1 SUMMARY ============================ -->
+<div class="page">
+<h2>1. Summary and decisions</h2>
+<p>This document turns your ideas into a plan we can build in order. It covers five things: what to borrow from Sckooly, a separate CampusOS Business app, one website, a new theme, and a carefully designed campus community.</p>
+
+<h3>Decisions you have already made</h3>
+<table>
+  <tr><th style="width:30%">Topic</th><th>Decision</th></tr>
+  <tr><td>Theme</td><td>Preview all three colour directions side by side before choosing (section 5).</td></tr>
+  <tr><td>Business app</td><td>A <b>separate</b> app, "CampusOS Business", downloaded from the CampusOS landing page. The web portal stays for desktop jobs.</td></tr>
+  <tr><td>Sckooly-inspired features</td><td>Note-based tutor, paid classes, timed quizzes, class rep and union roles, and a school community. I have filtered and ordered them in section 4.</td></tr>
+  <tr><td>Community</td><td>Needs a full plan before any code. Section 9 is that plan.</td></tr>
+</table>
+
+<h3>My recommended order</h3>
+<ol>
+  <li><b>Foundations (2 days):</b> reconnect tools, rotate old secrets, redeploy portal and website.</li>
+  <li><b>New theme (4 to 5 days):</b> done first so every new screen and the Business app inherit it.</li>
+  <li><b>Learning upgrades (12 to 16 days):</b> note-based tutor, timed quizzes, class rep roles.</li>
+  <li><b>Paid classes (6 to 8 days):</b> new income for lecturers and for CampusOS.</li>
+  <li><b>CampusOS Business app (22 to 30 days in three steps):</b> restaurants first.</li>
+  <li><b>One website (3 to 4 days):</b> runs alongside the Business app so the download page is ready on launch day.</li>
+  <li><b>Campus community (pilot in 15 to 20 days, then grow):</b> built last because it needs moderation tools, a pilot campus and school partners to be safe.</li>
+</ol>
+
+<div class="callout good"><b>Why this order.</b> The theme is cheap and affects everything. The tutor, quizzes and paid classes build on tables and screens we already have, so they ship fast and earn money. The Business app protects the revenue we already depend on (food orders and housing). The community is the most valuable long-term feature but also the riskiest, so it gets the most preparation and a small pilot first.</div>
+
+<h3>What I need from you</h3>
+<ul>
+  <li>Pick a theme after seeing section 5.</li>
+  <li>Confirm the commission and payout rules for paid classes (section 8.4).</li>
+  <li>Choose the pilot campus and a school contact for the community (section 9.12).</li>
+  <li>Answer the open decisions in section 11.</li>
+</ul>
+</div>
+
+<!-- ============================ 2 WHERE WE STAND ============================ -->
+<div class="page">
+<h2>2. Where we stand today</h2>
+<table>
+  <tr><th style="width:24%">Area</th><th>What exists now</th></tr>
+  <tr><td>Student app (Android, v1.0.13)</td><td>Home, Housing, Market, AI Study, Study hub, Chat, Profile. Wallet with payment password and fingerprint. Food ordering with delivery code and receipts. Marketplace with held payments. Housing with free viewings, offers and rent receipts. Study tools: timetable, assignments, exams, planner, flashcards, CBT, past questions, CGPA, focus timer, tutors, groups, classes. AI tutor with tables, diagrams and schedule-aware study plans.</td></tr>
+  <tr><td>Business portal (web)</td><td>About 70 pages: orders board, menu, listings (food, housing, market), inspections and offers, enquiries, tenancies, payouts with Pending and Available balances, billing and plan, boosts, reviews, team, class management for lecturers, school authority pages, admin, support desk and reports.</td></tr>
+  <tr><td>Landing website</td><td>Marketing site with APK download (now pointing at 1.0.13).</td></tr>
+  <tr><td>Backend</td><td>Supabase: database with row-level security, edge functions (Paystack, tutor, auto payouts, push), scheduled jobs, realtime. Paystack for card top-ups and bank payouts.</td></tr>
+  <tr><td>Money rules in place</td><td>Wallet-only spending, platform percentage per order, restaurant earnings Pending then Available then daily automatic payout, housing paid straight to agent dashboard after the offer, marketplace held until handover (food released on handover).</td></tr>
+</table>
+<div class="callout"><b>What does not exist yet:</b> a campus community feed, paid classes, uploaded-notes tutoring, lecturer quizzes, class rep or student union roles, and any mobile tooling for businesses.</div>
+</div>
+
+<!-- ============================ 3 SCKOOLY ============================ -->
+<div class="page">
+<h2>3. Sckooly review and feature gap</h2>
+<p class="small">Source: Sckooly's public landing page only. I could not see the logged-in product, so I treat their claims as claims. Their counters (for example "Students 0+") and demo figures look like placeholders.</p>
+<table>
+  <tr><th style="width:21%">Sckooly feature</th><th style="width:25%">CampusOS today</th><th style="width:10%">Verdict</th><th>What we do</th></tr>
+  <tr><td>Lecture rooms for up to 10,000 students, live audio with Q&amp;A</td><td>Classes with live sessions (video and audio rooms), materials, attendance, assignments</td><td><span class="tag adapt">Adapt</span></td><td>Keep our live sessions. Add room discovery and paid access. Skip 10,000-person rooms for now (cost and moderation).</td></tr>
+  <tr><td>Paid rooms, monthly fee, automatic renewal and instant payout</td><td>Wallet, payouts, subscription renewal job (used for Premium)</td><td><span class="tag build">Build</span></td><td>Paid classes with wallet renewal (8.4).</td></tr>
+  <tr><td>Assessments and mock tests inside rooms</td><td>Assignments, CBT practice</td><td><span class="tag build">Build</span></td><td>Timed quizzes set by lecturers, auto-marked (8.2).</td></tr>
+  <tr><td>Monitor student performance</td><td>Grades and attendance per class</td><td><span class="tag adapt">Adapt</span></td><td>Add quiz analytics and a "who needs help" view.</td></tr>
+  <tr><td>Searchable, discoverable rooms</td><td>Join by code</td><td><span class="tag build">Build</span></td><td>Search by school, course and lecturer, with free and paid badges.</td></tr>
+  <tr><td>Student unions and class reps with free large rooms</td><td>School announcements only</td><td><span class="tag build">Build</span></td><td>Class rep and union roles (8.3).</td></tr>
+  <tr><td>School community feed</td><td>None</td><td><span class="tag build">Build</span></td><td>Full plan in section 9.</td></tr>
+  <tr><td>Prof. Sky: revise, summarise, practice questions from an uploaded note</td><td>AI tutor, flashcards, CBT, library</td><td><span class="tag build">Build</span></td><td>Note-based tutor (8.1).</td></tr>
+  <tr><td>Digital skill, JAMB and WAEC tutors</td><td>Tutors, exam-prep mode</td><td><span class="tag adapt">Adapt</span></td><td>Make trainers and exam tutors first-class when paid classes launch.</td></tr>
+  <tr><td>Recognitions, rollout list, team section on the website</td><td>Basic landing page</td><td><span class="tag adapt">Adapt</span></td><td>Add social proof sections once we have real content to show.</td></tr>
+</table>
+<div class="callout"><b>Where CampusOS is already broader:</b> money (wallet, receipts, payouts), housing, marketplace, food and delivery codes, and study tools. Sckooly is narrower, focused on teaching and community. We borrow their strengths and keep our own.</div>
+</div>
+
+<!-- ============================ 4 ROADMAP ============================ -->
+<div class="page">
+<h2>4. Roadmap</h2>
+<table>
+  <tr><th style="width:5%">#</th><th style="width:27%">Phase</th><th>Main work</th><th style="width:14%" class="num">Effort (days)</th><th style="width:15%">Release</th></tr>
+  <tr><td>0</td><td>Foundations</td><td>Reconnect Supabase tools, rotate old secrets, redeploy portal and website, set up shared design tokens</td><td class="num">2</td><td>No app release</td></tr>
+  <tr><td>1</td><td>New theme</td><td>Choose palette, new tokens (light and dark), fix hardcoded colours, icon, splash, website and portal</td><td class="num">4 to 5</td><td>Student app 1.0.14</td></tr>
+  <tr><td>2</td><td>Learning upgrades</td><td>Note-based tutor, timed quizzes, class rep roles, room discovery</td><td class="num">12 to 16</td><td>Student app 1.1.0</td></tr>
+  <tr><td>3</td><td>Paid classes</td><td>Pricing, wallet subscription, renewals, lecturer earnings and dashboards</td><td class="num">6 to 8</td><td>Student app 1.2.0 and portal</td></tr>
+  <tr><td>4</td><td>CampusOS Business app</td><td>A: restaurants. B: housing agents. C: marketplace sellers and lecturers</td><td class="num">22 to 30</td><td>Business app 1.0, 1.1, 1.2</td></tr>
+  <tr><td>5</td><td>One website</td><td>Landing page with both downloads, portal under the same domain, install guides</td><td class="num">3 to 4</td><td>With Business app 1.0</td></tr>
+  <tr><td>6</td><td>Campus community</td><td>MVP, moderation tools, pilot at one campus, then grow</td><td class="num">15 to 20 (MVP and pilot)</td><td>Student app 1.3.0 (pilot flag)</td></tr>
+</table>
+<p class="small">Total for phases 0 to 6 is roughly 65 to 85 working days. Phases can overlap: for example the website work and Business app can run in parallel with paid classes.</p>
+<h3>Dependencies</h3>
+<ul>
+  <li>Theme before Business app (shared look) and before the community (new screens).</li>
+  <li>Class rep and union roles before the community (they become "official" voices in the feed).</li>
+  <li>Moderation tools in the portal before the community pilot opens.</li>
+  <li>Paid classes need lecturer verification (already exists) and the payment password flow (already built).</li>
+</ul>
+<h3>Release rhythm</h3>
+<p>Each phase ends with a type-check, a test pass on a real phone, a committed build and a new APK on the landing page. Database changes ship as numbered migrations, and server functions are deployed before the app that needs them.</p>
+</div>
+
+<!-- ============================ 5 THEME ============================ -->
+<div class="page">
+<h2>5. New theme (light and dark)</h2>
+<p>The current look (cream with lavender and purple) is pleasant but similar to many fintech apps. We want a palette that is attractive, recognisable and easy to read in sunlight and at night. The colours live in one tokens file, so the change is cheap. The work is in finding colours hardcoded elsewhere.</p>
+
+<h3>Option A: Ink &amp; Mango <span class="tag build">My pick</span></h3>
+<p class="small">Deep navy ink with a warm mango accent. Most distinctive among Nigerian campus apps. Mango stands out on both dark and light screens and feels energetic without being childish.</p>
+<div class="mock-row">
+  <div class="phone" style="background:#FFFBF5;color:#101B2D;">
+    <div class="top"><span class="title">Wallet</span><span class="dot" style="background:#FF9F1C"></span></div>
+    <div class="hero" style="background:#0E1A2F;color:#F4F1EA;">Balance<div class="big">₦ 24,500</div><div style="color:#FFB23E;font-weight:600;">Add money</div></div>
+    <div class="btn" style="background:#FF9F1C;color:#1B1200;">Pay now</div>
+    <div class="chips"><span style="background:#FFE8C2;color:#101B2D;">Food</span><span style="background:#F4EFE6;color:#101B2D;">Housing</span><span style="background:#F4EFE6;color:#101B2D;">Study</span></div>
+    <div class="row" style="background:#F4EFE6;"><span>Jollof rice</span><b>₦2,500</b></div>
+    <div class="bar" style="background:#0E1A2F;color:#F4F1EA;"><span>Home</span><span style="color:#FFB23E;">Study</span><span>Chat</span></div>
+    <div class="small" style="text-align:center;margin-top:4px;">Light</div>
+  </div>
+  <div class="phone" style="background:#0B1220;color:#F4F1EA;">
+    <div class="top"><span class="title">Wallet</span><span class="dot" style="background:#FFB23E"></span></div>
+    <div class="hero" style="background:#16233B;color:#F4F1EA;">Balance<div class="big">₦ 24,500</div><div style="color:#FFB23E;font-weight:600;">Add money</div></div>
+    <div class="btn" style="background:#FFB23E;color:#1B1200;">Pay now</div>
+    <div class="chips"><span style="background:#3A2A0C;color:#FFD9A0;">Food</span><span style="background:#131D31;color:#F4F1EA;">Housing</span><span style="background:#131D31;color:#F4F1EA;">Study</span></div>
+    <div class="row" style="background:#131D31;"><span>Jollof rice</span><b>₦2,500</b></div>
+    <div class="bar" style="background:#131D31;color:#F4F1EA;"><span>Home</span><span style="color:#FFB23E;">Study</span><span>Chat</span></div>
+    <div class="small" style="text-align:center;margin-top:4px;color:#93A0B5;">Dark</div>
+  </div>
+</div>
+<div class="swatches">
+  <div style="background:#0E1A2F;color:#fff;">Ink #0E1A2F</div><div style="background:#FF9F1C;color:#1B1200;">Mango #FF9F1C</div><div style="background:#FFE8C2;color:#1B1200;">Soft #FFE8C2</div><div style="background:#FFFBF5;color:#101B2D;">Bg #FFFBF5</div><div style="background:#0B1220;color:#fff;">Dark bg #0B1220</div><div style="background:#FFB23E;color:#1B1200;">Dark accent #FFB23E</div>
+</div>
+
+<h3>Option B: Aubergine &amp; Coral</h3>
+<p class="small">A deeper purple with a coral accent. Keeps today's identity, so people who just installed the app still recognise it. Coral buttons need dark text for readable contrast.</p>
+<div class="mock-row">
+  <div class="phone" style="background:#FFFAF8;color:#2A1236;">
+    <div class="top"><span class="title">Wallet</span><span class="dot" style="background:#FF6B5E"></span></div>
+    <div class="hero" style="background:#3A1450;color:#FBF1F6;">Balance<div class="big">₦ 24,500</div><div style="color:#FF9A90;font-weight:600;">Add money</div></div>
+    <div class="btn" style="background:#FF6B5E;color:#2A0A06;">Pay now</div>
+    <div class="chips"><span style="background:#FFDAD6;color:#2A1236;">Food</span><span style="background:#F7EFF6;color:#2A1236;">Housing</span><span style="background:#F7EFF6;color:#2A1236;">Study</span></div>
+    <div class="row" style="background:#F7EFF6;"><span>Jollof rice</span><b>₦2,500</b></div>
+    <div class="bar" style="background:#3A1450;color:#FBF1F6;"><span>Home</span><span style="color:#FF9A90;">Study</span><span>Chat</span></div>
+    <div class="small" style="text-align:center;margin-top:4px;">Light</div>
+  </div>
+  <div class="phone" style="background:#170B21;color:#FBF1F6;">
+    <div class="top"><span class="title">Wallet</span><span class="dot" style="background:#FF7A70"></span></div>
+    <div class="hero" style="background:#2B1440;color:#FBF1F6;">Balance<div class="big">₦ 24,500</div><div style="color:#FF9A90;font-weight:600;">Add money</div></div>
+    <div class="btn" style="background:#FF7A70;color:#2A0A06;">Pay now</div>
+    <div class="chips"><span style="background:#4A1F2B;color:#FFC6C0;">Food</span><span style="background:#22112F;color:#FBF1F6;">Housing</span><span style="background:#22112F;color:#FBF1F6;">Study</span></div>
+    <div class="row" style="background:#22112F;"><span>Jollof rice</span><b>₦2,500</b></div>
+    <div class="bar" style="background:#22112F;color:#FBF1F6;"><span>Home</span><span style="color:#FF9A90;">Study</span><span>Chat</span></div>
+    <div class="small" style="text-align:center;margin-top:4px;color:#B79CC6;">Dark</div>
+  </div>
+</div>
+<div class="swatches">
+  <div style="background:#3A1450;color:#fff;">Aubergine #3A1450</div><div style="background:#FF6B5E;color:#2A0A06;">Coral #FF6B5E</div><div style="background:#FFDAD6;color:#2A0A06;">Soft #FFDAD6</div><div style="background:#FFFAF8;color:#2A1236;">Bg #FFFAF8</div><div style="background:#170B21;color:#fff;">Dark bg #170B21</div><div style="background:#FF7A70;color:#2A0A06;">Dark accent #FF7A70</div>
+</div>
+</div>
+
+<div class="page">
+<h3 style="margin-top:0;">Option C: Forest &amp; Lime</h3>
+<p class="small">Fresh, campus-green and very Nigerian. The risk is that green is already crowded by payment apps, so it is the least unique of the three. Lime is a fill colour only: it needs dark text on top and is not used as text on light backgrounds.</p>
+<div class="mock-row">
+  <div class="phone" style="background:#F8FBF4;color:#0C2218;">
+    <div class="top"><span class="title">Wallet</span><span class="dot" style="background:#B8E62E"></span></div>
+    <div class="hero" style="background:#0B3D2E;color:#EEF6E8;">Balance<div class="big">₦ 24,500</div><div style="color:#C6F432;font-weight:600;">Add money</div></div>
+    <div class="btn" style="background:#B8E62E;color:#0C2218;">Pay now</div>
+    <div class="chips"><span style="background:#E3F5A8;color:#0C2218;">Food</span><span style="background:#EAF2E3;color:#0C2218;">Housing</span><span style="background:#EAF2E3;color:#0C2218;">Study</span></div>
+    <div class="row" style="background:#EAF2E3;"><span>Jollof rice</span><b>₦2,500</b></div>
+    <div class="bar" style="background:#0B3D2E;color:#EEF6E8;"><span>Home</span><span style="color:#C6F432;">Study</span><span>Chat</span></div>
+    <div class="small" style="text-align:center;margin-top:4px;">Light</div>
+  </div>
+  <div class="phone" style="background:#08150F;color:#EEF6E8;">
+    <div class="top"><span class="title">Wallet</span><span class="dot" style="background:#C6F432"></span></div>
+    <div class="hero" style="background:#10291D;color:#EEF6E8;">Balance<div class="big">₦ 24,500</div><div style="color:#C6F432;font-weight:600;">Add money</div></div>
+    <div class="btn" style="background:#C6F432;color:#0C2218;">Pay now</div>
+    <div class="chips"><span style="background:#2A3A0C;color:#E0F59A;">Food</span><span style="background:#0F2318;color:#EEF6E8;">Housing</span><span style="background:#0F2318;color:#EEF6E8;">Study</span></div>
+    <div class="row" style="background:#0F2318;"><span>Jollof rice</span><b>₦2,500</b></div>
+    <div class="bar" style="background:#0F2318;color:#EEF6E8;"><span>Home</span><span style="color:#C6F432;">Study</span><span>Chat</span></div>
+    <div class="small" style="text-align:center;margin-top:4px;color:#8FAE9B;">Dark</div>
+  </div>
+</div>
+<div class="swatches">
+  <div style="background:#0B3D2E;color:#fff;">Forest #0B3D2E</div><div style="background:#B8E62E;color:#0C2218;">Lime #B8E62E</div><div style="background:#E3F5A8;color:#0C2218;">Soft #E3F5A8</div><div style="background:#F8FBF4;color:#0C2218;">Bg #F8FBF4</div><div style="background:#08150F;color:#fff;">Dark bg #08150F</div><div style="background:#C6F432;color:#0C2218;">Dark accent #C6F432</div>
+</div>
+
+<h3>Side-by-side comparison</h3>
+<table>
+  <tr><th>Criterion</th><th>A. Ink &amp; Mango</th><th>B. Aubergine &amp; Coral</th><th>C. Forest &amp; Lime</th></tr>
+  <tr><td>Stands out from other Nigerian apps</td><td>High</td><td>Medium (purple is common)</td><td>Low (green is crowded)</td></tr>
+  <tr><td>Keeps today's identity</td><td>No, a fresh start</td><td>Yes</td><td>No</td></tr>
+  <tr><td>Light-mode readability</td><td>Excellent</td><td>Good (coral needs dark text)</td><td>Good (lime is fill only)</td></tr>
+  <tr><td>Dark-mode feel</td><td>Premium, calm</td><td>Rich, warm</td><td>Fresh, high energy</td></tr>
+  <tr><td>Suits food, housing, study together</td><td>Yes: warm accent works for food and CTAs</td><td>Yes</td><td>Yes</td></tr>
+  <tr><td>Works as a business-app sibling</td><td>Yes: same ink with a different accent (for example teal)</td><td>Yes</td><td>Yes</td></tr>
+</table>
+
+<h3>Implementation plan</h3>
+<ol>
+  <li>Move colour tokens into one shared file used by the student app, Business app, website and portal.</li>
+  <li>Audit hardcoded colours: wallet cards, chat bubbles and read ticks, receipts, premium green, tab bar checks, hero overlays, status pills, charts. Replace each with a token.</li>
+  <li>Check contrast for text and buttons in both modes (target at least 4.5 to 1 for body text, 3 to 1 for large text).</li>
+  <li>New app icon, adaptive icon, splash screen, notification colour, and landing page hero.</li>
+  <li>Test every main screen in light and dark on a real phone, then ship as 1.0.14.</li>
+</ol>
+<div class="callout"><b>Reminder:</b> the Business app should share the same ink and typography, with one accent change so people can tell the apps apart at a glance.</div>
+</div>
+
+<!-- ============================ 6 BUSINESS APP ============================ -->
+<div class="page">
+<h2>6. CampusOS Business app</h2>
+<h3>6.1 Purpose and principles</h3>
+<ul>
+  <li><b>Operations first.</b> The app does the daily jobs a business owner does on a phone. Big setup and reporting stay on the web portal.</li>
+  <li><b>Never miss an order.</b> Loud, reliable push notifications are the main reason this app exists.</li>
+  <li><b>Same backend.</b> Same Supabase project, same accounts, same wallet and payout rules. No duplicate logic.</li>
+  <li><b>Business accounts only.</b> One account type per user is already enforced, so the app signs in business, lecturer and team accounts, and politely redirects students to the student app.</li>
+  <li><b>Safe money actions.</b> Payout requests ask for the payment password or fingerprint, reusing the flow we just built.</li>
+</ul>
+
+<h3>6.2 Technical setup</h3>
+<table>
+  <tr><th style="width:26%">Item</th><th>Plan</th></tr>
+  <tr><td>Project layout</td><td>New Expo app in the repo next to <span class="kbd">student-app</span>, with a small shared package for design tokens, Supabase client setup, types and money formatting.</td></tr>
+  <tr><td>Identity</td><td>Own app name, icon and package id (for example <span class="kbd">com.campusos.business</span>), own push credentials, own EAS project and download link.</td></tr>
+  <tr><td>Navigation</td><td>Bottom tabs by role, with only the modules a business actually has.</td></tr>
+  <tr><td>Push</td><td>Dedicated "Orders" notification channel with a loud sound, priority high. In-app screen that guides users to turn off battery optimisation, because many phones in Nigeria (Tecno, Infinix, Itel and others) stop background alerts unless told otherwise.</td></tr>
+  <tr><td>Offline</td><td>Show the last known orders and queue simple actions (mark ready) with a clear "not sent yet" state.</td></tr>
+  <tr><td>Updates</td><td>On launch, compare the installed version with a version row in the database and show a friendly "update available" message with the download link.</td></tr>
+</table>
+
+<h3>6.3 Modules by business type</h3>
+<table>
+  <tr><th style="width:20%">Module</th><th style="width:20%">Who sees it</th><th>What it does</th></tr>
+  <tr><td>Orders</td><td>Restaurants and food sellers</td><td>Live board: new, accepted, preparing, ready. Sound alert on new orders. Accept or decline with a reason. Enter the student's 4-digit code to confirm delivery or pickup. See the Pending and Available earnings.</td></tr>
+  <tr><td>Menu quick controls</td><td>Restaurants</td><td>Open or close the kitchen, mark items sold out, change price, set prep time. (Full menu building stays on the web at first.)</td></tr>
+  <tr><td>Enquiries and chat</td><td>All businesses</td><td>Reply to students, with quick replies and photos.</td></tr>
+  <tr><td>Inspections and offers</td><td>Housing agents and landlords</td><td>Accept, reschedule or complete viewings. Send an offer after the viewing, withdraw it, and see whether the student paid or declined.</td></tr>
+  <tr><td>Tenancies and rent</td><td>Housing agents and landlords</td><td>Who is in which room, rent due dates, receipts, payment requests.</td></tr>
+  <tr><td>Market orders</td><td>Marketplace sellers</td><td>New purchases, confirm the handover code, handle disputes.</td></tr>
+  <tr><td>Classes</td><td>Lecturers and trainers</td><td>Start a live session, mark attendance, post announcements, see paid members (after paid classes launch).</td></tr>
+  <tr><td>Money</td><td>All businesses</td><td>Pending and Available balance, payout history, request a payout, change bank (with payment password), daily summary.</td></tr>
+  <tr><td>Team</td><td>Owners and managers</td><td>Invite staff and set roles.</td></tr>
+  <tr><td>Insights</td><td>All businesses</td><td>Today and this week: orders, sales, viewings, repeat customers, ratings.</td></tr>
+</table>
+
+<h3>6.4 What stays on the web portal</h3>
+<ul>
+  <li>Business onboarding, verification documents and plan billing.</li>
+  <li>Creating large listings and full menu builds (until the app handles photo upload well).</li>
+  <li>School authority tools, admin, support desk, reports and moderation.</li>
+  <li>Bulk reports and exports.</li>
+</ul>
+
+<h3>6.5 Build steps</h3>
+<table>
+  <tr><th style="width:16%">Step</th><th>Scope</th><th style="width:16%" class="num">Effort (days)</th></tr>
+  <tr><td>A. Restaurants</td><td>Sign in, role check, orders board with alerts and delivery code, kitchen open or closed, sold-out toggles, money and payouts, chat, push channel, battery guide</td><td class="num">10 to 12</td></tr>
+  <tr><td>B. Housing</td><td>Inspections, offers, tenancies, rent dates, payment requests</td><td class="num">6 to 8</td></tr>
+  <tr><td>C. Sellers and lecturers</td><td>Market orders and handover, classes, live sessions, attendance, paid-class dashboard</td><td class="num">6 to 8</td></tr>
+</table>
+<div class="callout warn"><b>Watch-outs:</b> push reliability on aggressive phone brands is the biggest risk, so we test on real Tecno and Infinix phones early. An orders sound that rings until acknowledged is limited by Android rules, so the design uses a repeating notification plus an in-app alert board instead of a phone-call style ring.</div>
+</div>
+
+<!-- ============================ 7 ONE WEBSITE ============================ -->
+<div class="page">
+<h2>7. One website for everything</h2>
+<p>Your idea: one website where students and businesses both find CampusOS and download their app. My recommendation is one <b>domain</b> and one front door, not one codebase. The landing page and the portal are two Next.js apps, and merging them would be slow and risky for little gain.</p>
+
+<h3>7.1 Structure</h3>
+<table>
+  <tr><th style="width:26%">Address</th><th>What it is</th></tr>
+  <tr><td>campusos domain (home)</td><td>Landing page with three clear paths: <b>Students</b>, <b>Businesses</b> and <b>Schools and lecturers</b>.</td></tr>
+  <tr><td>/download</td><td>One download page: student APK, Business APK, install steps with screenshots, QR codes, version and "what's new". A Play Store button appears when listings go live.</td></tr>
+  <tr><td>/business</td><td>Business landing: how restaurants, agents and sellers earn on CampusOS, pricing, "Open portal" and "Get the Business app".</td></tr>
+  <tr><td>/portal</td><td>The existing business portal, served under the same domain through routing rules, with no change to its code.</td></tr>
+  <tr><td>/community-rules, /terms, /privacy</td><td>Legal pages, including the future community guidelines.</td></tr>
+</table>
+
+<h3>7.2 Download experience</h3>
+<ul>
+  <li>Detect Android and show the right button. On a computer, show a QR code that opens the download on the phone.</li>
+  <li>Short guide for "Install from unknown sources" with 3 screenshots, since APKs are installed outside the Play Store.</li>
+  <li>Version number, size, date and changelog for each app.</li>
+  <li>Checksums published next to the file so people can verify it.</li>
+</ul>
+
+<h3>7.3 Tasks</h3>
+<ol>
+  <li>Decide the final domain and add domain routing (rewrite <span class="kbd">/portal</span> to the portal deployment).</li>
+  <li>Redesign the landing page in the new theme, with Students, Businesses and Schools sections.</li>
+  <li>Build the download page and the version information source (one place that holds app versions and links).</li>
+  <li>Add social-sharing preview images and per-post preview pages (needed later so community posts look good when shared to WhatsApp).</li>
+  <li>Redeploy the website and the portal (the portal currently has undeployed changes: Pending and Available balances, offers, delivery codes).</li>
+</ol>
+<p class="small">Effort: 3 to 4 days.</p>
+</div>
+
+<!-- ============================ 8 FEATURE SPECS ============================ -->
+<div class="page">
+<h2>8. Feature specifications</h2>
+
+<h3>8.1 Note-based tutor ("Study from my notes")</h3>
+<h4>What the student sees</h4>
+<ol>
+  <li>In the AI tutor or Library, tap <b>Add a note</b>: choose a PDF, take photos of handwritten pages, or paste text.</li>
+  <li>The app shows the note with four actions: <b>Revise with me</b>, <b>Summarise</b>, <b>Make flashcards</b>, <b>Practice questions</b>.</li>
+  <li><b>Revise with me</b> works like a guided class: the tutor splits the note into sections, explains one point at a time, checks understanding with a short question, then moves on. Progress is saved.</li>
+  <li><b>Summarise</b> gives a one-page summary with headings, key terms table and a "memorise this" quote box.</li>
+  <li><b>Flashcards</b> are saved straight into the existing flashcards screen.</li>
+  <li><b>Practice questions</b> are saved into the CBT practice screen with answers and explanations.</li>
+</ol>
+<h4>How it works</h4>
+<ul>
+  <li>Files go to a private storage folder. A server function extracts text (PDF text first; photos read by a vision-capable model). Text is split into sections and stored.</li>
+  <li>Version 1 sends the relevant sections to the model directly (enough for typical lecture notes). Version 2 adds embeddings for very long notes.</li>
+  <li>Strict rule in the instructions: answer only from the note, say clearly when something is outside the note, never invent references.</li>
+  <li>Uses the formatting we just built, so tables, diagrams and quote boxes appear in the answers.</li>
+</ul>
+<h4>Data and limits</h4>
+<ul>
+  <li>New tables: notes, note sections, note activity (progress). Notes are private to the student and can be deleted at any time.</li>
+  <li>Limits to control cost: free students get a small number of notes and pages per month; Premium gets more. Exam-prep students follow the same rules as their tutor access.</li>
+  <li>Never study another student's note: strict row-level security.</li>
+</ul>
+<p class="small">Effort: 5 to 7 days.</p>
+
+<h3>8.2 Timed quizzes in classes</h3>
+<ul>
+  <li><b>Lecturer:</b> creates a quiz with multiple-choice questions, a time limit, an open and close window, shuffling, and number of attempts. Can paste a note and let AI draft questions, then reviews and edits them before publishing.</li>
+  <li><b>Student:</b> sees open quizzes in the class, starts the quiz, a server-side timer runs, answers save as they go, results show immediately or after the window (lecturer's choice).</li>
+  <li><b>Marking:</b> automatic. Scores flow into the class grades table already in use.</li>
+  <li><b>Fairness:</b> the timer and the answer key stay on the server, questions and options are shuffled, one active attempt, and the screen is protected from screenshots during a quiz on Android.</li>
+  <li><b>Insights:</b> average score, hardest questions, who has not taken it, and a "needs help" list for the lecturer.</li>
+  <li>New tables: quizzes, quiz questions, quiz attempts and answers.</li>
+</ul>
+<p class="small">Effort: 4 to 5 days.</p>
+</div>
+
+<div>
+<h3>8.3 Class rep and student union roles</h3>
+<h4>Class rep</h4>
+<ul>
+  <li>A lecturer or the school authority nominates a student in a class. The student accepts.</li>
+  <li>Powers (class only): post announcements, run attendance, share materials, start a live session, and post as "Class rep" in the class space of the community.</li>
+  <li>Cannot see grades or private student data. The nominator can remove the role at any time.</li>
+</ul>
+<h4>Student union (organisation)</h4>
+<ul>
+  <li>An organisation attached to one school, applied for through the portal and verified by the school authority (same approval pattern as other applications).</li>
+  <li>Gets free rooms, a verified "Student union" badge, an official channel in the community, and a small team of officers with roles.</li>
+  <li>Misuse rules: an officer who breaks guidelines loses posting rights, and the school authority can suspend the whole account.</li>
+</ul>
+<p class="small">Effort: 3 to 4 days (plus the community connection in section 9).</p>
+
+<h3>8.4 Paid classes</h3>
+<h4>Flow</h4>
+<ol>
+  <li>A verified lecturer or trainer sets a class to <b>Paid</b> with a monthly price. Schools and unions run free classes.</li>
+  <li>The student finds the class in search (by school, course, lecturer, price) or with a code, and sees what is included.</li>
+  <li>To join, the student pays the first month from the wallet (payment password or fingerprint). Access starts immediately.</li>
+  <li>Each month the system renews automatically from the wallet. If the wallet is short, the student gets reminders and a short grace period, then access pauses (nothing is lost).</li>
+  <li>The student can cancel any time. Access continues until the end of the paid month.</li>
+</ol>
+<h4>Money rules (proposed)</h4>
+<table>
+  <tr><th style="width:30%">Rule</th><th>Proposal</th></tr>
+  <tr><td>Platform percentage</td><td>10% of each payment (your choice; the settings table already supports percentages).</td></tr>
+  <tr><td>When the lecturer is credited</td><td>Pending at once, Available after 7 days of the period (a short hold protects students from a no-show class). Decision needed.</td></tr>
+  <tr><td>Refunds</td><td>First 48 hours of a first-time subscription, if the student attended fewer than 2 sessions. Disputes go through the existing admin disputes flow.</td></tr>
+  <tr><td>Payout</td><td>Lecturers request payouts, like agents. Optional daily auto payout later.</td></tr>
+  <tr><td>Receipts</td><td>Every charge gets a receipt in History, like other payments.</td></tr>
+</table>
+<h4>Screens</h4>
+<ul>
+  <li><b>Student:</b> class search, class page with price and preview, "My subscriptions" with renewal date and cancel.</li>
+  <li><b>Lecturer (app and portal):</b> price setting, members list, monthly income, new and cancelled members, failed renewals.</li>
+</ul>
+<h4>Data</h4>
+<p>Class price fields, a class subscriptions table (status, period end, auto-renew), renewal job modelled on the existing premium renewal job, and row-level rules so only active members can see paid class content.</p>
+<p class="small">Effort: 6 to 8 days.</p>
+</div>
+
+<!-- ============================ 9 COMMUNITY ============================ -->
+<div class="page">
+<h2>9. Campus community: the full plan</h2>
+<div class="callout"><b>The idea in one line.</b> A verified, school-based feed where students get real campus news, ask questions, find opportunities and meet people, with official voices clearly marked and safety built in from day one.</div>
+
+<h3>9.1 Principles</h3>
+<ol>
+  <li><b>Campus first.</b> Your feed is your school, not the whole internet.</li>
+  <li><b>Verified by default.</b> Posting needs a verified student account, so the community is made of real students.</li>
+  <li><b>Useful over viral.</b> No follower counts as status. Official notices and helpful answers rank above jokes.</li>
+  <li><b>Clear sources.</b> Official posts look official. Everything else carries a "not official" signal when it makes claims about the school.</li>
+  <li><b>Safe by design.</b> Reporting, blocking, rate limits and moderators exist before the first public post.</li>
+  <li><b>Connected to CampusOS.</b> Posts can carry a housing listing, marketplace item, food deal, event or class, so the community feeds the rest of the app.</li>
+</ol>
+
+<h3>9.2 Spaces (where people talk)</h3>
+<table>
+  <tr><th style="width:22%">Space</th><th>Description</th><th style="width:15%">Phase</th></tr>
+  <tr><td>My school</td><td>The main feed for everyone verified at the same school.</td><td>MVP</td></tr>
+  <tr><td>Official channel</td><td>Read-mostly: school authority, student union, class reps. Comments allowed, posts restricted. School announcements flow in automatically.</td><td>MVP</td></tr>
+  <tr><td>Department and level</td><td>For example "300L Computer Science". Joined automatically from the student's profile.</td><td>MVP</td></tr>
+  <tr><td>Class spaces</td><td>Linked to the class, run by the lecturer and class rep.</td><td>v1.1</td></tr>
+  <tr><td>Interest groups</td><td>Tech, faith, sports, business, with open or approval-based membership. Moderated by their creators plus the school.</td><td>v2</td></tr>
+  <tr><td>Exam-prep space</td><td>For JAMB and WAEC candidates, separate from university feeds (see safeguarding in 9.6).</td><td>v2</td></tr>
+  <tr><td>Cross-campus (Nigeria)</td><td>Opt-in national feed for big news only. Not at launch.</td><td>Later</td></tr>
+</table>
+
+<h3>9.3 Identity, roles and badges</h3>
+<table>
+  <tr><th style="width:26%">Who</th><th style="width:34%">What they can do</th><th>Badge</th></tr>
+  <tr><td>Verified student</td><td>Read, post, comment, repost, report, join spaces</td><td>None (a small "Verified" tick on profiles)</td></tr>
+  <tr><td>Unverified student</td><td>Read and react only; prompted to verify</td><td>None</td></tr>
+  <tr><td>Class rep</td><td>Everything above plus class announcements</td><td>Class rep</td></tr>
+  <tr><td>Lecturer</td><td>Post in their class spaces and the school feed</td><td>Lecturer</td></tr>
+  <tr><td>Student union</td><td>Post as an official channel</td><td>Student union</td></tr>
+  <tr><td>School authority</td><td>Official notices, moderate their own school's feed</td><td>Official school</td></tr>
+  <tr><td>CampusOS team</td><td>Moderate across all schools, handle appeals</td><td>CampusOS</td></tr>
+</table>
+<ul>
+  <li>Display: preferred name plus an @handle, avatar and department. No premium badge, to keep the feed equal.</li>
+  <li><b>No anonymous posting at launch.</b> Anonymity is the fastest route to bullying and rumours. A later "ask anonymously" mode for questions only, where moderators can still see the author, can be considered after the pilot.</li>
+  <li>Business accounts do not post in the community feed. Restaurants and agents appear only through the existing deals and listings, so the feed stays free of ads and spam.</li>
+</ul>
+</div>
+
+<div class="page">
+<h3>9.4 Posts and the composer</h3>
+<table>
+  <tr><th style="width:22%">Post type</th><th>Details</th></tr>
+  <tr><td>Update</td><td>Text up to 1,000 characters, up to 4 photos, optional link. Default type.</td></tr>
+  <tr><td>Question</td><td>Others answer. The asker (or a moderator) marks a best answer, which is pinned under the question. A good fit for the AI tutor to suggest "Ask Prof tutor" as a helper.</td></tr>
+  <tr><td>Poll</td><td>2 to 4 options, closing time, one vote each, visible results after voting.</td></tr>
+  <tr><td>Event</td><td>Title, date and time, venue, RSVP, and "Add to my timetable".</td></tr>
+  <tr><td>Notice (official only)</td><td>Pinned at the top of the school feed with the official badge and push notification.</td></tr>
+  <tr><td>Opportunity</td><td>Internship, scholarship, gig. Requires a link and a deadline; flagged for review when it asks for money.</td></tr>
+  <tr><td>Lost and found</td><td>Item, place, photo, contact through chat. Auto-closes after 14 days.</td></tr>
+  <tr><td>Share from CampusOS</td><td>A card for a housing listing, marketplace item, food deal, class or event, with a button into the app. The key advantage over a stand-alone social app.</td></tr>
+</table>
+<ul>
+  <li><b>Media:</b> photos compressed on the phone (about 200 KB each), no video in the first release, short 30-second video later.</li>
+  <li><b>Links:</b> allowed, shown as a card with the domain. Links to unknown domains show a warning before opening.</li>
+  <li><b>Money safety banner:</b> any post mentioning housing, payment or account numbers shows "Never pay outside CampusOS" with a link to the protected flow.</li>
+</ul>
+
+<h3>9.5 The feed and interactions</h3>
+<ul>
+  <li><b>Tabs:</b> <i>For you</i> (ranked), <i>Latest</i> (time order), <i>Official</i>, and later <i>Following</i>.</li>
+  <li><b>Ranking v1:</b> time order, with pinned official notices first. <b>Ranking v2:</b> a score from freshness, replies and helpful marks, same department, and author trust. Strong anti-clickbait rules: no boost for hate or fighting posts, and reported posts rank down fast.</li>
+  <li><b>Interactions:</b> like, comment (one level of replies), repost (with optional comment), bookmark, share link, report. On questions, a "helpful" mark replaces likes on answers.</li>
+  <li><b>Mentions and notifications:</b> replies, mentions and official notices notify. A daily "Campus today" digest at about 7 PM summarised by AI, with a switch to turn it off.</li>
+  <li><b>Sharing outside the app:</b> each post has a web preview page, so a link pasted into WhatsApp shows the post text and image and opens in the app if installed. This is the main growth loop in Nigeria.</li>
+  <li><b>Where it lives in the app:</b> the tab bar is full, so the first release adds a "Campus" section at the top of Home, and a dedicated tab is added once the pilot shows it is used daily.</li>
+</ul>
+
+<h3>9.6 Trust and safety</h3>
+<h4>Rules and enforcement</h4>
+<ul>
+  <li>Plain-language <b>community guidelines</b> shown at first post and linked from every post menu: no harassment, hate, threats, explicit content, scams, impersonation, exam leaks or fake official news.</li>
+  <li><b>Report</b> with a reason (harassment, scam, false information, explicit, spam, self-harm, other) and an optional note.</li>
+  <li><b>Auto-protection:</b> a post reported by 3 different verified users is hidden pending review. Posts from new accounts have a lower threshold. A reporter who repeatedly files false reports loses reporting weight.</li>
+  <li><b>Review queue</b> in the portal: school moderators see their own school's reports, CampusOS staff see everything. Actions: remove, warn, mute for 24 hours or 7 days, suspend posting, ban. Every action is logged with a reason, and the person can appeal once.</li>
+  <li><b>Strikes:</b> 3 strikes in 90 days means a posting suspension. Severe harm skips straight to a ban.</li>
+</ul>
+<h4>Prevention</h4>
+<ul>
+  <li><b>Rate limits:</b> new accounts can post 3 times per day and comment 20 times per hour. Normal accounts 10 posts per day and 60 comments per hour.</li>
+  <li><b>Automatic checks:</b> word and pattern filters (slurs, account numbers, phone numbers in public posts, "send money" patterns), duplicate and spam detection, link checks.</li>
+  <li><b>Image checks (phase 2):</b> a vision model flags explicit images on upload before they go public.</li>
+  <li><b>AI-assisted triage:</b> a cheap model sorts the report queue by severity so humans see the worst first. Humans make every final decision.</li>
+  <li><b>Block and mute:</b> students can block anyone, hide a user's posts, and limit who can message them (message requests for people they have not chatted with).</li>
+</ul>
+<h4>Fake news and rumours</h4>
+<ul>
+  <li>Only official accounts can post a <b>Notice</b>. Anyone else who posts school-related claims sees a gentle "Not official. Check the Official channel" label with a link.</li>
+  <li>Corrections: a post can be marked "Corrected" by a moderator with a link to the official source.</li>
+</ul>
+<h4>Young users</h4>
+<ul>
+  <li>JAMB and WAEC candidates may be under 18. They get their own exam-prep space, no university feed, stricter message requests, and no location sharing.</li>
+</ul>
+<h4>Legal and policy</h4>
+<ul>
+  <li>Update the terms and privacy policy for user content, a takedown process (valid reports acted on within 24 hours), and a route for law-enforcement requests.</li>
+  <li>Respect the Nigerian data protection rules: collect only what is needed, let people delete their posts and account, and keep moderation logs for a limited period.</li>
+</ul>
+</div>
+
+<div class="page">
+<h3>9.7 Screens (student app)</h3>
+<ul>
+  <li>Campus home (feed with tabs), composer (type picker, media, preview), post detail with comments, profile page for a person (posts, department, badge), space pages, bookmarks, notifications for replies, mentions and official notices, report sheet, block and mute settings, and community settings (digest, notifications).</li>
+</ul>
+
+<h3>9.8 Portal and admin screens</h3>
+<ul>
+  <li><b>School authority:</b> create official notices, see their school's reports, remove posts, mute or suspend students (with a reason), manage union accounts.</li>
+  <li><b>CampusOS admin:</b> global report queue, appeals, ban list, keyword list editor, per-school on/off switch, daily stats, audit log.</li>
+</ul>
+
+<h3>9.9 Data model (outline)</h3>
+<table>
+  <tr><th style="width:30%">Table</th><th>Purpose and key fields</th></tr>
+  <tr><td>spaces</td><td>id, institution, kind (school, official, department, class, interest), name, rules, is_open</td></tr>
+  <tr><td>space_members</td><td>space, user, role (member, moderator, owner), muted_until</td></tr>
+  <tr><td>posts</td><td>id, space, author, type, body, link, event or poll data, status (live, hidden, removed), counters, created_at, pinned_until</td></tr>
+  <tr><td>post_media</td><td>post, storage path, size, order, moderation status</td></tr>
+  <tr><td>post_reactions, post_bookmarks, post_reposts</td><td>one row per user and post</td></tr>
+  <tr><td>comments</td><td>post, parent, author, body, status, helpful flag</td></tr>
+  <tr><td>poll_votes, event_rsvps</td><td>one row per user and post</td></tr>
+  <tr><td>reports</td><td>target (post, comment, user), reporter, reason, note, status, reviewed_by, action</td></tr>
+  <tr><td>moderation_actions</td><td>target, action, reason, actor, expires_at, appeal status</td></tr>
+  <tr><td>user_blocks</td><td>blocker, blocked</td></tr>
+  <tr><td>user_restrictions</td><td>user, kind (muted, suspended, banned), until, reason</td></tr>
+  <tr><td>keyword_rules</td><td>pattern, action (flag or block), scope</td></tr>
+</table>
+<ul>
+  <li><b>Access rules:</b> posts are visible only to verified members of the same school space, except open spaces. Posting goes through a server function that checks verification, restrictions, rate limits and filters in one place, rather than direct table writes.</li>
+  <li><b>Counters</b> (likes, comments) are kept by database triggers so the feed loads with one query. Paging uses a cursor on time, not page numbers.</li>
+  <li><b>Storage:</b> a private media folder with signed links, images compressed and size-limited.</li>
+  <li><b>Realtime:</b> only a "new posts" pill and live comment counts, not the whole feed, to keep cost down.</li>
+  <li><b>Feature flag:</b> a per-school switch so we can turn the community on for one campus and off instantly if needed.</li>
+</ul>
+
+<h3>9.10 Connecting to what we already have</h3>
+<ul>
+  <li>School announcements and class announcements appear in the Official channel automatically.</li>
+  <li>"Share to campus" buttons on housing, marketplace, food deals, classes and events.</li>
+  <li>An event post can be added to a student's timetable and the AI study plan will see it.</li>
+  <li>The tutor can answer a question post on request ("Ask the tutor"), with the answer clearly marked as AI.</li>
+  <li>Verification, reports and admin pages already exist and are extended, not rebuilt.</li>
+</ul>
+
+<h3>9.11 Phases</h3>
+<table>
+  <tr><th style="width:18%">Phase</th><th>Scope</th><th style="width:18%" class="num">Effort (days)</th></tr>
+  <tr><td>MVP and pilot</td><td>My school, Official channel and Department spaces. Update, Question, Poll and Event posts. Photos. Likes, comments, bookmarks, reports, blocks. Rate limits and keyword filters. Portal review queue for school moderators and CampusOS staff. Community guidelines and legal updates. Per-school switch.</td><td class="num">15 to 20</td></tr>
+  <tr><td>v1.1</td><td>Reposts, mentions, Lost and found, Opportunity posts, class spaces, WhatsApp share previews, daily "Campus today" digest, image safety checks.</td><td class="num">8 to 10</td></tr>
+  <tr><td>v2</td><td>Interest groups, exam-prep space, Following tab, ranked feed, short video, anonymous questions (if the pilot supports it).</td><td class="num">15 to 20</td></tr>
+</table>
+
+<h3>9.12 Pilot and launch plan</h3>
+<ol>
+  <li><b>Choose one campus</b> where CampusOS has the most active students and a friendly school contact.</li>
+  <li><b>Recruit moderators:</b> 5 to 10 trusted students plus one staff contact from the school authority, trained on the guidelines.</li>
+  <li><b>Seed the feed</b> before opening: school announcements, a welcome post from the team, a few useful questions and events.</li>
+  <li><b>Open for 2 weeks</b> to verified students at that campus only. Review reports daily.</li>
+  <li><b>Measure,</b> fix, then open to the next campus.</li>
+</ol>
+<h4>How we will know it works</h4>
+<table>
+  <tr><th>Measure</th><th>Healthy sign</th></tr>
+  <tr><td>Share of active students opening Campus weekly</td><td>Over 40% at the pilot campus after 4 weeks</td></tr>
+  <tr><td>Posts or comments per active student per week</td><td>Growing week on week</td></tr>
+  <tr><td>Reports per 1,000 posts</td><td>Stable or falling, with most reviewed within 12 hours</td></tr>
+  <tr><td>Day-7 return rate of new users</td><td>Higher for students who used Campus than those who did not</td></tr>
+  <tr><td>Official notices read</td><td>Most pushed notices opened within a day</td></tr>
+</table>
+<div class="callout warn"><b>Stop rules.</b> If harmful content is not handled within a day, or reports spike, we pause posting for that school with the per-school switch, fix the process, then resume.</div>
+
+<h3>9.13 Costs to watch</h3>
+<ul>
+  <li>Image storage and downloads (controlled by compression and size limits).</li>
+  <li>Database growth for posts and reactions (cursor paging, archive old posts after a long period).</li>
+  <li>AI costs for digests and report triage (small models, caching, daily limits).</li>
+  <li>Moderator time. This is the real cost of any community, so it is planned from the start.</li>
+</ul>
+</div>
+
+<!-- ============================ 10 CROSS-CUTTING ============================ -->
+<div class="page">
+<h2>10. Cross-cutting rules</h2>
+<table>
+  <tr><th style="width:24%">Area</th><th>Rule</th></tr>
+  <tr><td>Payments</td><td>Every wallet charge (including class subscription and renewals) uses the existing wallet functions and creates a receipt. First charge asks for the payment password or fingerprint. Renewals are automatic because the student agreed when joining, with a clear reminder before each renewal.</td></tr>
+  <tr><td>Notifications</td><td>Money, orders, housing, school and account alerts always send. New always-send alerts: official school notices, class rep announcements, quiz open and due, class subscription renewals and failures. Optional alerts (switchable): community replies and mentions, the daily digest.</td></tr>
+  <tr><td>Study lock</td><td>Remains in force. Money alerts are the exception, as already decided.</td></tr>
+  <tr><td>Security</td><td>Row-level security on every new table. Business and school moderators only reach data for their own business or school. Payout and bank changes in the Business app require the payment password or fingerprint.</td></tr>
+  <tr><td>Privacy</td><td>Notes and quiz attempts are private. Reports hide the reporter's identity from the reported person. Users can delete their own posts and notes.</td></tr>
+  <tr><td>Accessibility</td><td>Text contrast targets, readable font sizes, screen-reader labels on new controls, and no information carried by colour alone.</td></tr>
+  <tr><td>Testing</td><td>Type-check, database tests in rolled-back transactions for money and permission rules, and a real-phone pass on low-end Android devices before each release.</td></tr>
+  <tr><td>Analytics</td><td>Simple, privacy-friendly event counts for the measures in 9.12 and for the new money features.</td></tr>
+  <tr><td>Configuration</td><td>Prices, percentages, limits and feature switches live in the settings table, not in the app code, so they can change without a new APK.</td></tr>
+</table>
+
+<h3>Housekeeping already on the list</h3>
+<ul>
+  <li>Rotate the Mapbox secret token and remove secrets from the student app's local environment file.</li>
+  <li>Change the demo portal password and delete test accounts when testing finishes.</li>
+  <li>Redeploy the portal and website (pending changes).</li>
+  <li>Remove the old "My room" link and tidy the leftover premium badge export.</li>
+  <li>Old APK users (1.0.12) cannot see delivery codes. Orders still auto-complete after 6 hours, but a "please update" prompt would help.</li>
+</ul>
+</div>
+
+<!-- ============================ 11 RISKS & DECISIONS ============================ -->
+<div class="page">
+<h2>11. Risks and open decisions</h2>
+<h3>Main risks</h3>
+<table>
+  <tr><th style="width:26%">Risk</th><th style="width:12%">Level</th><th>How we handle it</th></tr>
+  <tr><td>Community moderation load or harmful content</td><td>High</td><td>Pilot at one campus, trained moderators, per-school switch, auto-hide on reports, strict new-account limits.</td></tr>
+  <tr><td>Push alerts missed on some phone brands</td><td>High</td><td>Early testing on Tecno and Infinix, battery guide in the Business app, in-app order board as a backup.</td></tr>
+  <tr><td>Spreading ourselves too thin</td><td>Medium</td><td>Phases are shippable on their own. We do not start the community until moderation tools exist.</td></tr>
+  <tr><td>AI cost growth (notes, digests, triage)</td><td>Medium</td><td>Per-user limits, small models, caching, Premium raises limits.</td></tr>
+  <tr><td>Paid class disputes</td><td>Medium</td><td>Short hold on lecturer earnings, clear refund window, existing disputes flow.</td></tr>
+  <tr><td>Two apps to maintain</td><td>Medium</td><td>Shared package for tokens and data access; same backend; one release checklist.</td></tr>
+  <tr><td>Sideloaded APK trust and updates</td><td>Medium</td><td>Published checksums, version check on launch, Play Store listing when ready.</td></tr>
+  <tr><td>Legal exposure for user content</td><td>Medium</td><td>Updated terms, takedown process, logs, and a legal review before the second campus.</td></tr>
+</table>
+
+<h3>Decisions I need from you</h3>
+<table>
+  <tr><th style="width:5%"></th><th>Decision</th><th style="width:32%">My suggestion</th></tr>
+  <tr><td>1</td><td>Theme direction</td><td>Option A, Ink &amp; Mango</td></tr>
+  <tr><td>2</td><td>Final website domain and URL structure</td><td>One domain with /download, /business and /portal</td></tr>
+  <tr><td>3</td><td>Platform percentage on paid classes</td><td>10%</td></tr>
+  <tr><td>4</td><td>When paid-class earnings become Available</td><td>7 days into each period</td></tr>
+  <tr><td>5</td><td>Business app: loud-alert approach for new orders</td><td>Repeating notification plus in-app board</td></tr>
+  <tr><td>6</td><td>Community pilot campus and school contact</td><td>The campus where you have the most active students</td></tr>
+  <tr><td>7</td><td>Anonymous posting</td><td>Not at launch</td></tr>
+  <tr><td>8</td><td>Community entry point in the app</td><td>Campus section on Home first, tab later</td></tr>
+  <tr><td>9</td><td>Who moderates at the pilot school</td><td>5 to 10 trained students and one staff contact</td></tr>
+  <tr><td>10</td><td>Order of phases 2 and 4 (learning upgrades or Business app first)</td><td>Business app A (restaurants) can move before phase 2 if orders are growing fast</td></tr>
+</table>
+
+<div class="callout good"><b>Next step.</b> Once you choose a theme and answer the decisions above, I start with phase 0 and phase 1 and give you a new APK with the new look. After that we move through the phases in order, with a build and a test pass at the end of each one.</div>
+</div>
+
+</body>
+</html>
