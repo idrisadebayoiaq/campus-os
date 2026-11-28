@@ -42,7 +42,6 @@ export default function ExamGoalsScreen() {
   const [campusOpen, setCampusOpen] = useState(false);
   const [course, setCourse] = useState("");
   const [saving, setSaving] = useState(false);
-  const [switching, setSwitching] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -131,25 +130,12 @@ export default function ExamGoalsScreen() {
   function admitted() {
     notify(
       "Switch to a school account?",
-      "You'll pick your school and campus next, and your courses, timetable and CGPA tools will appear. Your Premium price changes to the school rate. This can't be undone.",
+      "Next, pick the school that admitted you with your department and level. Your classes, timetable and CGPA tools will appear, and your Premium price changes to the school rate. This can't be undone.",
       [
         { text: "Not yet", style: "cancel" },
         {
           text: "Yes, I'm admitted",
-          onPress: () => {
-            void (async () => {
-              setSwitching(true);
-              const { error: err } = await supabase.rpc("switch_to_enrolled");
-              if (err) {
-                setSwitching(false);
-                notify("Couldn't switch", err.message, undefined, { tone: "danger" });
-                return;
-              }
-              await refresh();
-              setSwitching(false);
-              router.replace("/onboarding");
-            })();
-          },
+          onPress: () => router.push({ pathname: "/onboarding", params: { mode: "admitted" } }),
         },
       ],
     );
@@ -253,7 +239,7 @@ export default function ExamGoalsScreen() {
         <AppText muted size={13}>
           Switch to a school account to set up your campus, courses and timetable.
         </AppText>
-        <Button title="I have been admitted" variant="secondary" onPress={admitted} loading={switching} />
+        <Button title="I have been admitted" variant="secondary" onPress={admitted} />
       </View>
       <PickerSheet
         visible={schoolOpen}

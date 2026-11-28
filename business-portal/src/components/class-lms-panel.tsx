@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { FormEvent, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { CodeAttendancePanel } from "@/components/code-attendance-panel";
 import { Button, Field, Input } from "@/components/ui";
 
 type Enrollment = {
@@ -400,8 +401,11 @@ export function ClassLmsPanel({
         </form>
       ) : null}
 
+      {tab === "attendance" ? <CodeAttendancePanel classId={classId} /> : null}
+
       {tab === "attendance" ? (
         <form onSubmit={takeAttendance} className="space-y-3 rounded-xl border border-border p-4">
+          <p className="font-medium">Or mark by hand</p>
           <Field label="Session label">
             <Input name="label" defaultValue="Lecture" />
           </Field>

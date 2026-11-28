@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { RoleBadges, useRoleBadges } from "@/src/components/role-badges";
 import { AppText, Avatar } from "@/src/components/ui";
 import { useAuth } from "@/src/lib/auth";
 import { conversationTitle, kindLabel, loadChatFaces, type ChatPerson } from "@/src/lib/messaging";
@@ -21,6 +22,8 @@ export default function ChatInfoScreen() {
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [members, setMembers] = useState<ChatPerson[]>([]);
   const [muted, setMuted] = useState(false);
+  const [personId, setPersonId] = useState<string | null>(null);
+  const badges = useRoleBadges(personId);
 
   useEffect(() => {
     if (!id || !user) return;
@@ -42,6 +45,7 @@ export default function ChatInfoScreen() {
       const face = faces.get(id);
       setKind(conv.kind);
       setMembers(face?.members ?? []);
+      setPersonId(face?.person?.id ?? null);
       setAvatarUrl(face?.person?.avatarUrl ?? face?.avatarUrl ?? null);
       setTitle(
         face?.person?.name ||
@@ -88,6 +92,7 @@ export default function ChatInfoScreen() {
             {title}
           </AppText>
           <AppText muted>{kind === "group" ? kindLabel(kind) : about || kindLabel(kind)}</AppText>
+          <RoleBadges badges={badges} center fg={colors.fg} bg={colors.accentSoft} />
         </View>
 
         <Pressable

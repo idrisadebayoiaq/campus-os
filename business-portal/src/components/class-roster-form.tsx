@@ -46,6 +46,7 @@ export function ClassRosterForm({ classId }: { classId: string }) {
         class_id: classId,
         student_user_id: studentId as string,
         status: "active",
+        source: "manual",
         added_by: user?.id || null,
       },
       { onConflict: "class_id,student_user_id" },

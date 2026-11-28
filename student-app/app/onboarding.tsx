@@ -1,4 +1,4 @@
-import { Redirect, router } from "expo-router";
+import { Redirect, router, useLocalSearchParams } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -14,6 +14,7 @@ import { AppText, Button, Chip, Field, Input, Screen } from "@/src/components/ui
 import { LocationPicker } from "@/src/components/location-picker";
 import { DropdownField, PickerSheet, type PickerItem } from "@/src/components/picker-sheet";
 import { useAuth } from "@/src/lib/auth";
+import { toast } from "@/src/lib/feedback";
 import {
   currentPosition,
   distanceKm,
@@ -54,6 +55,10 @@ const TERTIARY_TYPES = [
   "other",
 ];
 
+type Department = { id: string; name: string; faculty: string | null };
+
+const LEVELS = ["100", "200", "300", "400", "500", "600"];
+
 /** Schools closer than this to the student are listed first as "near me". */
 const NEAR_KM = 80;
 
@@ -68,8 +73,14 @@ function typeLabel(t: string) {
 
 export default function OnboardingScreen() {
   const { user, loading: authLoading } = useAuth();
-  const { refresh: refreshKind } = useStudentKind();
+  const { refresh: refreshKind, isExamPrep } = useStudentKind();
   const colors = useTheme();
+  const { mode } = useLocalSearchParams<{ mode?: string }>();
+  const admittedMode = mode === "admitted";
+  const [departments, setDepartments] = useState<Department[]>([]);
+  const [departmentId, setDepartmentId] = useState("");
+  const [deptOpen, setDeptOpen] = useState(false);
+  const [typingDept, setTypingDept] = useState(false);
   const [institutions, setInstitutions] = useState<Institution[]>([]);
   const [loading, setLoading] = useState(true);
   const [institutionId, setInstitutionId] = useState("");
@@ -129,6 +140,42 @@ export default function OnboardingScreen() {
       cancelled = true;
     };
   }, [user]);
+
+  useEffect(() => {
+    setDepartments([]);
+    setDepartmentId("");
+    setTypingDept(false);
+    if (!institutionId) return;
+    let cancelled = false;
+    void (async () => {
+      const { data } = await supabase
+        .from("departments")
+        .select("id, name, faculties(name)")
+        .eq("institution_id", institutionId)
+        .order("name");
+      if (cancelled) return;
+      const list: Department[] = (data || []).map((d) => {
+        const f = (d as { faculties?: { name: string } | { name: string }[] | null }).faculties;
+        return {
+          id: d.id as string,
+          name: d.name as string,
+          faculty: (Array.isArray(f) ? f[0]?.name : f?.name) ?? null,
+        };
+      });
+      setDepartments(list);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [institutionId]);
+
+  useEffect(() => {
+    if (typingDept || departmentId || !department.trim()) return;
+    const match = departments.find((d) => d.name.toLowerCase() === department.trim().toLowerCase());
+    if (match) setDepartmentId(match.id);
+  }, [departments, department, departmentId, typingDept]);
+
+  const selectedDept = departments.find((d) => d.id === departmentId) || null;
 
   // The student's saved location (from signup), used to rank schools by distance.
   useEffect(() => {
@@ -253,61 +300,24 @@ export default function OnboardingScreen() {
       setError("Select your institution and campus.");
       return;
     }
+    const level = academicLevel.trim() || null;
+    const dept = selectedDept?.name ?? (department.trim() || null);
+    if (admittedMode && (!level || !dept)) {
+      setError("Add your department and level so we can put you in your classes.");
+      return;
+    }
     setSaving(true);
     setError(null);
     try {
-      const level = academicLevel.trim() || null;
-      const dept = department.trim() || null;
-
-      await supabase
-        .from("campus_memberships")
-        .update({ is_primary: false })
-        .eq("user_id", user.id);
-
-      const { error: membershipError } = await supabase
-        .from("campus_memberships")
-        .upsert(
-          {
-            user_id: user.id,
-            institution_id: selected.id,
-            campus_id: campusId,
-            department: dept,
-            year_of_study: level,
-            is_primary: true,
-          },
-          { onConflict: "user_id,campus_id" },
-        );
-      if (membershipError) throw new Error(membershipError.message);
-
-      // Best effort: mirror the web enrollment row.
-      await supabase.from("student_enrollments").upsert(
-        {
-          user_id: user.id,
-          institution_id: selected.id,
-          campus_id: campusId,
-          is_primary: true,
-          verification_status: "unverified",
-        },
-        { onConflict: "user_id,institution_id,campus_id" },
-      );
-
-      const { error: studentError } = await supabase
-        .from("student_profiles")
-        .upsert({
-          user_id: user.id,
-          academic_level: level,
-          department_name: dept,
-          updated_at: new Date().toISOString(),
-        });
-      if (studentError) throw new Error(studentError.message);
-
-      // Managed schools only: auto-enroll + pull lecturer timetables
-      await supabase.rpc("auto_enroll_student_for_school", {
-        p_institution_id: selected.id,
-        p_campus_id: campusId,
-        p_department_id: null,
+      const { data: result, error: admitError } = await supabase.rpc("complete_admission", {
+        p_institution: selected.id,
+        p_campus: campusId,
+        p_department_id: selectedDept?.id ?? null,
         p_department_name: dept,
+        p_level: level,
       });
+      if (admitError) throw new Error(admitError.message);
+      const added = Number((result as { classes_added?: number } | null)?.classes_added ?? 0);
 
       const { data: existing } = await supabase
         .from("onboarding_progress")
@@ -330,6 +340,8 @@ export default function OnboardingScreen() {
       });
 
       await refreshKind();
+      if (added > 0) toast.success(`${added} class${added === 1 ? "" : "es"} added from your department`);
+      else if (admittedMode) toast.success(`Welcome to ${selected.short_name || selected.name}`);
       router.replace("/(tabs)");
     } catch (e) {
       setError(e instanceof Error ? e.message : "Could not save your campus.");
@@ -350,6 +362,10 @@ export default function OnboardingScreen() {
 
   if (!user) {
     return <Redirect href="/(auth)/login" />;
+  }
+
+  if (isExamPrep && !admittedMode) {
+    return <Redirect href="/exam-goals" />;
   }
 
   const sheetHeader = (
@@ -390,10 +406,12 @@ export default function OnboardingScreen() {
         >
           <View style={{ gap: 6 }}>
             <AppText size={30} weight="700">
-              Pick your school
+              {admittedMode ? "Congratulations!" : "Pick your school"}
             </AppText>
             <AppText muted size={15}>
-              Housing, study tools and listings are scoped to the school you attend.
+              {admittedMode
+                ? "Which school admitted you? Choose it with your department and level, and we'll set up your classes."
+                : "Housing, study tools and listings are scoped to the school you attend."}
             </AppText>
           </View>
 
@@ -460,20 +478,55 @@ export default function OnboardingScreen() {
           </View>
 
           <View style={[styles.card, { backgroundColor: colors.surface }]}>
-            <AppText weight="700">Academic details (optional)</AppText>
+            <View style={{ gap: 4 }}>
+              <AppText weight="700">{admittedMode ? "Department and level" : "Academic details (optional)"}</AppText>
+              <AppText muted size={12}>
+                Your department's classes and lecturers are added for you.
+              </AppText>
+            </View>
+            {departments.length > 0 && !typingDept ? (
+              <>
+                <DropdownField
+                  label="Department"
+                  value={selectedDept ? selectedDept.name : null}
+                  placeholder="Select your department"
+                  onPress={() => setDeptOpen(true)}
+                />
+                <Pressable
+                  hitSlop={6}
+                  onPress={() => {
+                    setTypingDept(true);
+                    setDepartmentId("");
+                  }}
+                >
+                  <AppText size={12} weight="600" style={{ color: colors.fg, opacity: 0.75 }}>
+                    My department isn't listed
+                  </AppText>
+                </Pressable>
+              </>
+            ) : (
+              <Field label="Department">
+                <Input
+                  placeholder="e.g. Computer Science"
+                  value={department}
+                  onChangeText={(t) => {
+                    setDepartment(t);
+                    setDepartmentId("");
+                  }}
+                  style={{ backgroundColor: colors.bg }}
+                />
+              </Field>
+            )}
             <Field label="Level">
+              <View style={styles.chips}>
+                {LEVELS.map((l) => (
+                  <Chip key={l} label={l} active={academicLevel === l} onPress={() => setAcademicLevel(l)} />
+                ))}
+              </View>
               <Input
-                placeholder="e.g. 200"
-                value={academicLevel}
+                placeholder="Other, e.g. ND1 or HND2"
+                value={LEVELS.includes(academicLevel) ? "" : academicLevel}
                 onChangeText={setAcademicLevel}
-                style={{ backgroundColor: colors.bg }}
-              />
-            </Field>
-            <Field label="Department">
-              <Input
-                placeholder="e.g. Computer Science"
-                value={department}
-                onChangeText={setDepartment}
                 style={{ backgroundColor: colors.bg }}
               />
             </Field>
@@ -489,7 +542,7 @@ export default function OnboardingScreen() {
             title={saving ? "Saving…" : "Continue"}
             onPress={onSave}
             loading={saving}
-            disabled={!selected || !campusId}
+            disabled={!selected || !campusId || (admittedMode && (!academicLevel.trim() || !(selectedDept || department.trim())))}
           />
           {router.canGoBack() ? (
             <Button title="Cancel" variant="ghost" onPress={() => router.back()} />
@@ -524,6 +577,21 @@ export default function OnboardingScreen() {
           setCampusOpen(false);
         }}
         onClose={() => setCampusOpen(false)}
+      />
+      <PickerSheet
+        visible={deptOpen}
+        title="Select your department"
+        searchPlaceholder="Search department…"
+        items={departments.map((d) => ({ id: d.id, label: d.name, sub: d.faculty ?? undefined }))}
+        selectedId={departmentId}
+        onSelect={(i) => {
+          const d = departments.find((x) => x.id === i.id);
+          setDepartmentId(i.id);
+          if (d) setDepartment(d.name);
+          setDeptOpen(false);
+        }}
+        onClose={() => setDeptOpen(false)}
+        emptyText="No department matches. Close this and tap “My department isn't listed”."
       />
       <LocationPicker
         visible={picking}

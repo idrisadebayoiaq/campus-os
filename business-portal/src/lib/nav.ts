@@ -111,6 +111,8 @@ const NAV_BY_PERSONA: Record<Exclude<Persona, "admin">, NavItem[]> = {
   ],
   school: [
     HOME,
+    { href: "/school/students", label: "Students", icon: "groups", group: "School" },
+    { href: "/school/leaders", label: "Student leaders", icon: "shield", group: "School" },
     { href: "/school/verifications", label: "Student IDs", icon: "shield", group: "School" },
     { href: "/school/departments", label: "Departments", icon: "school", group: "School" },
     { href: "/school/lecturers", label: "Lecturers", icon: "groups", group: "School" },

@@ -23,6 +23,12 @@ export default async function NewClassPage() {
     redirect("/apply/lecturer");
   }
 
+  const { data: departments } = await supabase
+    .from("departments")
+    .select("id, name")
+    .eq("institution_id", lecturer.institution_id)
+    .order("name");
+
   return (
     <Container>
       <div className="mx-auto max-w-xl space-y-8 py-10">
@@ -31,6 +37,7 @@ export default async function NewClassPage() {
           institutionId={lecturer.institution_id}
           departmentId={lecturer.department_id}
           campusId={lecturer.campus_id}
+          departments={departments ?? []}
         />
       </div>
     </Container>

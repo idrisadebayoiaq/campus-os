@@ -35,6 +35,7 @@ function iconFor(n: NotificationRow): keyof typeof Ionicons.glyphMap {
   if (link.startsWith("/verify")) return "shield-checkmark-outline";
   if (link.startsWith("/meetings")) return "videocam-outline";
   if (link.startsWith("/support")) return "headset-outline";
+  if (link.startsWith("/roles")) return "ribbon-outline";
   if (link.startsWith("/study/assignments")) return "document-text-outline";
   if (link.startsWith("/study")) return "school-outline";
   return "notifications-outline";

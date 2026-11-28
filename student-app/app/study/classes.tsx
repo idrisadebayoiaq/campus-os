@@ -203,6 +203,7 @@ export default function StudyClassesScreen() {
                   info={{
                     title: c.course_code,
                     subtitle: c.course_title,
+                    onPress: () => router.push({ pathname: "/study/class/[id]", params: { id: c.id } }),
                   }}
                 />
               ))}

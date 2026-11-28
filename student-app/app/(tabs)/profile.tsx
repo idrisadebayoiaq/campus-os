@@ -3,6 +3,7 @@ import { useCallback, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { Group, ListRow } from "@/src/components/page";
+import { RoleBadges, useRoleBadges } from "@/src/components/role-badges";
 import { AppText, Avatar, Screen, TAB_BAR_CLEARANCE } from "@/src/components/ui";
 import { useAuth } from "@/src/lib/auth";
 import { maskNaira, usePayAuth } from "@/src/lib/pay-auth";
@@ -42,11 +43,31 @@ export default function ProfileScreen() {
   const [activeOrders, setActiveOrders] = useState(0);
   const [unread, setUnread] = useState(0);
   const [premiumDismissed, setPremiumDismissed] = useState(false);
+  const [roleInvites, setRoleInvites] = useState(0);
+  const [hasRoles, setHasRoles] = useState(false);
+  const [focusKey, setFocusKey] = useState(0);
+  const badges = useRoleBadges(user?.id, focusKey);
 
   useFocusEffect(
     useCallback(() => {
       if (!user) return;
       let cancelled = false;
+      setFocusKey((k) => k + 1);
+      void (async () => {
+        const [offices, reps] = await Promise.all([
+          supabase.from("student_offices").select("status").eq("user_id", user.id).in("status", ["invited", "active"]),
+          supabase
+            .from("class_staff")
+            .select("status")
+            .eq("user_id", user.id)
+            .in("role", ["class_rep", "assistant_rep"])
+            .in("status", ["invited", "active"]),
+        ]);
+        if (cancelled) return;
+        const rows = [...(offices.data ?? []), ...(reps.data ?? [])];
+        setRoleInvites(rows.filter((r) => r.status === "invited").length);
+        setHasRoles(rows.length > 0);
+      })();
       void (async () => {
         const [profileRes, studentRes, campusRow, enrollRes, walletRes, ordersRes, notifRes] = await Promise.all([
           supabase
@@ -180,6 +201,7 @@ export default function ProfileScreen() {
                 </AppText>
               </View>
             ) : null}
+            <RoleBadges badges={badges} skipVerified fg={colors.heroFg} bg="rgba(255,255,255,0.12)" />
           </View>
         </Pressable>
 
@@ -219,6 +241,15 @@ export default function ProfileScreen() {
               onPress={go("/verify")}
             />
           )}
+          {!isExamPrep && hasRoles ? (
+            <ListRow
+              icon="ribbon-outline"
+              title="My roles"
+              value={roleInvites ? `${roleInvites} new` : undefined}
+              valueTone="warn"
+              onPress={go("/roles")}
+            />
+          ) : null}
           <ListRow
             icon="diamond-outline"
             title="Premium"
