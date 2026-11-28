@@ -1,0 +1,923 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>CampusOS Implementation Plan: Rooms, Community, Chat, Roles and Notifications</title>
+<style>
+  @page { size: A4; margin: 16mm 15mm 16mm 15mm; }
+  * { box-sizing: border-box; }
+  html { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  body { font-family: "Segoe UI", Arial, Helvetica, sans-serif; color: #1c1a29; font-size: 10.3pt; line-height: 1.5; margin: 0; }
+  h1, h2, h3, h4 { color: #231a3d; line-height: 1.2; margin: 0; }
+  h2, h3, h4 { break-after: avoid; page-break-after: avoid; }
+  h1 { font-size: 22pt; }
+  h2 { font-size: 16pt; margin: 0 0 10px; padding-bottom: 6px; border-bottom: 2px solid #AB9FF2; }
+  h3 { font-size: 12.5pt; margin: 18px 0 6px; }
+  h4 { font-size: 10.8pt; margin: 12px 0 4px; color: #3C315B; }
+  p { margin: 6px 0; }
+  ul, ol { margin: 6px 0 6px 20px; padding: 0; }
+  li { margin: 2px 0; }
+  .page { page-break-before: always; }
+  .cover { height: 255mm; display: flex; flex-direction: column; justify-content: space-between; padding: 14mm 8mm 8mm; background: linear-gradient(160deg, #1A1428 0%, #3C315B 100%); color: #fff; border-radius: 14px; position: relative; overflow: hidden; }
+  .cover:before { content: ""; position: absolute; width: 420px; height: 420px; border-radius: 50%; background: #AB9FF2; opacity: .14; top: -160px; right: -160px; }
+  .cover:after { content: ""; position: absolute; width: 300px; height: 300px; border-radius: 50%; background: #AB9FF2; opacity: .10; bottom: -120px; left: -120px; }
+  .cover h1 { color: #fff; font-size: 32pt; letter-spacing: -0.5px; }
+  .cover .sub { color: #d9d3f5; font-size: 13.5pt; margin-top: 12px; max-width: 150mm; }
+  .cover .meta { color: #bdb4e8; font-size: 10pt; position: relative; z-index: 1; }
+  .cover .chips span { display: inline-block; border: 1px solid #8b7fd6; color: #e6e1fb; border-radius: 999px; padding: 3px 12px; margin: 0 6px 6px 0; font-size: 10pt; }
+  table { width: 100%; border-collapse: collapse; margin: 8px 0 12px; font-size: 9.3pt; page-break-inside: auto; }
+  th { background: #3C315B; color: #fff; text-align: left; padding: 6px 8px; font-weight: 600; }
+  td { padding: 6px 8px; border-bottom: 1px solid #e3def5; vertical-align: top; }
+  tr { page-break-inside: avoid; }
+  tr:nth-child(even) td { background: #f8f6ff; }
+  .callout { border-left: 4px solid #AB9FF2; background: #f4f1ff; padding: 8px 12px; margin: 10px 0; border-radius: 4px; page-break-inside: avoid; }
+  .warn { border-left-color: #E8A33D; background: #fff6e6; }
+  .good { border-left-color: #2E9E6B; background: #eaf7f0; }
+  .card { border: 1px solid #ddd6f5; border-radius: 10px; padding: 10px 12px; margin: 8px 0; page-break-inside: avoid; }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .tag { display: inline-block; font-size: 8.2pt; padding: 1px 8px; border-radius: 999px; background: #e9e4ff; color: #3C315B; margin-right: 4px; font-weight: 600; }
+  .tag.new { background: #d9f2e6; color: #17603f; }
+  .tag.ext { background: #fff0d1; color: #8a5a00; }
+  .tag.done { background: #dcefff; color: #134d7a; }
+  .small { font-size: 9pt; color: #5b5870; }
+  .kbd { font-family: Consolas, monospace; background: #f1eefc; padding: 0 4px; border-radius: 3px; font-size: 9pt; }
+  .num { text-align: right; white-space: nowrap; }
+  .flow { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 8px 0; }
+  .flow span.step { background: #f4f1ff; border: 1px solid #d8d0f7; border-radius: 8px; padding: 4px 9px; font-size: 9pt; }
+  .flow span.arrow { color: #8b7fd6; font-weight: 700; }
+
+  /* phone mock-ups in the current CampusOS theme */
+  .mock-row { display: flex; gap: 12px; justify-content: center; margin: 10px 0; page-break-inside: avoid; }
+  .phone { width: 160px; min-height: 330px; border-radius: 22px; padding: 10px 9px 36px; border: 1px solid rgba(0,0,0,.14); font-size: 7.4pt; line-height: 1.3; background: #FFFDF8; color: #3C315B; position: relative; }
+  .phone.dark { background: #1A1428; color: #F5F2FF; }
+  .phone .hd { display: flex; justify-content: space-between; align-items: center; font-weight: 800; font-size: 10pt; margin-bottom: 6px; }
+  .phone .seg { display: flex; background: #F5F2FF; border-radius: 999px; padding: 2px; margin-bottom: 7px; }
+  .phone.dark .seg { background: #241C36; }
+  .phone .seg span { flex: 1; text-align: center; padding: 3px 0; border-radius: 999px; font-weight: 600; color: #86848D; }
+  .phone .seg span.on { background: #3C315B; color: #fff; }
+  .phone.dark .seg span.on { background: #AB9FF2; color: #3C315B; }
+  .phone .box { background: #F5F2FF; border-radius: 10px; padding: 6px 7px; margin-bottom: 5px; }
+  .phone.dark .box { background: #241C36; }
+  .phone .hero { background: #3C315B; color: #fff; border-radius: 12px; padding: 8px; margin-bottom: 6px; }
+  .phone.dark .hero { background: #2A2140; }
+  .phone .btn { background: #AB9FF2; color: #3C315B; border-radius: 999px; text-align: center; font-weight: 800; padding: 4px 0; margin: 5px 0; }
+  .phone .btn.dk { background: #3C315B; color: #fff; }
+  .phone .mut { color: #86848D; }
+  .phone.dark .mut { color: #A39DB8; }
+  .phone .row { display: flex; gap: 5px; align-items: center; }
+  .phone .av { width: 16px; height: 16px; border-radius: 50%; background: #AB9FF2; flex: none; }
+  .phone .pill { display: inline-block; background: #E2DFFE; color: #3C315B; border-radius: 999px; padding: 0 5px; font-weight: 700; font-size: 6.6pt; margin-right: 2px; }
+  .phone .bar { position: absolute; left: 9px; right: 9px; bottom: 8px; background: #3C315B; color: #B7A9D9; border-radius: 999px; padding: 5px 7px; display: flex; justify-content: space-between; gap: 3px; font-size: 5.4pt; }
+  .phone.dark .bar { background: #AB9FF2; color: #5C4F7A; }
+  .phone .bar b { color: #fff; }
+  .phone.dark .bar b { color: #3C315B; }
+  .phone .cap { text-align: center; font-size: 7.6pt; margin-top: 4px; color: #5b5870; }
+  .mock-label { text-align: center; font-size: 8.6pt; color: #5b5870; margin-top: 4px; }
+</style>
+</head>
+<body>
+
+<!-- ============================ COVER ============================ -->
+<div class="cover">
+  <div style="position:relative;z-index:1;">
+    <div class="chips"><span>Implementation plan</span><span>Version 2</span><span>28 November 2026</span></div>
+    <h1 style="margin-top:40px;">CampusOS<br/>Implementation Plan</h1>
+    <div class="sub">Tutors and Rooms, a Community with Discover, Feeds and People, a richer Chat, our own notifications, class reps and student leaders, smarter school onboarding, the AI tutor upgrades, and the CampusOS Business app.</div>
+  </div>
+  <div class="meta">
+    <p><b>Contents</b></p>
+    <p>1 Summary &nbsp;·&nbsp; 2 App layout &nbsp;·&nbsp; 3 Who is who (roles) &nbsp;·&nbsp; 4 Joining a school &nbsp;·&nbsp; 5 Lecturer classes and class reps &nbsp;·&nbsp; 6 School authority and student leaders &nbsp;·&nbsp; 7 Tutors &nbsp;·&nbsp; 8 Rooms &nbsp;·&nbsp; 9 Community &nbsp;·&nbsp; 10 Chat &nbsp;·&nbsp; 11 Our own notifications &nbsp;·&nbsp; 12 AI tutor &nbsp;·&nbsp; 13 Money rules &nbsp;·&nbsp; 14 Business app, portal and website &nbsp;·&nbsp; 15 Data model &nbsp;·&nbsp; 16 Roadmap &nbsp;·&nbsp; 17 Extras I added &nbsp;·&nbsp; 18 Risks and decisions &nbsp;·&nbsp; 19 Test checklist</p>
+    <p class="small" style="color:#bdb4e8;">This plan keeps the current CampusOS colours (Midnight Amethyst, Lavender and Porcelain). It replaces the theme section of the earlier product plan. Effort figures are rough working-day ranges for building with AI assistance.</p>
+  </div>
+</div>
+
+<!-- ============================ 1 SUMMARY ============================ -->
+<div class="page">
+<h2>1. Summary</h2>
+<p>This plan turns your latest ideas into one build order. The core idea: <b>CampusOS becomes the place where a student's school life happens</b>. Lecturers run department classes, student leaders speak officially, tutors teach in Rooms, students meet each other in the Community, and everything is connected to the wallet, chat and notifications we already have.</p>
+
+<h3>What you decided</h3>
+<table>
+  <tr><th style="width:28%">Topic</th><th>Decision</th></tr>
+  <tr><td>Theme</td><td>Keep the current colours. No theme change.</td></tr>
+  <tr><td>Community screen</td><td>Split into three tabs like the Market screen: <b>Discover</b> (rooms and classes), <b>Feeds</b> (posts, works like X/Twitter) and <b>People</b> (find and connect with students at your school, then chat).</td></tr>
+  <tr><td>Chat screen</td><td>Split into two tabs: <b>Chats</b> (normal conversations) and <b>Rooms</b> (rooms and classes you joined).</td></tr>
+  <tr><td>Rooms</td><td>Created by approved tutors. The tutor sets subject, audience (in-school students of a school, or prep students), price, pay-before-join or free, schedule, and voice or video classes. Students see everything about a room before joining.</td></tr>
+  <tr><td>Inside a room</td><td>Text, voice notes, polls, files and groups. Only the owner can host quizzes and debates. The owner controls who can send messages, like a WhatsApp group.</td></tr>
+  <tr><td>Tutors</td><td>Apply through the portal (and later the Business app). Tutor Premium is ₦3,000 a month for now.</td></tr>
+  <tr><td>Who pays how</td><td>Students pay for everything from the <b>wallet</b>, and fund the wallet by card. Businesses, tutors and other partners pay their subscriptions <b>by card</b> and receive money through their <b>linked bank account</b>. They do not buy things on the platform.</td></tr>
+  <tr><td>Class reps and student leaders</td><td>Lecturers create department classes, add students, appoint a class rep and mark attendance. School authorities see every student who signed up with their school and appoint the SUG president, VP and other officers. Each title shows on the person's profile.</td></tr>
+  <tr><td>Got admitted</td><td>The button always asks for the school again, then switches the student to the in-school side and connects them to their school, department, classes and lecturers automatically. Same for new in-school sign-ups.</td></tr>
+  <tr><td>Portal, website, Business app</td><td>Keep the web portal and the website. Also build the Business app for quick management, notifications, quick actions and some offline use.</td></tr>
+  <tr><td>Notifications</td><td>Our own notification style, like Snapchat has: our sound, our logo, rich previews, quick reply and our own in-app banners.</td></tr>
+</table>
+
+<h3>Already fixed today <span class="tag done">Done</span></h3>
+<ul>
+  <li><b>Held-purchase receipt</b> no longer shows "Receipt not found" after paying (needs the next APK).</li>
+  <li><b>Delivery and pickup codes</b> are readable again by students. This was a database fix and works now, even on the current APK.</li>
+  <li><b>Push notification icon</b> now uses a white CampusOS logo instead of a grey square (needs the next APK).</li>
+  <li><b>Splash screen</b> is now always the designed one with the logo, the "CampusOS" name and tagline. Before, it was skipped when the app opened from a notification or was reopened after exiting with the back button (needs the next APK).</li>
+</ul>
+
+<h3>Build order at a glance</h3>
+<table>
+  <tr><th style="width:6%">#</th><th style="width:30%">Phase</th><th>Main result</th><th style="width:14%" class="num">Days</th></tr>
+  <tr><td>0</td><td>Ship today's fixes</td><td>APK 1.0.14 with receipt, icon and splash fixes</td><td class="num">0.5</td></tr>
+  <tr><td>1</td><td>School identity and roles</td><td>Got admitted flow, auto-assignment, school student list, class reps, student leaders, badges, better attendance</td><td class="num">9 to 12</td></tr>
+  <tr><td>2</td><td>Chat upgrade and our own notifications</td><td>Attachments, replies, reactions, Chats and Rooms tabs, branded notifications with quick reply</td><td class="num">10 to 13</td></tr>
+  <tr><td>3</td><td>Tutors and Rooms</td><td>Tutor applications and plans, room creation, Discover, join and pay, inside a room, live voice and video</td><td class="num">15 to 19</td></tr>
+  <tr><td>4</td><td>Room extras</td><td>Quizzes, debates, groups, reviews, AI helpers for tutors</td><td class="num">8 to 10</td></tr>
+  <tr><td>5</td><td>Community: Feeds and People</td><td>X-style feed, follow and connect, people discovery, moderation tools</td><td class="num">16 to 21</td></tr>
+  <tr><td>6</td><td>AI tutor upgrades</td><td>Study from my notes, room and class recaps (can run alongside phases 3 to 5)</td><td class="num">6 to 8</td></tr>
+  <tr><td>7</td><td>CampusOS Business app</td><td>Restaurants, housing, sellers, tutors, lecturers and schools, with quick actions and offline mode</td><td class="num">26 to 34</td></tr>
+  <tr><td>8</td><td>Website update</td><td>Download page for both apps, tutor and school pages, share previews</td><td class="num">3 to 4</td></tr>
+</table>
+<p class="small">Total roughly 95 to 120 working days. Phases 6, 7 and 8 can overlap with others. Each phase ends with an APK and a test pass.</p>
+</div>
+
+<!-- ============================ 2 APP LAYOUT ============================ -->
+<div class="page">
+<h2>2. How the student app will be laid out</h2>
+<p>Two new top-level areas arrive: <b>Community</b> and the split <b>Chat</b>. The floating tab bar has room for five icons without crowding.</p>
+
+<h3>2.1 Tab bar (recommended)</h3>
+<table>
+  <tr><th style="width:22%">Tab</th><th>Contents</th></tr>
+  <tr><td>Home</td><td>Today: classes, deadlines, orders, wallet card, quick actions, official notices from your school.</td></tr>
+  <tr><td><b>Community</b> <span class="tag new">New</span></td><td>Discover · Feeds · People.</td></tr>
+  <tr><td>Market</td><td>Food, marketplace and (moved here as a third tab) Housing. Students with an active home already have Housing hidden from the bar today, so this keeps the logic simple.</td></tr>
+  <tr><td>AI Study</td><td>AI tutor, study tools, Study from my notes. Exam candidates keep their exam study tab.</td></tr>
+  <tr><td>Chat</td><td>Chats · Rooms, with an unread badge.</td></tr>
+</table>
+<p class="small">Profile and settings stay behind the avatar at the top of Home, as now. The final tab layout is decision 1 in section 18.</p>
+
+<h3>2.2 Screens in the current theme</h3>
+<div class="mock-row">
+  <div class="phone">
+    <div class="hd"><span>Community</span><span class="mut">⌕</span></div>
+    <div class="seg"><span class="on">Discover</span><span>Feeds</span><span>People</span></div>
+    <div class="box" style="display:flex;gap:4px;flex-wrap:wrap;"><span class="pill">All</span><span class="pill">My courses</span><span class="pill">Free</span><span class="pill">JAMB</span></div>
+    <div class="hero"><b>Live now</b><div style="font-size:9pt;font-weight:800;margin:2px 0;">MTH 101 crash class</div><span style="opacity:.75">Voice · 132 listening</span></div>
+    <div class="box"><b>CSC 201 Data Structures</b><div class="mut">Tutor: Ada O. · ★ 4.8 · 300 members</div><div class="row" style="justify-content:space-between;margin-top:3px;"><span class="pill">₦1,500 / month</span><span class="pill">Video</span></div></div>
+    <div class="box"><b>Physics for UTME</b><div class="mut">Prep students · Free</div></div>
+    <div class="box"><b>My classes</b><div class="mut">GST 111 · ECO 101 (from your lecturers)</div></div>
+    <div class="bar"><span>Home</span><b>Community</b><span>Market</span><span>AI</span><span>Chat</span></div>
+  </div>
+  <div class="phone">
+    <div class="hd"><span>Community</span><span class="mut">✎</span></div>
+    <div class="seg"><span>Discover</span><span class="on">Feeds</span><span>People</span></div>
+    <div class="row" style="gap:8px;margin-bottom:5px;font-weight:700;"><span style="border-bottom:2px solid #AB9FF2;">For you</span><span class="mut">Following</span><span class="mut">Official</span></div>
+    <div class="box"><div class="row"><span class="av"></span><b>SUG UNILAG</b><span class="pill">President</span></div><div style="margin-top:3px;">Lecture-free day on Friday for the convocation.</div><div class="mut" style="margin-top:3px;">💬 48 &nbsp; ⟲ 120 &nbsp; ♡ 1.2k &nbsp; 📊 9k</div></div>
+    <div class="box"><div class="row"><span class="av" style="background:#E2DFFE"></span><b>Tobi</b><span class="mut">@tobi · 2h</span></div><div style="margin-top:3px;">Anyone selling a used scientific calculator?</div><div class="mut" style="margin-top:3px;">💬 6 &nbsp; ⟲ 1 &nbsp; ♡ 14</div></div>
+    <div class="box"><div class="row"><span class="av"></span><b>Chidi</b><span class="pill">Class rep</span></div><div style="margin-top:3px;">CSC 300L: test moved to Tuesday.</div></div>
+    <div class="bar"><span>Home</span><b>Community</b><span>Market</span><span>AI</span><span>Chat</span></div>
+  </div>
+  <div class="phone dark">
+    <div class="hd"><span>Community</span><span class="mut">⚙</span></div>
+    <div class="seg"><span>Discover</span><span>Feeds</span><span class="on">People</span></div>
+    <div class="box mut">University of Lagos · Computer Science ▾</div>
+    <div class="box"><div class="row"><span class="av"></span><div style="flex:1"><b>Amaka N.</b><div class="mut">CSC · 300L · 12 mutual</div></div><span class="pill">Connect</span></div></div>
+    <div class="box"><div class="row"><span class="av"></span><div style="flex:1"><b>David E.</b><div class="mut">EEE · 200L · Chess club</div></div><span class="pill">Connect</span></div></div>
+    <div class="box"><div class="row"><span class="av"></span><div style="flex:1"><b>Fatima B.</b><div class="mut">CSC · 300L · Connected</div></div><span class="pill">Message</span></div></div>
+    <div class="box mut">Suggested: same course, same hostel area, same rooms.</div>
+    <div class="bar"><span>Home</span><b>Community</b><span>Market</span><span>AI</span><span>Chat</span></div>
+  </div>
+</div>
+<div class="mock-label">Community: Discover (light), Feeds (light), People (dark)</div>
+
+<div class="mock-row">
+  <div class="phone">
+    <div class="hd"><span>Chat</span><span class="mut">✎</span></div>
+    <div class="seg"><span class="on">Chats</span><span>Rooms</span></div>
+    <div class="box"><div class="row"><span class="av"></span><div style="flex:1"><b>Fatima B.</b><div class="mut">📷 Photo</div></div><span class="pill">2</span></div></div>
+    <div class="box"><div class="row"><span class="av" style="background:#E2DFFE"></span><div style="flex:1"><b>Mama's Kitchen</b><div class="mut">Your order is ready</div></div></div></div>
+    <div class="box"><div class="row"><span class="av"></span><div style="flex:1"><b>Message requests</b><div class="mut">3 people want to chat</div></div></div></div>
+    <div class="bar"><span>Home</span><span>Community</span><span>Market</span><span>AI</span><b>Chat</b></div>
+  </div>
+  <div class="phone">
+    <div class="hd"><span>Chat</span><span class="mut">⌕</span></div>
+    <div class="seg"><span>Chats</span><span class="on">Rooms</span></div>
+    <div class="box"><div class="row"><span class="av"></span><div style="flex:1"><b>CSC 201 Data Structures</b><div class="mut">● Live class now · Video</div></div></div></div>
+    <div class="box"><div class="row"><span class="av" style="background:#E2DFFE"></span><div style="flex:1"><b>GST 111 (Dr Bello)</b><div class="mut">Class rep: notes uploaded</div></div><span class="pill">5</span></div></div>
+    <div class="box"><div class="row"><span class="av"></span><div style="flex:1"><b>Physics for UTME</b><div class="mut">Quiz opens 6 PM</div></div></div></div>
+    <div class="bar"><span>Home</span><span>Community</span><span>Market</span><span>AI</span><b>Chat</b></div>
+  </div>
+  <div class="phone dark">
+    <div class="hd"><span>‹ CSC 201</span><span class="mut">⋮</span></div>
+    <div class="seg" style="font-size:6.4pt;"><span class="on">Chat</span><span>Classes</span><span>Quiz</span><span>Files</span></div>
+    <div class="box"><b>📌 Pinned</b><div class="mut">Class every Tue and Thu, 7 PM (video)</div></div>
+    <div class="box"><div class="row"><span class="av"></span><b>Ada (Tutor)</b></div><div>📊 Poll: Which topic next?</div><div class="mut">Trees 64% · Graphs 36%</div></div>
+    <div class="box"><div class="row"><span class="av" style="background:#E2DFFE"></span><b>Kemi</b></div><div>🎤 Voice note 0:24</div></div>
+    <div class="box mut" style="text-align:center;">Only admins can send messages</div>
+    <div class="cap" style="color:#A39DB8;">Owner set: admins only</div>
+  </div>
+</div>
+<div class="mock-label">Chat: Chats tab, Rooms tab, and inside a room (dark)</div>
+</div>
+
+<!-- ============================ 3 ROLES ============================ -->
+<div class="page">
+<h2>3. Who is who: one roles model</h2>
+<p>Every new feature depends on knowing who someone is at their school. We define this once, then rooms, community, badges and notifications all read from it.</p>
+
+<table>
+  <tr><th style="width:20%">Role</th><th style="width:22%">How they get it</th><th>What they can do</th><th style="width:15%">Profile badge</th></tr>
+  <tr><td>Prep student</td><td>Signs up as exam candidate</td><td>JAMB, WAEC and Post-UTME study, prep rooms, prep community, wallet</td><td>None</td></tr>
+  <tr><td>In-school student</td><td>Signs up with a school or taps "Got admitted"</td><td>Everything for their school: classes, school community, rooms for their school</td><td>Verified tick when verified</td></tr>
+  <tr><td>Class rep</td><td>Appointed by the class lecturer (student accepts)</td><td>Class announcements, take attendance, share materials, start a class session, pinned posts in the class</td><td>Class rep · CSC 300L</td></tr>
+  <tr><td>Student leader</td><td>Appointed by the school authority (student accepts)</td><td>Official posts and announcements for their scope (school, faculty, department or hall), free official rooms, polls</td><td>SUG President, VP, PRO and others</td></tr>
+  <tr><td>Lecturer</td><td>Applies, approved by the school or CampusOS (exists)</td><td>Department classes, students, class reps, attendance, materials, quizzes, live classes</td><td>Lecturer · Department</td></tr>
+  <tr><td>Tutor <span class="tag new">New</span></td><td>Applies in the portal, approved by CampusOS</td><td>Creates rooms (free or paid), live classes, quizzes, debates, earns money</td><td>Tutor (Verified tutor after checks)</td></tr>
+  <tr><td>School authority</td><td>Signs up as a school, approved by CampusOS (exists)</td><td>Student list, verify students, appoint student leaders, official notices, moderate the school community</td><td>Official · School name</td></tr>
+  <tr><td>Business</td><td>Applies in the portal (exists)</td><td>Sells food, housing or goods. Does not post in the community feed</td><td>Business name</td></tr>
+  <tr><td>CampusOS team</td><td>Internal</td><td>Approves applications, moderates everywhere, handles appeals</td><td>CampusOS</td></tr>
+</table>
+
+<h3>3.1 Rules that apply everywhere</h3>
+<ul>
+  <li>A person can hold several roles. For example a 400L student can be a class rep and an approved tutor. Their profile shows the most important badge first, and the rest under "Roles".</li>
+  <li>Every appointed role has a <b>scope</b> (which class, department, faculty or school) and a <b>term</b> (start and end date). Badges disappear when the term ends or the role is removed.</li>
+  <li>Appointed roles need the person to <b>accept</b>, so nobody is given a public title without knowing.</li>
+  <li>Badges are calculated on the server from the roles tables. The app never decides who has a badge.</li>
+  <li>Every appointment and removal is written to the audit log with who did it.</li>
+</ul>
+
+<h3>3.2 Where badges appear</h3>
+<p>Profile header, people search, feed posts, comments, room member lists, room messages, class announcements, and the official channel. Tapping a badge explains it, for example "Class rep for CSC 300L, appointed by Dr Bello, 2026/2027 session".</p>
+</div>
+
+<!-- ============================ 4 JOINING A SCHOOL ============================ -->
+<div class="page">
+<h2>4. Joining a school: Got admitted and new sign-ups</h2>
+
+<h3>4.1 Got admitted (prep student becomes in-school)</h3>
+<div class="flow">
+  <span class="step">Tap "Got admitted?"</span><span class="arrow">›</span>
+  <span class="step">Choose school (always asked again)</span><span class="arrow">›</span>
+  <span class="step">Campus</span><span class="arrow">›</span>
+  <span class="step">Faculty and department</span><span class="arrow">›</span>
+  <span class="step">Level (default 100L) and session</span><span class="arrow">›</span>
+  <span class="step">Matric number (optional now)</span><span class="arrow">›</span>
+  <span class="step">Confirm</span><span class="arrow">›</span>
+  <span class="step">Welcome to your school</span>
+</div>
+<ul>
+  <li>The school picker opens <b>empty</b>, not on the school chosen during exam prep, because students are often admitted somewhere else. The prep target school is shown as a shortcut ("Use University of Ibadan"), not a default.</li>
+  <li>If the school is not on CampusOS yet, the student can request it (the institution request flow exists) and continue with the school name. They are connected automatically when the school is added.</li>
+  <li>One server function does the whole switch in one step, so a dropped network cannot leave the account half-switched: it changes the account to in-school, saves the school, campus, department and level, sets the Premium price to the school rate, then runs the assignment in 4.3.</li>
+  <li>Prep study history (CBT results, notes, flashcards) is kept. Prep rooms remain until their paid period ends, then leave the Rooms list.</li>
+  <li>The app reloads into the in-school side: courses, timetable, CGPA, classes and the school community.</li>
+</ul>
+
+<h3>4.2 New in-school sign-up</h3>
+<p>The current onboarding asks for school and campus. It will also ask for faculty, department and level, then run the same assignment as 4.3. Students who signed up before this change are asked once on Home: "Add your department to join your classes".</p>
+
+<h3>4.3 Automatic assignment</h3>
+<table>
+  <tr><th style="width:28%">Step</th><th>What happens</th></tr>
+  <tr><td>School</td><td>The student is added to the school's student list with status "Pending verification" (or "Verified" if their school email domain matches, as today).</td></tr>
+  <tr><td>School authority notified</td><td>If the school authority is on CampusOS, they get an in-app notification and a daily digest: "12 new students joined today (5 in Computer Science)". Not one push per student, to avoid noise.</td></tr>
+  <tr><td>Department classes</td><td>The student is enrolled in every active class for their department, level and current session where the lecturer turned on auto-join (the auto-join switch already exists on classes). They see the classes immediately under Chat › Rooms and in their timetable.</td></tr>
+  <tr><td>Lecturers</td><td>Each lecturer sees the new student in their class list, with a weekly summary rather than a push per student.</td></tr>
+  <tr><td>Community</td><td>The student joins the school feed, the department space and the official channel.</td></tr>
+  <tr><td>Student</td><td>One welcome notification: "You're in. 4 classes from Computer Science were added."</td></tr>
+</table>
+<h4>Edge cases</h4>
+<ul>
+  <li><b>Department changes</b> (for example a change of course): the student leaves auto-joined classes of the old department and joins the new ones. Classes they joined by code stay.</li>
+  <li><b>Level changes</b> each new session: a scheduled job prompts "Are you now in 200L?" and moves auto-joined classes after the student confirms.</li>
+  <li><b>Wrong school</b>: the student can change school once without support. Later changes go through support, to stop people hopping between schools.</li>
+  <li><b>Lecturer creates a class after students joined</b>: when auto-join is on, existing matching students are added at once.</li>
+</ul>
+<p class="small">Effort: 3 to 4 days (part of phase 1).</p>
+</div>
+
+<!-- ============================ 5 LECTURER CLASSES ============================ -->
+<div class="page">
+<h2>5. Lecturer classes and class reps</h2>
+<p>Lecturers already have classes, enrolments, announcements, materials, attendance, grades and live sessions in the portal. This phase makes them department-based, adds class reps, and brings the important actions to the phone.</p>
+
+<h3>5.1 Creating a class</h3>
+<ul>
+  <li>Lecturer dashboard › <b>New class</b>: name (for example "CSC 301, Computer Science 300L"), course code, department (one or more), level, session and semester, schedule, venue, and the switches below.</li>
+  <li><b>Auto-join</b> (on by default): students of that department and level join automatically (section 4.3).</li>
+  <li><b>Add students manually</b>: search the school's student list, paste matric numbers, upload a CSV, or share the join code and QR code.</li>
+  <li><b>Join approval</b> (optional): students who join by code wait for the lecturer or rep to approve.</li>
+  <li>Each class gets a <b>class room</b> in the student's Chat › Rooms tab, with the same tools as tutor rooms (messages, polls, files, live classes, quizzes), marked "Official class" and always free.</li>
+</ul>
+
+<h3>5.2 Appointing a class rep</h3>
+<div class="flow">
+  <span class="step">Lecturer opens class › Students</span><span class="arrow">›</span>
+  <span class="step">Make class rep</span><span class="arrow">›</span>
+  <span class="step">Student gets an invitation</span><span class="arrow">›</span>
+  <span class="step">Student accepts</span><span class="arrow">›</span>
+  <span class="step">Badge appears on profile</span>
+</div>
+<ul>
+  <li>Up to two reps per class (rep and assistant rep). A school authority can also appoint reps for any class in their school.</li>
+  <li><b>Rep powers</b> in that class only: post announcements (shown with the Class rep badge and pushed to the class), pin messages, share materials, take attendance, start a class session or voice call, create polls, and approve join requests if the lecturer allows it.</li>
+  <li><b>Rep limits</b>: cannot see grades, private student data or other classes. Cannot remove the lecturer or other reps.</li>
+  <li>Announcements by a rep show "Class rep · CSC 300L" next to the name in the class, in the feed's Official tab (for that class's students) and on the rep's profile.</li>
+  <li>The lecturer can remove the rep at any time. The role ends automatically when the session ends.</li>
+</ul>
+
+<h3>5.3 Attendance</h3>
+<table>
+  <tr><th style="width:24%">Method</th><th>How it works</th></tr>
+  <tr><td>Code (new default)</td><td>The lecturer or rep opens attendance. The app shows a 4-digit code that changes every 30 seconds and a QR code. Students enter the code or scan it within the time window (for example 10 minutes). This stops students marking from their hostel when friends send the code, because the code expires quickly.</td></tr>
+  <tr><td>Location check (optional)</td><td>The lecturer can require students to be within, say, 150 metres of the venue. Off by default because GPS indoors is unreliable.</td></tr>
+  <tr><td>Manual</td><td>Tick students from the list (exists today), useful for small classes or when phones are not allowed.</td></tr>
+  <tr><td>Offline</td><td>In the Business app, the lecturer can mark attendance with no network. It syncs when the phone is back online.</td></tr>
+</table>
+<ul>
+  <li>Reports: attendance per student and per session, percentage per student, "below 75%" list, CSV export from the portal.</li>
+  <li>Students see their own attendance per class and get a gentle warning at 75%.</li>
+</ul>
+<p class="small">Effort: 4 to 5 days (part of phase 1).</p>
+</div>
+
+<!-- ============================ 6 SCHOOL AUTHORITY ============================ -->
+<div class="page">
+<h2>6. School authority and student leaders</h2>
+
+<h3>6.1 The school's student list</h3>
+<p>A new "Students" page in the school authority dashboard (portal and Business app) lists every student who signed up with that school name.</p>
+<ul>
+  <li>Search by name, matric number or email. Filter by faculty, department, level, verified or not, and roles held.</li>
+  <li>Each row: photo, name, department, level, verification status, joined date, roles.</li>
+  <li>Actions: verify or reject (exists in the verifications page), appoint to an office, appoint as class rep, view attendance summary, restrict from the community (with a reason).</li>
+  <li>Counts at the top: total students, new this week, verified share, by faculty.</li>
+  <li>Privacy: the authority sees school-related details only, not wallet, orders, housing, chats or AI history.</li>
+</ul>
+
+<h3>6.2 Student offices</h3>
+<table>
+  <tr><th style="width:24%">Scope</th><th>Default offices (the school can rename or add its own)</th></tr>
+  <tr><td>School (SUG)</td><td>President, Vice President, General Secretary, Assistant General Secretary, Financial Secretary, Treasurer, Public Relations Officer, Welfare Director, Sports Director, Social Director</td></tr>
+  <tr><td>Faculty</td><td>Faculty President, Faculty Vice President, Faculty General Secretary</td></tr>
+  <tr><td>Department</td><td>Department President, Department Vice President, Class governor (if the school uses one)</td></tr>
+  <tr><td>Hall or hostel</td><td>Hall Chairman, Hall Secretary</td></tr>
+  <tr><td>Other</td><td>Custom title, for example "Senate Representative"</td></tr>
+</table>
+<ul>
+  <li>Appointing: choose the office, scope and term dates, pick the student from the list, and send. The student accepts in the app. The badge appears immediately.</li>
+  <li>Handover: when a new person is appointed to a single-holder office (such as President), the old holder becomes "Former President" when the new one accepts.</li>
+  <li>The school can show its leaders on a public "Student leaders" page in the app (for example School › Leaders).</li>
+</ul>
+
+<h3>6.3 What student leaders can do in the student app</h3>
+<ul>
+  <li><b>Official announcements</b> to their scope: everyone at the school (SUG offices), a faculty, a department or a hall. Announcements appear in the Feeds › Official tab, pinned for 48 hours, with a push notification that respects notification settings.</li>
+  <li><b>Polls and surveys</b> for their scope, with one vote per verified student.</li>
+  <li><b>Official rooms</b> for free, for example "SUG Town Hall", with live voice sessions.</li>
+  <li><b>Events</b> with RSVP and "add to my timetable".</li>
+  <li><b>Limits</b>: up to 3 pushed announcements per day per office, to prevent spam. The school authority can see and remove any announcement and suspend an office holder's posting rights.</li>
+</ul>
+
+<h3>6.4 School authority actions in the app</h3>
+<p>Post official notices (exists, extended to the new feed), appoint and remove offices and reps, see reports from their school's community, remove posts, and restrict students from posting (with a reason and an end date). Every action is logged.</p>
+<p class="small">Effort: 3 to 4 days (part of phase 1).</p>
+</div>
+
+<!-- ============================ 7 TUTORS ============================ -->
+<div class="page">
+<h2>7. Tutors</h2>
+
+<h3>7.1 Applying as a tutor</h3>
+<p>A new "Tutor" option in the portal's "Apply" page, using the same application and review system as businesses (documents, admin review, decision reasons).</p>
+<table>
+  <tr><th style="width:26%">Application field</th><th>Details</th></tr>
+  <tr><td>Who you are</td><td>Full name, photo, phone, email, government ID (NIN, voter's card, passport or driver's licence)</td></tr>
+  <tr><td>What you teach</td><td>Subjects and courses (for example MTH 101, JAMB Physics, Python), levels, and whether you teach in-school students, prep students or both</td></tr>
+  <tr><td>Credentials</td><td>Highest qualification, current school or employer, optional certificates, optional CGPA screenshot for student tutors</td></tr>
+  <tr><td>Teaching sample</td><td>A short video (up to 2 minutes) or a sample note, so reviewers can judge quality</td></tr>
+  <tr><td>Payout account</td><td>Bank account, verified by name through Paystack (exists for businesses)</td></tr>
+  <tr><td>Agreements</td><td>Tutor terms, refund policy, community guidelines, and the safeguarding rules for prep students</td></tr>
+</table>
+<ul>
+  <li>Review target: 48 hours. Rejections give a reason and allow one re-application after 14 days.</li>
+  <li>Students can also apply to tutor, for example a 400L student teaching 100L courses. They need a verified student account.</li>
+  <li>On approval, the tutor gets the Tutor dashboard in the portal and in the Business app, and the Tutor badge on their profile in the student app if they also use it.</li>
+</ul>
+
+<h3>7.2 Tutor plans</h3>
+<table>
+  <tr><th style="width:26%">Feature</th><th style="width:37%">Tutor Free</th><th>Tutor Premium (₦3,000 a month, by card)</th></tr>
+  <tr><td>Rooms</td><td>Up to 2</td><td>Unlimited</td></tr>
+  <tr><td>Paid rooms</td><td>No (free rooms only)</td><td>Yes</td></tr>
+  <tr><td>Live classes</td><td>Voice only, up to 100 people</td><td>Voice and video, up to 500 people (video limited to the speakers on camera)</td></tr>
+  <tr><td>Quizzes and debates</td><td>Polls only</td><td>Quizzes, debates, polls</td></tr>
+  <tr><td>Insights</td><td>Members count</td><td>Earnings, attendance, quiz results, churn, reviews</td></tr>
+  <tr><td>Discover</td><td>Listed normally</td><td>Eligible for "Featured" and a Premium tutor tick</td></tr>
+  <tr><td>AI helpers</td><td>None</td><td>Quiz drafts from notes, class recaps, announcement writer</td></tr>
+</table>
+<p class="small">This split is my suggestion (decision 2). The price lives in the settings table so it can change without an app update. Billing reuses the existing business plan flow: saved card, automatic monthly charge, 3-day grace, then paid rooms pause for new joins while existing members keep access until their period ends.</p>
+
+<h3>7.3 Tutor dashboard</h3>
+<ul>
+  <li><b>Rooms</b>: create, edit, pause, archive. <b>Schedule</b>: all upcoming classes across rooms. <b>Members</b>: per room, with join requests.</li>
+  <li><b>Money</b>: Pending and Available earnings per room, payouts to the linked bank, monthly statement (PDF).</li>
+  <li><b>Reviews</b>: ratings with reply. <b>Plan</b>: Free or Premium, card, invoices.</li>
+</ul>
+<p class="small">Effort: 4 to 5 days (part of phase 3).</p>
+</div>
+
+<!-- ============================ 8 ROOMS ============================ -->
+<div class="page">
+<h2>8. Rooms</h2>
+<div class="callout"><b>In one line.</b> A Room is a tutor's (or lecturer's, or student leader's) learning space: a group chat plus scheduled live voice or video classes, materials, polls, quizzes and debates, with clear rules about who can join, what it costs and who can speak.</div>
+
+<h3>8.1 Kinds of rooms</h3>
+<table>
+  <tr><th style="width:22%">Kind</th><th>Created by</th><th style="width:20%">Price</th><th style="width:22%">Who can see it</th></tr>
+  <tr><td>Tutor room</td><td>Approved tutor</td><td>Free, one-time or monthly</td><td>Chosen audience (8.3)</td></tr>
+  <tr><td>Official class</td><td>Lecturer (section 5)</td><td>Always free</td><td>Students of that class</td></tr>
+  <tr><td>Official room</td><td>Student leader or school authority</td><td>Always free</td><td>Their scope (school, faculty, department or hall)</td></tr>
+</table>
+
+<h3>8.2 Creating a room (tutor)</h3>
+<table>
+  <tr><th style="width:24%">Step</th><th>Fields</th></tr>
+  <tr><td>1. Basics</td><td>Title, subject or course code, short description (what students will learn), cover image, category (University course, JAMB, WAEC, Post-UTME, Skills such as coding or design, Languages, Other), language</td></tr>
+  <tr><td>2. Audience</td><td>In-school students (choose one school, several schools, or any school), prep students, or both; optional department and level filters. Section 8.3.</td></tr>
+  <tr><td>3. Price</td><td>Free, one-time price, or monthly price. "Students must pay before joining" (default) or "Free preview" (join free for 3 days or 2 classes, then pay to stay). Optional discount for the first month.</td></tr>
+  <tr><td>4. Schedule</td><td>Repeating class times (for example Tue and Thu, 7 to 8 PM), start and end dates, and for each class: <b>voice</b> or <b>video</b>. Extra one-off classes can be added any time.</td></tr>
+  <tr><td>5. Rules</td><td>Join mode (open, approval needed, invite only), capacity (waitlist when full), who can send messages, who can share files, slow mode, room rules text</td></tr>
+  <tr><td>6. Team</td><td>Co-hosts (other tutors) and moderators (trusted members)</td></tr>
+  <tr><td>7. Preview and publish</td><td>See exactly what students will see in Discover. Save as draft or publish.</td></tr>
+</table>
+
+<h3>8.3 Audience rules</h3>
+<ul>
+  <li><b>In-school</b>: only in-school students see the room in Discover. If the tutor picks specific schools, only students of those schools see it.</li>
+  <li><b>Prep</b>: only prep students (JAMB, WAEC, Post-UTME candidates) see it.</li>
+  <li><b>Both</b>: allowed for skills rooms (for example coding), not for course rooms.</li>
+  <li>The rule is enforced on the server: a student outside the audience cannot open, join or search the room, even with a link. They see "This room is for another group of students".</li>
+  <li>When a prep student switches to in-school, rooms they already paid for stay until the period ends.</li>
+</ul>
+
+<h3>8.4 The room page in Discover (before joining)</h3>
+<ul>
+  <li>Cover, title, category, audience label (for example "In-school · UNILAG · 200L Computer Science").</li>
+  <li><b>Price</b> and what it covers ("₦1,500 a month, renews from wallet, cancel any time"), or "Free".</li>
+  <li><b>Who it's for</b>, <b>what you'll learn</b> (tutor's list), and the <b>schedule</b> with voice or video per class, shown in the student's local time, with clashes against their timetable highlighted.</li>
+  <li><b>The admin</b>: tutor profile card (photo, badge, subjects, rating, students taught, years teaching), co-hosts.</li>
+  <li><b>Inside</b>: number of members, classes held, materials count, a sample of pinned materials and the last few announcements (not the chat).</li>
+  <li><b>Reviews</b>: rating and recent reviews from members.</li>
+  <li><b>Rules</b>, refund policy and a Report button.</li>
+  <li><b>Join button</b>: "Join free", "Join for ₦1,500", "Request to join", or "Join waitlist". Paid joins open the payment confirmation with payment password or fingerprint, as for other wallet payments.</li>
+</ul>
+</div>
+
+<div class="page">
+<h3>8.5 Inside a room</h3>
+<table>
+  <tr><th style="width:18%">Tab</th><th>What it contains</th></tr>
+  <tr><td>Chat</td><td>Text, voice notes, photos, videos, files, polls, links, replies, reactions, mentions, pinned messages. Uses the upgraded chat (section 10).</td></tr>
+  <tr><td>Classes</td><td>Upcoming and past classes. "Join live" button that opens the voice or video class (built on the live session system we already have). Reminders 15 minutes before. Attendance recorded automatically when someone joins a live class.</td></tr>
+  <tr><td>Quizzes</td><td>Owner only creates. Timed, auto-marked, results and leaderboard (section 8.7).</td></tr>
+  <tr><td>Debates</td><td>Owner only creates (section 8.8).</td></tr>
+  <tr><td>Files</td><td>All materials in one place, by type, with search. Downloads for offline reading.</td></tr>
+  <tr><td>Members</td><td>Members with badges, roles, join requests and waitlist (admins only for requests).</td></tr>
+  <tr><td>Groups</td><td>Smaller groups inside the room, for example "Group A: assignment 2". Created by the owner or co-hosts, each with its own chat.</td></tr>
+</table>
+
+<h3>8.6 Who can do what (like WhatsApp group settings)</h3>
+<table>
+  <tr><th style="width:34%">Setting (owner controls)</th><th>Options</th></tr>
+  <tr><td>Send messages</td><td>Everyone · Admins only · Admins and selected members</td></tr>
+  <tr><td>Send media and files</td><td>Everyone · Admins only</td></tr>
+  <tr><td>Create polls</td><td>Everyone · Admins only</td></tr>
+  <tr><td>Edit room info</td><td>Owner only · Owner and co-hosts</td></tr>
+  <tr><td>Approve new members</td><td>Off · On (owner, co-hosts, moderators)</td></tr>
+  <tr><td>Slow mode</td><td>Off · One message every 10 s, 30 s, 1 min or 5 min</td></tr>
+  <tr><td>Members can invite</td><td>On · Off</td></tr>
+  <tr><td>Speakers in live classes</td><td>Raise hand (default) · Anyone can unmute · Admins only</td></tr>
+</table>
+<table>
+  <tr><th style="width:20%">Role in room</th><th>Powers</th></tr>
+  <tr><td>Owner</td><td>Everything, including price, quizzes, debates, deleting the room and payouts</td></tr>
+  <tr><td>Co-host</td><td>Run classes, post materials, approve members, moderate, create groups. No price or quiz and debate creation.</td></tr>
+  <tr><td>Moderator</td><td>Delete messages, mute members for up to 24 hours, approve members</td></tr>
+  <tr><td>Member</td><td>Whatever the settings above allow</td></tr>
+</table>
+
+<h3>8.7 Quizzes (owner only)</h3>
+<ul>
+  <li>Question types: multiple choice, true or false, short answer (marked by exact match or by the owner), and image questions.</li>
+  <li>Settings: time limit, open and close time, attempts allowed, shuffle questions and options, show results immediately or after closing, leaderboard on or off.</li>
+  <li>AI draft: the owner pastes a note or picks a file from the room, the AI drafts questions, and the owner edits before publishing.</li>
+  <li>Fair play: answer key and timer on the server, screenshots blocked during the quiz on Android, one active attempt.</li>
+  <li>Results: score and corrections for the student; averages, hardest questions and "who hasn't taken it" for the owner.</li>
+</ul>
+
+<h3>8.8 Debates (owner only)</h3>
+<ul>
+  <li>Set up: motion (for example "AI should be allowed in exams"), two sides, speakers per side (picked by the owner or by "raise hand"), speaking time per turn, number of rounds, and voice or video.</li>
+  <li>Live: the app shows whose turn it is, a countdown, and automatically unmutes the current speaker. The owner can pass or extend a turn. The audience reacts and asks questions in a side chat.</li>
+  <li>End: audience vote, winner announced, optional AI summary of the main arguments posted in the room chat.</li>
+  <li>Text debate option: rounds as posts with word limits, for rooms that prefer not to go live.</li>
+</ul>
+
+<h3>8.9 Room lifecycle and membership states</h3>
+<p><b>Room:</b> Draft › Published › Paused (no new joins, existing members keep access) › Archived (read-only, files kept for 90 days).<br/>
+<b>Member:</b> Requested › Active › Expired (monthly payment not renewed: chat and classes locked, files hidden, can renew any time) › Left, Removed or Banned.</p>
+
+<h3>8.10 Fairness and protection</h3>
+<ul>
+  <li>Tutor earnings from a room are held as Pending and become Available after the protection window (section 13).</li>
+  <li>If a tutor misses 2 scheduled classes in a month without rescheduling, members can claim a refund for that month and the room is flagged for review.</li>
+  <li>Reviews are open only to members who attended at least one class.</li>
+  <li>Reports on rooms, messages and tutors go to the CampusOS moderation queue.</li>
+</ul>
+<p class="small">Effort: rooms core 11 to 14 days (phase 3), quizzes, debates, groups and reviews 8 to 10 days (phase 4).</p>
+</div>
+
+<!-- ============================ 9 COMMUNITY ============================ -->
+<div class="page">
+<h2>9. Community: Discover, Feeds and People</h2>
+
+<h3>9.1 Discover</h3>
+<ul>
+  <li><b>Sections</b>: Live now, For your courses (matches the student's courses and department), Popular at your school, Free rooms, Exam prep (prep students only), New tutors, Official rooms, and categories.</li>
+  <li><b>Search and filters</b>: subject or course code, tutor name, price (free, under ₦1,000, under ₦3,000), voice or video, schedule (mornings, evenings, weekends), rating.</li>
+  <li>Every card shows price, audience, tutor, rating and next class time. Tapping opens the room page in 8.4.</li>
+  <li>Students only see rooms whose audience includes them (8.3).</li>
+</ul>
+
+<h3>9.2 Feeds (works like X)</h3>
+<table>
+  <tr><th style="width:22%">Part</th><th>How it works</th></tr>
+  <tr><td>Tabs</td><td><b>For you</b> (ranked, from your school and people you follow), <b>Following</b> (time order), <b>Official</b> (school, student leaders, class reps for your classes).</td></tr>
+  <tr><td>Posts</td><td>Up to 500 characters, up to 4 photos or 1 short video (up to 60 seconds), polls, and link cards. Premium does not change post length, to keep the feed equal.</td></tr>
+  <tr><td>Interactions</td><td>Reply (threads, as on X), Repost, Quote post, Like, Bookmark, Share (link with preview for WhatsApp), and a view count.</td></tr>
+  <tr><td>Threads</td><td>The author can chain posts into a thread. Replies show as conversations under the post.</td></tr>
+  <tr><td>Mentions and hashtags</td><td>@mentions notify. Hashtags are searchable, and "Trending at your school" shows the top hashtags and topics of the day.</td></tr>
+  <tr><td>Who can reply</td><td>Per post: Everyone at my school, People I follow, or People I mention, like on X.</td></tr>
+  <tr><td>Official posts</td><td>Badge, pinned at the top of Official for 48 hours, and cannot be quote-posted to mock (they can be reposted).</td></tr>
+  <tr><td>Share from CampusOS</td><td>Cards for rooms, housing, market items, food deals and events, with a button into the app.</td></tr>
+  <tr><td>Ranking (For you)</td><td>Version 1: recent posts from your school and people you follow, official first, with likes and replies as a small boost. Version 2: also department, interests and reading time. Reported posts drop down fast. No boost for fights.</td></tr>
+  <tr><td>Scope</td><td>In-school students see their school's feed. Prep students see a separate prep feed (section 9.4). A national feed for big news can come later.</td></tr>
+</table>
+
+<h3>9.3 People</h3>
+<ul>
+  <li><b>Find people</b> at your chosen school, filtered by faculty, department, level, interests, hostel area and rooms in common. "Suggested for you" shows classmates first.</li>
+  <li><b>Follow</b> (one-way, for the feed, like X) and <b>Connect</b> (two-way, both accept). Connected people can message each other directly. Others send a <b>message request</b> that lands in Chat › Message requests.</li>
+  <li><b>Profile</b>: photo, name, @handle, badges, department and level (each can be hidden), bio, interests, posts, rooms they teach (tutors), mutual connections.</li>
+  <li><b>Privacy settings</b>: appear in People (on or off), who can message me (everyone at my school, connections only, nobody), show my department and level, show my rooms.</li>
+  <li><b>Safety</b>: block, mute, report, and limits on connect requests (20 a day for new accounts) to stop spam.</li>
+</ul>
+
+<h3>9.4 Protecting younger users (prep students)</h3>
+<p>JAMB and WAEC candidates can be under 18. Rules:</p>
+<ul>
+  <li>Prep students only see and find other prep students in People and Feeds. In-school students and tutors cannot find them in People.</li>
+  <li>Tutors cannot send private messages to prep students. They talk in the room, where moderators can see. A prep student can message a tutor about a room, and the tutor can reply in that thread only.</li>
+  <li>Prep students' profiles show first name and initial only, no school or location by default.</li>
+  <li>Stricter automatic filters on prep content, and reports from prep students reviewed first.</li>
+</ul>
+
+<h3>9.5 Moderation</h3>
+<p>Everything in the earlier community plan still applies: community guidelines, report reasons, auto-hide after 3 reports from different verified users, strikes, review queue for the school authority and CampusOS staff, rate limits, keyword filters, image checks and a per-school on and off switch. New: rooms and direct messages are also reportable, and room owners get their own moderation tools.</p>
+<p class="small">Effort: Feeds and People 13 to 17 days, moderation additions 3 to 4 days (phase 5). Discover is built with Rooms in phase 3.</p>
+</div>
+
+<!-- ============================ 10 CHAT ============================ -->
+<div class="page">
+<h2>10. Chat upgrade</h2>
+
+<h3>10.1 Layout</h3>
+<p>Chat gets two tabs: <b>Chats</b> (people, businesses, support, the AI companion and message requests) and <b>Rooms</b> (tutor rooms, official classes and official rooms the student joined, with live and quiz indicators). Search covers both.</p>
+
+<h3>10.2 Attachments ("+" button)</h3>
+<table>
+  <tr><th style="width:20%">Type</th><th>Details</th><th style="width:22%">Limit</th></tr>
+  <tr><td>Photo</td><td>Gallery or camera, several at once, with caption. Compressed on the phone.</td><td>10 per message</td></tr>
+  <tr><td>Video</td><td>Gallery or camera, compressed, with a thumbnail and a play button.</td><td>3 minutes, 50 MB after compression</td></tr>
+  <tr><td>File</td><td>PDF, Word, Excel, PowerPoint, ZIP and others, with name, size and file icon. Opens in the phone's viewer.</td><td>25 MB</td></tr>
+  <tr><td>Voice note</td><td>Exists. Add playback speed (1x, 1.5x, 2x) and continue to the next voice note.</td><td>10 minutes</td></tr>
+  <tr><td>Location</td><td>Current location or a pinned place (uses the map picker we have). Shows a map card.</td><td>-</td></tr>
+  <tr><td>Contact</td><td>Share a CampusOS profile card.</td><td>-</td></tr>
+  <tr><td>Poll</td><td>In groups and rooms: question, 2 to 10 options, single or multiple choice, anonymous or not.</td><td>-</td></tr>
+  <tr><td>From CampusOS</td><td>Share a room, housing listing, market item, food item or event as a card.</td><td>-</td></tr>
+</table>
+<ul>
+  <li><b>Data saver</b>: on mobile data, photos load small and videos and files download only when tapped. Wi-Fi can auto-download.</li>
+  <li>Upload progress with cancel, and retry when the network drops.</li>
+  <li>Files are stored privately. Only people in the conversation can open them, through short-lived links.</li>
+  <li>Every chat gets a "Media, files and links" page.</li>
+</ul>
+
+<h3>10.3 Message features</h3>
+<ul>
+  <li><b>Reply</b> to a message (swipe right), <b>forward</b> (shows "Forwarded"), <b>react</b> with emoji (long press), <b>edit</b> within 15 minutes (shows "Edited"), <b>delete</b> for me or for everyone (within 1 hour), <b>star</b> messages, <b>copy</b>.</li>
+  <li><b>Mentions</b> in groups and rooms, <b>link previews</b>, <b>search</b> inside a chat, <b>typing indicator</b> and <b>read receipts</b> (the student can turn read receipts off).</li>
+  <li><b>Message requests</b> from people you are not connected to: accept, delete or block. Senders can't send more than one message before acceptance.</li>
+  <li><b>Pin</b> chats to the top, <b>mute</b> (exists), <b>archive</b> (exists), and <b>clear</b> (exists).</li>
+</ul>
+<p class="small">Effort: 6 to 8 days (phase 2).</p>
+</div>
+
+<!-- ============================ 11 NOTIFICATIONS ============================ -->
+<div class="page">
+<h2>11. Our own notifications</h2>
+<p>Snapchat's notifications feel like Snapchat because of four things: their own sound, their own icon and colour, rich content (who sent it, what it is) and their own in-app banners. We do the same.</p>
+
+<table>
+  <tr><th style="width:24%">Part</th><th>What we build</th></tr>
+  <tr><td>Icon and colour</td><td>White CampusOS logo on the purple accent <span class="tag done">Done</span>. Each category can carry a small coloured label (Money, Orders, Rooms, School).</td></tr>
+  <tr><td>Our sounds</td><td>A short, recognisable "CampusOS chime" for general alerts, a softer pop for chat messages, a cash sound for money received, a stronger tone for orders (Business app) and a calm tone for study reminders. Each sound is attached to its notification channel.</td></tr>
+  <tr><td>Channels (Android)</td><td>Messages, Rooms and classes, School and official, Money, Orders and deliveries, Housing, Study reminders, Community, Calls. Students can control each one in Android settings, and in our own settings screen.</td></tr>
+  <tr><td>Rich chat notifications</td><td>Sender photo, name and message, grouped per chat like WhatsApp ("3 new messages from Fatima"), photo preview for images, and an <b>inline Reply</b> and <b>Mark as read</b> without opening the app.</td></tr>
+  <tr><td>Action buttons</td><td>Room class starting: "Join now". Connect request: "Accept". Food order: "Track". Class rep announcement: "Open". Payment request: "Pay" (opens the app for the payment password).</td></tr>
+  <tr><td>In-app banners</td><td>When the app is open, notifications slide down as our own designed card (avatar, title, preview, tap to open, swipe away), instead of the plain system banner.</td></tr>
+  <tr><td>Notification centre</td><td>Redesigned with tabs: All, Mentions, Rooms, Money, School. Grouped by day, unread dots, "Mark all as read", and swipe to delete.</td></tr>
+  <tr><td>App icon badge</td><td>Unread count on the app icon (on launchers that support it).</td></tr>
+  <tr><td>Quiet and focus</td><td>Quiet hours (for example 11 PM to 6 AM) and study lock silence everything except money, security and calls (money alerts already ignore study lock).</td></tr>
+  <tr><td>Reliability</td><td>A short in-app guide to turn off battery optimisation on Tecno, Infinix, Itel, Xiaomi and Samsung, shown once, since many Nigerian phones block background alerts.</td></tr>
+</table>
+
+<h4>How it is built</h4>
+<ul>
+  <li>Today, the server sends standard notifications and Android draws them. For rich chat notifications with avatars, grouping and inline reply, the server will send <b>data messages</b> and the app will draw the notification itself using a notification library (Notifee is the usual choice). A one-day trial confirms it works with our Expo and React Native versions before we commit.</li>
+  <li>Inline reply sends the message through a small background task, so the reply goes out even when the app is closed.</li>
+  <li>Sounds are bundled in the app. Because Android fixes a channel's sound when the channel is first created, the new channels get new names so existing phones pick up the new sounds.</li>
+  <li>The notifications table gets a category, an actor (who caused it), an image and a group key, so the notification centre can show avatars and group items.</li>
+</ul>
+
+<h4>New notifications (examples)</h4>
+<table>
+  <tr><th style="width:36%">Event</th><th style="width:22%">Channel</th><th>Always or optional</th></tr>
+  <tr><td>Room class starts in 15 minutes, or now</td><td>Rooms and classes</td><td>Optional per room (on by default)</td></tr>
+  <tr><td>Quiz opens or closes soon</td><td>Rooms and classes</td><td>Always for official classes</td></tr>
+  <tr><td>Class rep or student leader announcement</td><td>School and official</td><td>Always, limited to 3 a day per office</td></tr>
+  <tr><td>Appointed as class rep or to an office</td><td>School and official</td><td>Always</td></tr>
+  <tr><td>Room renewal tomorrow, renewal failed</td><td>Money</td><td>Always</td></tr>
+  <tr><td>Tutor: new member, payment received, review</td><td>Money or Rooms</td><td>Always for money, optional for others</td></tr>
+  <tr><td>Connect request, follow, mention, reply</td><td>Community</td><td>Optional</td></tr>
+  <tr><td>School authority: daily new-students digest</td><td>School and official</td><td>Optional</td></tr>
+</table>
+<p class="small">Effort: 4 to 5 days (phase 2).</p>
+</div>
+
+<!-- ============================ 12 AI ============================ -->
+<div class="page">
+<h2>12. AI tutor upgrades</h2>
+<p>The AI tutor already gives formatted answers with tables, diagrams and schedule-aware study plans. These are the additions, in order of value.</p>
+<table>
+  <tr><th style="width:26%">Feature</th><th>What it does</th><th style="width:14%">Who</th></tr>
+  <tr><td>Study from my notes</td><td>Upload a PDF, photos of handwritten notes or text. Four actions: Revise with me (step by step with check questions), Summarise, Make flashcards, Practice questions. Answers only from the note, and says when something is outside it.</td><td>All students (limits for free)</td></tr>
+  <tr><td>Room and class files</td><td>"Ask AI about this file" on any file in a room or class the student belongs to.</td><td>Members</td></tr>
+  <tr><td>Missed-class recap</td><td>After a live class, the AI writes a short recap from the tutor's notes and the chat (and later from the recording), posted in the room.</td><td>Tutor Premium, official classes</td></tr>
+  <tr><td>Catch me up</td><td>In a busy room or class chat, "Catch me up" summarises unread messages: decisions, dates and files.</td><td>All students</td></tr>
+  <tr><td>Study plan with rooms</td><td>The study planner adds room classes, quizzes and class deadlines automatically and warns about clashes.</td><td>All students</td></tr>
+  <tr><td>Quiz and debate helpers</td><td>Draft quiz questions from a note, suggest debate motions, and summarise arguments after a debate.</td><td>Tutors, lecturers</td></tr>
+  <tr><td>Announcement writer</td><td>Helps reps, leaders and tutors write clear announcements in a few words.</td><td>Reps, leaders, tutors</td></tr>
+  <tr><td>Ask AI on a post</td><td>On a question post in Feeds, "Ask the tutor" adds an AI answer clearly marked as AI.</td><td>All students</td></tr>
+  <tr><td>Room recommender</td><td>Suggests rooms in Discover from the student's courses, weak topics and exam goals.</td><td>All students</td></tr>
+</table>
+<ul>
+  <li>Cost control: per-user daily limits (already in the settings table), smaller models for summaries, caching for repeated files, higher limits for Premium.</li>
+  <li>Privacy: notes and files are private to their owner or room. The AI never uses one student's notes for another student.</li>
+</ul>
+<p class="small">Effort: 6 to 8 days (phase 6). Quiz and debate helpers come with phase 4.</p>
+</div>
+
+<!-- ============================ 13 MONEY ============================ -->
+<div class="page">
+<h2>13. Money rules</h2>
+<table>
+  <tr><th style="width:22%">Who</th><th>Pays with</th><th>Gets paid through</th></tr>
+  <tr><td>Students</td><td>Wallet only, for everything (food, market, housing, rooms, Premium). Wallet top-up by card.</td><td>Wallet (refunds), and bank payout for student sellers as today</td></tr>
+  <tr><td>Tutors</td><td>Card, for Tutor Premium</td><td>Linked bank account (Paystack transfer)</td></tr>
+  <tr><td>Businesses</td><td>Card, for business plans and boosts</td><td>Linked bank account</td></tr>
+  <tr><td>Lecturers, schools, student leaders</td><td>No payment needed for official classes and rooms</td><td>Not applicable</td></tr>
+</table>
+
+<h3>13.1 Room payments</h3>
+<table>
+  <tr><th style="width:30%">Rule</th><th>Proposal</th></tr>
+  <tr><td>Payment</td><td>From the wallet, with payment password or fingerprint (same as other wallet payments). A receipt appears in History.</td></tr>
+  <tr><td>CampusOS share</td><td>10% of each room payment (decision 3). Stored in the settings table.</td></tr>
+  <tr><td>Monthly rooms</td><td>Renew automatically from the wallet. Reminder 2 days before. If the wallet is short: retry for 3 days, then the membership becomes Expired (not removed). One tap to renew.</td></tr>
+  <tr><td>Tutor earnings</td><td>Pending immediately, Available after 7 days (monthly) or 3 days (one-time), so a no-show room can be refunded. Then the tutor can request a payout, or turn on automatic daily payout like restaurants.</td></tr>
+  <tr><td>Refunds</td><td>Full refund within 24 hours of a first payment if the student attended no class. Automatic refund for a month with 2 missed classes (8.10). Other cases go through the existing dispute flow.</td></tr>
+  <tr><td>Price changes</td><td>Apply to new members immediately and to existing members from their next renewal, with a notice at least 7 days before.</td></tr>
+  <tr><td>Room deleted or tutor banned</td><td>Members get a pro-rated refund for the unused part of the period.</td></tr>
+</table>
+<div class="callout warn"><b>Regulation note.</b> Holding earnings before payout follows the same pattern as restaurants and the marketplace. The legal brief on wallet and escrow already in the docs folder should be updated to cover tutors before paid rooms launch.</div>
+</div>
+
+<!-- ============================ 14 BUSINESS APP ============================ -->
+<div class="page">
+<h2>14. Business app, portal and website</h2>
+<p>All three stay. The <b>web portal</b> remains the full management tool on a computer. The <b>website</b> remains the public front door. The <b>CampusOS Business app</b> is the fast phone version for daily work, alerts and quick actions.</p>
+
+<h3>14.1 Who uses the Business app</h3>
+<table>
+  <tr><th style="width:22%">User</th><th>Main modules</th></tr>
+  <tr><td>Restaurants</td><td>Live orders board with loud alerts, accept or decline, delivery code entry, kitchen open or closed, sold-out switches, earnings and payouts</td></tr>
+  <tr><td>Housing agents</td><td>Viewings, offers, tenancies, rent dates, payment requests, enquiries</td></tr>
+  <tr><td>Marketplace sellers</td><td>Orders, handover code, disputes</td></tr>
+  <tr><td>Tutors <span class="tag new">New</span></td><td>Rooms, schedule, start a live class, members and requests, quizzes, debates, earnings and payouts</td></tr>
+  <tr><td>Lecturers <span class="tag new">New</span></td><td>Classes, attendance (works offline), announcements, materials, class reps, quizzes, live classes</td></tr>
+  <tr><td>School authority <span class="tag new">New</span></td><td>Student list, verifications, student leaders, official notices, community reports</td></tr>
+</table>
+<p class="small">Because lecturers, tutors and schools also use it, a broader name such as "CampusOS Partner" might fit better than "CampusOS Business". This is decision 10.</p>
+
+<h3>14.2 Quick actions</h3>
+<ul>
+  <li><b>App icon shortcuts</b> (long press the icon): Orders board, Take attendance, Start live class, New announcement.</li>
+  <li><b>Notification actions</b>: Accept order, Mark ready, Approve join request, Reply.</li>
+  <li><b>Home screen widget</b> (later): today's orders and earnings, or next class.</li>
+  <li>A floating "+" button on every main screen for the most common action of that user type.</li>
+</ul>
+
+<h3>14.3 Offline mode</h3>
+<table>
+  <tr><th style="width:30%">Works offline</th><th>How</th></tr>
+  <tr><td>Reading</td><td>The last loaded orders, menu, tenants, rooms, class lists, schedule and earnings are saved on the phone and shown with a "Last updated 10:42" label.</td></tr>
+  <tr><td>Attendance</td><td>Marked offline and synced later (attendance codes need a connection on the student's side, so offline uses manual marking).</td></tr>
+  <tr><td>Simple actions</td><td>Mark order ready, sold-out switches, drafts of announcements and room posts. Queued with a clear "Not sent yet" state and sent automatically when online.</td></tr>
+  <tr><td>Not offline</td><td>Anything involving money (payouts, refunds, plan changes) and delivery code checks, which must be confirmed by the server.</td></tr>
+</table>
+
+<h3>14.4 Website</h3>
+<ul>
+  <li>Download page with both apps, install steps, QR codes and version notes.</li>
+  <li>New pages: "Teach on CampusOS" (for tutors, with the apply link) and "For schools" (student list, leaders, official notices).</li>
+  <li>Share previews for posts, rooms and profiles, so links pasted in WhatsApp show a proper card and open the app.</li>
+</ul>
+<p class="small">Effort: Business app 26 to 34 days in steps (restaurants first, then housing, then sellers, tutors, lecturers and schools). Website 3 to 4 days.</p>
+</div>
+
+<!-- ============================ 15 DATA MODEL ============================ -->
+<div class="page">
+<h2>15. Data model and server work</h2>
+<p>Most new features extend tables that already exist. All new tables get row-level security, and anything involving money or permissions goes through a server function, not direct table writes.</p>
+
+<h3>15.1 Roles and school</h3>
+<table>
+  <tr><th style="width:30%">Table or change</th><th>Purpose</th></tr>
+  <tr><td>class_staff <span class="tag ext">Extend</span></td><td>Add role "class_rep" and an invitation status (invited, active, ended) with term dates</td></tr>
+  <tr><td>class_offerings <span class="tag ext">Extend</span></td><td>Add level, several departments, and join approval setting. Auto-join already exists.</td></tr>
+  <tr><td>class_enrollments <span class="tag ext">Extend</span></td><td>Add how the student joined (auto, code, manual, CSV) so department changes only remove automatic ones</td></tr>
+  <tr><td>class_attendance_sessions <span class="tag ext">Extend</span></td><td>Method (code, manual, location), rotating code secret, open and close times, venue location and radius, taken by (lecturer or rep)</td></tr>
+  <tr><td>student_offices <span class="tag new">New</span></td><td>School, holder, office, scope (school, faculty, department, hall) and scope id, display title, term dates, status, appointed by</td></tr>
+  <tr><td>office_types <span class="tag new">New</span></td><td>Default and custom offices per school, with single-holder flag and posting limits</td></tr>
+  <tr><td>profile_badges <span class="tag new">View</span></td><td>One server-side view combining reps, offices, lecturer, tutor and school roles for display</td></tr>
+  <tr><td>Server functions</td><td>switch_to_enrolled (rewritten with school, department and level), assign_student_to_classes, school_students (search for authorities), appoint_office, appoint_class_rep, accept_role, open_attendance, mark_attendance_with_code</td></tr>
+</table>
+
+<h3>15.2 Tutors and rooms</h3>
+<table>
+  <tr><th style="width:30%">Table or change</th><th>Purpose</th></tr>
+  <tr><td>business_applications and business_profiles <span class="tag ext">Extend</span></td><td>New business type "tutor", so tutors reuse applications, documents, plans, cards, bank accounts, earnings and payouts</td></tr>
+  <tr><td>tutor_profiles <span class="tag ext">Extend</span></td><td>Subjects, levels, audiences, credentials, rating, students taught, verification level</td></tr>
+  <tr><td>rooms <span class="tag new">New</span></td><td>Owner, kind (tutor, class, official), title, category, description, cover, audience and schools, department and level filters, price type and amount, pay-before-join, preview, join mode, capacity, settings (who can send, media, polls, slow mode), status, linked conversation, counters</td></tr>
+  <tr><td>room_members <span class="tag new">New</span></td><td>Room, user, role (owner, co-host, moderator, member), status, paid until, muted until</td></tr>
+  <tr><td>room_schedule and room_sessions <span class="tag new">New</span></td><td>Repeating times and actual sessions (voice or video, live room name, attendance). Built on the existing live session system.</td></tr>
+  <tr><td>room_subscriptions <span class="tag new">New</span></td><td>Payments per period, amount, CampusOS share, renewal status, refund status</td></tr>
+  <tr><td>quizzes, quiz_items, quiz_attempts <span class="tag new">New</span></td><td>Shared by rooms and official classes</td></tr>
+  <tr><td>debates, debate_turns, debate_votes <span class="tag new">New</span></td><td>Debate set-up, turn order and audience votes</td></tr>
+  <tr><td>room_groups, room_reviews <span class="tag new">New</span></td><td>Groups inside rooms (each with its own chat), member reviews</td></tr>
+  <tr><td>Server functions</td><td>room_join (checks audience, takes the wallet payment, creates membership), room_renew (scheduled), room_refund, start_room_session, quiz_start and quiz_submit (timer and marking on the server), debate controls</td></tr>
+</table>
+
+<h3>15.3 Chat, notifications and community</h3>
+<table>
+  <tr><th style="width:30%">Table or change</th><th>Purpose</th></tr>
+  <tr><td>messages <span class="tag ext">Extend</span></td><td>New types (video, file, location, contact, poll, card), reply to, forwarded flag, edited and deleted flags (exist)</td></tr>
+  <tr><td>message_attachments <span class="tag new">New</span></td><td>Kind, private storage path, file name, type, size, width and height, duration, thumbnail</td></tr>
+  <tr><td>message_reactions, message_stars, polls, poll_votes <span class="tag new">New</span></td><td>One row per person and item</td></tr>
+  <tr><td>conversations <span class="tag ext">Extend</span></td><td>Kinds "room", "class" and "request"; settings for who can send</td></tr>
+  <tr><td>notifications <span class="tag ext">Extend</span></td><td>Category, actor, image, group key, data</td></tr>
+  <tr><td>user_follows, user_connections, privacy_settings <span class="tag new">New</span></td><td>Follow, connect (requested, accepted), and People and messaging privacy</td></tr>
+  <tr><td>posts, post_media, post_likes, post_reposts, post_bookmarks, post_views, hashtags <span class="tag new">New</span></td><td>Feed, as in the earlier community plan, with quote posts, threads and reply settings</td></tr>
+  <tr><td>moderation_actions, user_restrictions, keyword_rules <span class="tag new">New</span></td><td>Moderation (reports table already exists and is extended to posts, rooms and messages)</td></tr>
+</table>
+</div>
+
+<!-- ============================ 16 ROADMAP ============================ -->
+<div class="page">
+<h2>16. Roadmap</h2>
+<table>
+  <tr><th style="width:5%">#</th><th style="width:22%">Phase</th><th>Scope</th><th style="width:11%" class="num">Days</th><th style="width:16%">Release</th></tr>
+  <tr><td>0</td><td>Ship today's fixes</td><td>Receipt, notification icon and splash fixes</td><td class="num">0.5</td><td>Student 1.0.14</td></tr>
+  <tr><td>1</td><td>School identity and roles</td><td>Got admitted flow, onboarding department and level, automatic class assignment, school student list, offices, class reps, badges, code attendance, authority digests</td><td class="num">9 to 12</td><td>Student 1.1.0 and portal</td></tr>
+  <tr><td>2</td><td>Chat and notifications</td><td>Chats and Rooms tabs (classes appear in Rooms), attachments, replies, reactions, edits, polls, message requests, branded channels and sounds, rich notifications with reply, in-app banners, new notification centre</td><td class="num">10 to 13</td><td>Student 1.2.0</td></tr>
+  <tr><td>3</td><td>Tutors and Rooms</td><td>Tutor applications and plans, tutor dashboard (portal), room creation, Discover, room page, join and pay, renewals and refunds, inside a room, permissions, live voice and video classes, community screen shell with Discover</td><td class="num">15 to 19</td><td>Student 1.3.0 and portal</td></tr>
+  <tr><td>4</td><td>Room extras</td><td>Quizzes, debates, groups, reviews, AI quiz and debate helpers, tutor insights</td><td class="num">8 to 10</td><td>Student 1.4.0</td></tr>
+  <tr><td>5</td><td>Feeds and People</td><td>X-style feed, follow and connect, People discovery, privacy, prep safety, moderation queue, per-school switch, pilot at one campus</td><td class="num">16 to 21</td><td>Student 1.5.0 (pilot flag)</td></tr>
+  <tr><td>6</td><td>AI tutor upgrades</td><td>Study from my notes, catch me up, missed-class recap, room recommender</td><td class="num">6 to 8</td><td>With 1.4.0 or 1.5.0</td></tr>
+  <tr><td>7</td><td>Business app</td><td>A: restaurants. B: housing. C: sellers, tutors, lecturers, schools. Quick actions, offline mode</td><td class="num">26 to 34</td><td>Business 1.0 to 1.2</td></tr>
+  <tr><td>8</td><td>Website</td><td>Download page for both apps, tutor and school pages, share previews</td><td class="num">3 to 4</td><td>With Business 1.0</td></tr>
+</table>
+
+<h3>Why this order</h3>
+<ul>
+  <li><b>Roles first</b>: rooms, community badges, official announcements and notifications all depend on knowing who is a rep, leader, lecturer or tutor.</li>
+  <li><b>Chat before rooms</b>: a room is a chat with extra tabs, so building attachments, polls and permissions once makes rooms faster and keeps one messaging system.</li>
+  <li><b>Rooms before Feeds</b>: rooms earn money and are easier to moderate (owners moderate their own space). Feeds need the moderation tools and a pilot.</li>
+  <li><b>Business app in parallel</b>: it can start after phase 3, since tutors and lecturers need it most once rooms are live. Restaurants (step A) can move earlier if orders grow fast.</li>
+</ul>
+
+<h3>Release routine (every phase)</h3>
+<ol>
+  <li>Database migrations applied and checked with rolled-back tests for money and permissions.</li>
+  <li>Server functions deployed before the app that needs them.</li>
+  <li>Type-check, then a real-phone test on a low-end Android (Tecno or Infinix).</li>
+  <li>New APK, website download link updated, "What's new" note in the app.</li>
+</ol>
+</div>
+
+<!-- ============================ 17 EXTRAS ============================ -->
+<div class="page">
+<h2>17. Extras I added (not in your list)</h2>
+<table>
+  <tr><th style="width:26%">Extra</th><th>Why it matters</th><th style="width:12%">Phase</th></tr>
+  <tr><td>Update prompt</td><td>The app checks the latest version on launch and shows "Update available" with the download link. Essential for an APK outside the Play Store. Today some users are still on old versions.</td><td>1</td></tr>
+  <tr><td>Universal search</td><td>One search for people, rooms, posts, food, housing and market items.</td><td>5</td></tr>
+  <tr><td>Timetable sync</td><td>Room classes, official classes, quizzes and leader events go into the timetable and study plan automatically, with clash warnings.</td><td>3</td></tr>
+  <tr><td>Waitlist</td><td>When a room is full, students join a waitlist and are notified when a place opens.</td><td>3</td></tr>
+  <tr><td>Invite links and QR codes</td><td>For rooms, classes and profiles, with share previews. The main growth loop in Nigeria is WhatsApp sharing.</td><td>3</td></tr>
+  <tr><td>Tutor verification levels</td><td>Verified tutor (ID checked), Top tutor (high rating and attendance). Helps students choose and rewards good tutors.</td><td>4</td></tr>
+  <tr><td>Certificates</td><td>A simple completion certificate for rooms with a set end date (PDF, shareable).</td><td>Later</td></tr>
+  <tr><td>Class recordings</td><td>Record live classes for members who missed them. Costs storage and processing, so Premium tutors only and later.</td><td>Later</td></tr>
+  <tr><td>Data saver mode</td><td>Lower image quality and no auto-download on mobile data. Data is expensive for students.</td><td>2</td></tr>
+  <tr><td>Account deletion and data export</td><td>Required by the Nigeria Data Protection Act and by Play Store rules.</td><td>1</td></tr>
+  <tr><td>Safeguarding for prep students</td><td>Section 9.4. Protects minors and protects CampusOS.</td><td>3 and 5</td></tr>
+  <tr><td>Tutor and room terms</td><td>Tutor agreement, refund policy and room rules, shown before publishing and joining.</td><td>3</td></tr>
+  <tr><td>Monthly tutor statements</td><td>PDF of earnings, CampusOS share and payouts, for tutors' records.</td><td>4</td></tr>
+  <tr><td>Featured rooms (admin)</td><td>Admin can feature rooms at the start of a semester or before JAMB, and manage categories.</td><td>3</td></tr>
+  <tr><td>Office-hours booking</td><td>Office hours already exist. Students can book a slot with a lecturer or tutor from their profile.</td><td>4</td></tr>
+  <tr><td>Content moderation for files</td><td>Basic checks on uploaded files and images in rooms, starting with prep rooms.</td><td>5</td></tr>
+  <tr><td>Analytics for schools</td><td>Active students, attendance trends and announcement reach for school authorities.</td><td>Later</td></tr>
+  <tr><td>Play Store listing</td><td>Better trust and automatic updates. The app needs account deletion, privacy labels and a review account first.</td><td>After 5</td></tr>
+</table>
+
+<h3>Housekeeping still on the list</h3>
+<ul>
+  <li>Rotate the Mapbox secret token and remove secrets from the student app's local environment file.</li>
+  <li>Change the demo portal password and delete test accounts when testing finishes.</li>
+  <li>Redeploy the portal and the website.</li>
+  <li>Remove the old "My room" link in the apartment screen and the unused premium badge export.</li>
+</ul>
+</div>
+
+<!-- ============================ 18 RISKS & DECISIONS ============================ -->
+<div class="page">
+<h2>18. Risks and decisions</h2>
+<h3>Main risks</h3>
+<table>
+  <tr><th style="width:26%">Risk</th><th style="width:10%">Level</th><th>How we handle it</th></tr>
+  <tr><td>Harmful content in Feeds, rooms or chats</td><td>High</td><td>Pilot at one campus, moderation before launch, auto-hide on reports, per-school switch, room owners moderate their rooms</td></tr>
+  <tr><td>Adults contacting minors (prep students)</td><td>High</td><td>Separate prep spaces, no tutor DMs to prep students, stricter filters and fast report review</td></tr>
+  <tr><td>Live video cost</td><td>Medium</td><td>Video only for Premium tutors, speakers on camera only, voice by default, limits on class length and size</td></tr>
+  <tr><td>Storage cost from videos and files</td><td>Medium</td><td>Compression, size limits, data saver, archive old room files after 90 days of an archived room</td></tr>
+  <tr><td>Tutor no-shows and refunds</td><td>Medium</td><td>Pending earnings window, automatic refund rule, ratings, flags for repeated no-shows</td></tr>
+  <tr><td>Fake student leaders or reps</td><td>Medium</td><td>Only lecturers and school authorities appoint, the student must accept, every change is logged</td></tr>
+  <tr><td>Rich notifications on some phones</td><td>Medium</td><td>One-day trial of the notification library first, fallback to the standard notifications we have now</td></tr>
+  <tr><td>Scope is large</td><td>Medium</td><td>Each phase ships on its own and is useful alone</td></tr>
+</table>
+
+<h3>Decisions I need from you</h3>
+<table>
+  <tr><th style="width:5%">#</th><th>Decision</th><th style="width:40%">My suggestion</th></tr>
+  <tr><td>1</td><td>Tab bar layout</td><td>Home, Community, Market (with Housing inside), AI Study, Chat</td></tr>
+  <tr><td>2</td><td>Tutor Free versus Premium (₦3,000)</td><td>Free: 2 free rooms, voice only. Premium: paid rooms, video, quizzes, debates, insights</td></tr>
+  <tr><td>3</td><td>CampusOS share of room payments</td><td>10%</td></tr>
+  <tr><td>4</td><td>When tutor earnings become Available</td><td>7 days (monthly rooms), 3 days (one-time)</td></tr>
+  <tr><td>5</td><td>Refund rule for rooms</td><td>24 hours with no class attended, plus automatic refund after 2 missed classes in a month</td></tr>
+  <tr><td>6</td><td>Can students apply as tutors?</td><td>Yes, verified students only</td></tr>
+  <tr><td>7</td><td>Follow and Connect</td><td>Both: Follow for the feed, Connect to chat freely, message requests otherwise</td></tr>
+  <tr><td>8</td><td>Prep student safety rules (9.4)</td><td>Adopt as written</td></tr>
+  <tr><td>9</td><td>Video size limit in chat</td><td>3 minutes, 50 MB after compression</td></tr>
+  <tr><td>10</td><td>Business app name</td><td>"CampusOS Partner", since tutors, lecturers and schools use it too</td></tr>
+  <tr><td>11</td><td>Default student offices list (6.2)</td><td>Adopt as written, schools can edit</td></tr>
+  <tr><td>12</td><td>Community pilot campus and school contact</td><td>The campus with the most active students</td></tr>
+</table>
+</div>
+
+<!-- ============================ 19 TEST CHECKLIST ============================ -->
+<div class="page">
+<h2>19. Test checklist (definition of done)</h2>
+<table>
+  <tr><th style="width:22%">Phase</th><th>Must pass before release</th></tr>
+  <tr><td>1. Roles</td><td>Got admitted always asks for the school. The switch completes fully or not at all. A new student lands in the right department classes. A department change moves only automatic enrolments. The authority sees only their own school's students. A rep cannot see grades. Badges disappear when the term ends.</td></tr>
+  <tr><td>2. Chat and notifications</td><td>Each attachment type sends, uploads with progress, retries after network loss and opens on another phone. Non-members cannot open files. Inline reply works with the app closed. Sounds and channels are correct on a fresh install and after an update. Quiet hours and study lock respected, money alerts still arrive.</td></tr>
+  <tr><td>3. Rooms</td><td>A student outside the audience cannot see, open or join a room, even with a link. Paid join takes the exact amount, asks for the payment password, creates a receipt and credits the tutor's Pending balance minus the CampusOS share. A short wallet leads to Expired after the grace period, and renewing restores access. "Admins only" blocks member messages on the server, not only in the app.</td></tr>
+  <tr><td>4. Room extras</td><td>Only the owner can create quizzes and debates. Quiz timers end on the server. Answer keys are never sent to the phone before submission. Debate turns unmute the right speaker.</td></tr>
+  <tr><td>5. Feeds and People</td><td>Prep students cannot be found by in-school students or tutors. Reply settings are enforced. Auto-hide after 3 reports. Blocked users disappear from feeds, People and chat. The per-school switch turns posting off immediately.</td></tr>
+  <tr><td>6. AI</td><td>Answers stay inside the note. Students cannot ask about files from rooms they are not in. Daily limits apply.</td></tr>
+  <tr><td>7. Business app</td><td>Order alerts arrive on Tecno and Infinix with the screen off. Offline attendance syncs without duplicates. Money actions are blocked offline.</td></tr>
+</table>
+
+<div class="callout good"><b>Next step.</b> Once you answer the decisions in section 18, I will build the 1.0.14 APK with today's fixes, then start phase 1 (school identity and roles), finishing with a new APK and a test pass.</div>
+</div>
+
+</body>
+</html>

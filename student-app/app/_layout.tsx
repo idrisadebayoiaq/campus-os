@@ -5,6 +5,7 @@ import { useEffect } from "react";
 import { StatusBar } from "expo-status-bar";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
+import { BrandSplash } from "@/src/components/brand-splash";
 import { AuthProvider } from "@/src/lib/auth";
 import { FeedbackProvider } from "@/src/lib/feedback";
 import { PayAuthProvider } from "@/src/lib/pay-auth";
@@ -119,6 +120,7 @@ function RootNavigator() {
           options={{ headerShown: false }}
         />
       </Stack>
+      <BrandSplash />
     </>
   );
 }
